@@ -510,6 +510,10 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
     </div>
   </div>
   <div class="header-actions">
+    <div id="syncStatus" title="Google Sheets sync" style="display:flex; align-items:center; gap:5px; font-size:11px; color:rgba(255,255,255,0.5); margin-right:4px;">
+      <div id="syncDot" style="width:7px; height:7px; border-radius:50%; background:#8096b0; flex-shrink:0;"></div>
+      <span id="syncLabel">Sheets</span>
+    </div>
     <button class="btn btn-teal btn-sm" onclick="startNewSurvey()">+ New Survey</button>
   </div>
 </header>
@@ -1273,6 +1277,19 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
   <div style="font-size:13px; color:var(--text2); margin-bottom:18px;">Generate PDF reports, Excel workbooks, or summary tables from saved surveys.</div>
 
   <div class="export-group">
+    <div class="export-group-header">Google Sheets Sync</div>
+    <div class="export-row">
+      <div>
+        <div class="export-label">Sync all surveys to Google Sheets</div>
+        <div class="export-sub">Pushes every saved survey to your live Google Sheet — use after importing someone else's .json</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn btn-teal btn-sm" onclick="syncAllToSheets()">Sync All Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="export-group">
     <div class="export-group-header">Single Survey Export</div>
     <div id="exportSingleList">
       <div class="empty-state" style="padding:30px 16px;">
@@ -1796,6 +1813,7 @@ let projectMeta = { name: '', standard: 'BOTH', date: '' };
 const STORAGE_KEY = 'ih_noise_surveys_v2';
 const META_KEY = 'ih_noise_meta_v2';
 const EQUIP_KEY = 'ih_noise_equipment_v1';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsym__2GhktyMtexOsK6YvutTVSbNo8YWNaP3Eg1pKQG4yQmQ/exec';
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
@@ -2006,6 +2024,7 @@ function saveDraft() {
   data.status = 'draft';
   upsertSurvey(data);
   saveToStorage();
+  syncToSheets(data);
   showToast('Draft saved', 'success');
 }
 
@@ -2020,6 +2039,7 @@ function saveSurvey() {
   data.qa = qa;
   upsertSurvey(data);
   saveToStorage();
+  syncToSheets(data);
   renderExportList();
   showToast(qa.allPass ? 'Survey saved — all QA checks passed!' : 'Survey saved — review QA flags', qa.allPass ? 'success' : '');
   showView('surveys');
@@ -3133,6 +3153,108 @@ function updateInventoryBadge() {
   const badge = document.getElementById('inventoryBadge');
   if (badge) badge.textContent = inventoryLog.length + (inventoryLog.length === 1 ? ' item' : ' items');
 }
+
+// ═══════════════════════════════════════════════════════════
+//  GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════════════════════
+function setSyncStatus(state) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  if (!dot || !label) return;
+  const states = {
+    idle:    { color: '#8096b0', text: 'Sheets' },
+    syncing: { color: '#f0a500', text: 'Syncing...' },
+    ok:      { color: '#3ec97a', text: 'Synced' },
+    offline: { color: '#8096b0', text: 'Offline' },
+    error:   { color: '#e05252', text: 'Sync error' },
+  };
+  const s = states[state] || states.idle;
+  dot.style.background = s.color;
+  label.textContent = s.text;
+  if (state === 'ok') setTimeout(() => setSyncStatus('idle'), 4000);
+}
+
+function syncToSheets(surveyData) {
+  if (!SHEETS_URL || !navigator.onLine) {
+    if (!navigator.onLine) setSyncStatus('offline');
+    queueSync(surveyData);
+    return;
+  }
+  setSyncStatus('syncing');
+  const payload = Object.assign({}, surveyData, {
+    deviceInfo: navigator.userAgent.substring(0, 80)
+  });
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(() => {
+    setSyncStatus('ok');
+    removePendingSync(surveyData.id);
+  }).catch(() => {
+    setSyncStatus('error');
+    queueSync(surveyData);
+  });
+}
+
+function syncAllToSheets() {
+  if (!surveys.length) { showToast('No surveys to sync', 'error'); return; }
+  if (!navigator.onLine) { showToast('No internet connection — sync when online', 'error'); return; }
+  let count = 0;
+  setSyncStatus('syncing');
+  const queue = [...surveys];
+  function next() {
+    if (!queue.length) {
+      setSyncStatus('ok');
+      showToast('All ' + count + ' surveys synced to Google Sheets', 'success');
+      localStorage.removeItem('ih_sync_queue');
+      return;
+    }
+    const s = queue.shift();
+    const payload = Object.assign({}, s, { deviceInfo: navigator.userAgent.substring(0, 80) });
+    fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(() => { count++; setTimeout(next, 300); })
+      .catch(() => { setTimeout(next, 300); });
+  }
+  next();
+}
+
+function queueSync(surveyData) {
+  try {
+    let q = JSON.parse(localStorage.getItem('ih_sync_queue') || '[]');
+    const idx = q.findIndex(s => s.id === surveyData.id);
+    if (idx >= 0) q[idx] = surveyData; else q.push(surveyData);
+    localStorage.setItem('ih_sync_queue', JSON.stringify(q));
+  } catch(e) {}
+}
+
+function removePendingSync(id) {
+  try {
+    let q = JSON.parse(localStorage.getItem('ih_sync_queue') || '[]');
+    localStorage.setItem('ih_sync_queue', JSON.stringify(q.filter(s => s.id !== id)));
+  } catch(e) {}
+}
+
+function flushSyncQueue() {
+  if (!navigator.onLine) return;
+  try {
+    const q = JSON.parse(localStorage.getItem('ih_sync_queue') || '[]');
+    if (!q.length) return;
+    q.forEach(s => syncToSheets(s));
+  } catch(e) {}
+}
+
+// Flush any pending syncs when coming back online
+window.addEventListener('online', () => {
+  setSyncStatus('idle');
+  flushSyncQueue();
+});
+window.addEventListener('offline', () => setSyncStatus('offline'));
 
 </script>
 </body>
