@@ -1280,11 +1280,20 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
     <div class="export-group-header">Google Sheets Sync</div>
     <div class="export-row">
       <div>
-        <div class="export-label">Sync all surveys to Google Sheets</div>
-        <div class="export-sub">Pushes every saved survey to your live Google Sheet — use after importing someone else's .json</div>
+        <div class="export-label">Pull from Google Sheets</div>
+        <div class="export-sub">Fetch all surveys from Sheets — syncs data entered on other devices</div>
       </div>
       <div class="export-actions">
-        <button class="btn btn-teal btn-sm" onclick="syncAllToSheets()">Sync All Now</button>
+        <button class="btn btn-teal btn-sm" onclick="pullFromSheets()">Pull Now</button>
+      </div>
+    </div>
+    <div class="export-row">
+      <div>
+        <div class="export-label">Push all surveys to Google Sheets</div>
+        <div class="export-sub">Pushes every saved survey — use after importing someone else's .json</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn btn-outline btn-sm" onclick="syncAllToSheets()">Push All</button>
       </div>
     </div>
   </div>
@@ -1828,6 +1837,8 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
   document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
   // default exchange rate based on standard
   syncExchangeRate();
+  // Pull latest surveys from Google Sheets on startup
+  if (navigator.onLine) setTimeout(pullFromSheets, 1500);
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -3164,6 +3175,7 @@ function setSyncStatus(state) {
   const states = {
     idle:    { color: '#8096b0', text: 'Sheets' },
     syncing: { color: '#f0a500', text: 'Syncing...' },
+    pulling: { color: '#f0a500', text: 'Loading...' },
     ok:      { color: '#3ec97a', text: 'Synced' },
     offline: { color: '#8096b0', text: 'Offline' },
     error:   { color: '#e05252', text: 'Sync error' },
@@ -3172,6 +3184,44 @@ function setSyncStatus(state) {
   dot.style.background = s.color;
   label.textContent = s.text;
   if (state === 'ok') setTimeout(() => setSyncStatus('idle'), 4000);
+}
+
+function pullFromSheets() {
+  if (!SHEETS_URL || !navigator.onLine) return;
+  setSyncStatus('pulling');
+  fetch(SHEETS_URL + '?t=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success || !data.surveys || !data.surveys.length) {
+        setSyncStatus('idle');
+        return;
+      }
+      let newCount = 0;
+      let updCount = 0;
+      data.surveys.forEach(remote => {
+        const idx = surveys.findIndex(s => s.id === remote.id);
+        if (idx < 0) {
+          surveys.unshift(remote);
+          newCount++;
+        } else {
+          // Keep whichever is more recently updated
+          const localTime  = new Date(surveys[idx].timestamp || 0).getTime();
+          const remoteTime = new Date(remote.timestamp || 0).getTime();
+          if (remoteTime > localTime) {
+            surveys[idx] = remote;
+            updCount++;
+          }
+        }
+      });
+      if (newCount > 0 || updCount > 0) {
+        saveToStorage();
+        renderSurveyList();
+        renderExportList();
+        showToast('Sheets sync: ' + newCount + ' new, ' + updCount + ' updated', 'success');
+      }
+      setSyncStatus('ok');
+    })
+    .catch(() => setSyncStatus('error'));
 }
 
 function syncToSheets(surveyData) {
@@ -3200,7 +3250,7 @@ function syncToSheets(surveyData) {
 
 function syncAllToSheets() {
   if (!surveys.length) { showToast('No surveys to sync', 'error'); return; }
-  if (!navigator.onLine) { showToast('No internet connection — sync when online', 'error'); return; }
+  if (!navigator.onLine) { showToast('No internet — sync when online', 'error'); return; }
   let count = 0;
   setSyncStatus('syncing');
   const queue = [...surveys];
@@ -3249,12 +3299,25 @@ function flushSyncQueue() {
   } catch(e) {}
 }
 
-// Flush any pending syncs when coming back online
-window.addEventListener('online', () => {
-  setSyncStatus('idle');
-  flushSyncQueue();
-});
+window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); pullFromSheets(); });
 window.addEventListener('offline', () => setSyncStatus('offline'));
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  if (!dot || !label) return;
+  const states = {
+    idle:    { color: '#8096b0', text: 'Sheets' },
+    syncing: { color: '#f0a500', text: 'Syncing...' },
+    ok:      { color: '#3ec97a', text: 'Synced' },
+    offline: { color: '#8096b0', text: 'Offline' },
+    error:   { color: '#e05252', text: 'Sync error' },
+  };
+  const s = states[state] || states.idle;
+  dot.style.background = s.color;
+  label.textContent = s.text;
+  if (state === 'ok') setTimeout(() => setSyncStatus('idle'), 4000);
+}
+
+
 
 </script>
 </body>
