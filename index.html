@@ -3301,21 +3301,6 @@ function flushSyncQueue() {
 
 window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); pullFromSheets(); });
 window.addEventListener('offline', () => setSyncStatus('offline'));
-  const dot = document.getElementById('syncDot');
-  const label = document.getElementById('syncLabel');
-  if (!dot || !label) return;
-  const states = {
-    idle:    { color: '#8096b0', text: 'Sheets' },
-    syncing: { color: '#f0a500', text: 'Syncing...' },
-    ok:      { color: '#3ec97a', text: 'Synced' },
-    offline: { color: '#8096b0', text: 'Offline' },
-    error:   { color: '#e05252', text: 'Sync error' },
-  };
-  const s = states[state] || states.idle;
-  dot.style.background = s.color;
-  label.textContent = s.text;
-  if (state === 'ok') setTimeout(() => setSyncStatus('idle'), 4000);
-}
 
 
 
