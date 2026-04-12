@@ -1,5 +1,5 @@
-/* IH Field App — Service Worker v4 */
-const CACHE_NAME = 'ih-field-v4';
+/* IH Field App — Service Worker v7 */
+const CACHE_NAME = 'ih-field-v7';
 const ASSETS = ['./index.html', './', './sw.js'];
 
 self.addEventListener('install', e => {
@@ -21,6 +21,11 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Let cache-busting requests (with ?v=) go straight to network
+  if (e.request.url.includes('?v=')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;

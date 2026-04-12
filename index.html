@@ -507,6 +507,7 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
     <div>
       <div class="app-title">Field IH</div>
       <div class="app-sub">NOISE DOSIMETRY</div>
+      <div id="deployStamp" style="font-size:9px; color:rgba(255,255,255,0.35); font-family:var(--mono); letter-spacing:0.3px; margin-top:1px;">v1.0</div>
     </div>
   </div>
   <div class="header-actions">
@@ -1839,6 +1840,34 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
   syncExchangeRate();
   // Pull latest surveys from Google Sheets on startup
   if (navigator.onLine) setTimeout(pullFromSheets, 1500);
+})();
+
+// ═══════════════════════════════════════════════════════════
+//  DEPLOYMENT STAMP — reads Last-Modified header from sw.js
+// ═══════════════════════════════════════════════════════════
+(function() {
+  var el = document.getElementById('deployStamp');
+  if (!el) return;
+  // Use a unique cache-busting URL so the SW cache can't intercept it
+  var url = 'sw.js?v=' + Date.now();
+  fetch(url, { cache: 'no-store' })
+    .then(function(r) {
+      var lm = r.headers.get('Last-Modified') || r.headers.get('last-modified');
+      if (!lm) {
+        // Fallback: use Date header which GitHub always sets
+        lm = r.headers.get('Date') || r.headers.get('date');
+      }
+      if (!lm) return;
+      var d = new Date(lm);
+      if (isNaN(d.getTime())) return;
+      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var h = d.getHours();
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      var min = ('0' + d.getMinutes()).slice(-2);
+      el.textContent = 'v1.0 · Deployed ' + months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear() + ' ' + h + ':' + min + ' ' + ampm;
+    })
+    .catch(function() { el.textContent = 'v1.0'; });
 })();
 
 // ═══════════════════════════════════════════════════════════
