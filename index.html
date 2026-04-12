@@ -1092,6 +1092,19 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 <!-- ═══════════════════════════════ EQUIPMENT VIEW ═══════════════════════════════ -->
 <div id="view-equipment" class="view">
 
+  <!-- Cal due date alert banner -->
+  <div id="calAlertBanner" style="display:none; background:#fff8e6; border:1.5px solid var(--amber); border-radius:var(--radius); padding:10px 16px; margin-bottom:14px;">
+    <div style="font-size:13px; font-weight:600; color:#7a4f00;" id="calAlertText"></div>
+  </div>
+
+  <!-- IH filter bar -->
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+    <div style="font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Filter by IH:</div>
+    <select id="equipIHFilter" onchange="renderEquipmentLists()" style="flex:1; max-width:280px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+      <option value="">All field IHs</option>
+    </select>
+  </div>
+
   <!-- ── SECTION 1: INVENTORY CHECK-IN ── -->
   <div style="margin-bottom:6px;">
     <div style="font-size:18px; font-weight:600;">Equipment Inventory</div>
@@ -3028,52 +3041,122 @@ function deleteEquipment(id) {
   document.getElementById('deleteModal').classList.add('open');
 }
 
+function getCalStatus(dateStr) {
+  if (!dateStr) return null;
+  var due  = new Date(dateStr);
+  var now  = new Date();
+  var days = Math.round((due - now) / 86400000);
+  if (days < 0)   return { label: 'OVERDUE (' + Math.abs(days) + 'd)', color: '#e05252', bg: '#fcebeb', border: '#f09595' };
+  if (days <= 30) return { label: 'Due in ' + days + 'd', color: '#7a4f00', bg: '#fff8e6', border: '#ef9f27' };
+  if (days <= 90) return { label: 'Due in ' + days + 'd', color: '#085041', bg: '#e1f5ee', border: '#5dcaa5' };
+  return null;
+}
+
 function renderEquipmentLists() {
-  const dosimeters = equipment.filter(e => e.type === 'dosimeter');
-  const calibrators = equipment.filter(e => e.type === 'calibrator');
+  var filterSel  = document.getElementById('equipIHFilter');
+  var selectedIH = filterSel ? filterSel.value : '';
+
+  // Rebuild IH filter dropdown
+  var allIHs = [];
+  equipment.forEach(function(e) { if (e.checkedInBy && allIHs.indexOf(e.checkedInBy) < 0) allIHs.push(e.checkedInBy); });
+  allIHs.sort();
+  if (filterSel) {
+    filterSel.innerHTML = '<option value="">All field IHs</option>' +
+      allIHs.map(function(n) { return '<option value="' + esc(n) + '"' + (n === selectedIH ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+  }
+
+  // Apply IH filter
+  var filtered = selectedIH ? equipment.filter(function(e) { return (e.checkedInBy || '') === selectedIH; }) : equipment;
+  var dosimeters  = filtered.filter(function(e) { return e.type === 'dosimeter'; });
+  var calibrators = filtered.filter(function(e) { return e.type === 'calibrator'; });
 
   document.getElementById('dosBadge').textContent = dosimeters.length;
   document.getElementById('calBadgeLib').textContent = calibrators.length;
 
-  const dosCont = document.getElementById('equipDosList');
-  if (!dosimeters.length) {
-    dosCont.innerHTML = '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No dosimeters saved yet. Click "+ Add Equipment" to add one.</div></div>';
-  } else {
-    dosCont.innerHTML = dosimeters.map(eq => `
-      <div style="display:grid; grid-template-columns:1fr auto; align-items:center; padding:13px 18px; border-bottom:1px solid var(--surface2); gap:12px;">
-        <div>
-          <div style="font-size:14px; font-weight:600; color:var(--text);">${esc(eq.make)} ${esc(eq.model)}</div>
-          <div style="font-size:12px; color:var(--text2); margin-top:2px;">S/N: <span style="font-family:var(--mono);">${esc(eq.serial)}</span>${eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : ''} · ${eq.exchange} dB ER · ${eq.criterion} dB criterion</div>
-          ${eq.notes ? `<div style="font-size:11px; color:var(--text3); margin-top:2px;">${esc(eq.notes)}</div>` : ''}
-        </div>
-        <div style="display:flex; gap:6px; flex-shrink:0;">
-          <button class="btn btn-teal btn-sm" onclick="loadEquipById('${eq.id}')">Use on Survey</button>
-          <button class="btn btn-outline btn-sm" onclick="openEquipModal('${eq.id}')">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteEquipment('${eq.id}')">Del</button>
-        </div>
-      </div>
-    `).join('');
+  // ── Cal due date alerts ──
+  var today  = new Date();
+  var alerts = [];
+  equipment.forEach(function(eq) {
+    var dateStr = eq.type === 'dosimeter' ? (eq.calDue || eq.factoryCal) : eq.nistDue;
+    if (!dateStr) return;
+    var days = Math.round((new Date(dateStr) - today) / 86400000);
+    var label = eq.make + ' ' + eq.model + ' S/N ' + eq.serial;
+    if (days < 0)        alerts.push(label + ' — OVERDUE by ' + Math.abs(days) + ' days');
+    else if (days <= 30) alerts.push(label + ' — due in ' + days + ' days');
+  });
+  var banner    = document.getElementById('calAlertBanner');
+  var alertText = document.getElementById('calAlertText');
+  if (alerts.length && banner && alertText) {
+    alertText.innerHTML = '&#9651; Cal Due Alerts (' + alerts.length + '):<br>' + alerts.map(function(a) { return '&nbsp;&nbsp;• ' + a; }).join('<br>');
+    banner.style.display = 'block';
+  } else if (banner) {
+    banner.style.display = 'none';
   }
 
-  const calCont = document.getElementById('equipCalList');
-  if (!calibrators.length) {
-    calCont.innerHTML = '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No calibrators saved yet. Click "+ Add Equipment" to add one.</div></div>';
-  } else {
-    calCont.innerHTML = calibrators.map(eq => `
-      <div style="display:grid; grid-template-columns:1fr auto; align-items:center; padding:13px 18px; border-bottom:1px solid var(--surface2); gap:12px;">
-        <div>
-          <div style="font-size:14px; font-weight:600; color:var(--text);">${esc(eq.make)} ${esc(eq.model)}</div>
-          <div style="font-size:12px; color:var(--text2); margin-top:2px;">S/N: <span style="font-family:var(--mono);">${esc(eq.serial)}</span>${eq.nistDue ? ' · NIST due: ' + eq.nistDue : ''}${eq.refLevel ? ' · Ref: ' + eq.refLevel + ' dB' : ''}</div>
-          ${eq.notes ? `<div style="font-size:11px; color:var(--text3); margin-top:2px;">${esc(eq.notes)}</div>` : ''}
-        </div>
-        <div style="display:flex; gap:6px; flex-shrink:0;">
-          <button class="btn btn-teal btn-sm" onclick="loadEquipById('${eq.id}')">Use on Survey</button>
-          <button class="btn btn-outline btn-sm" onclick="openEquipModal('${eq.id}')">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteEquipment('${eq.id}')">Del</button>
-        </div>
-      </div>
-    `).join('');
+  // ── Helper: render one equipment card ──
+  function renderEqCard(eq) {
+    var condColors = { 'Good': '#085041', 'Fair': '#7a4f00', 'Needs service': '#a32d2d', 'Out of service': '#a32d2d' };
+    var condBgs    = { 'Good': '#e1f5ee', 'Fair': '#fff8e6', 'Needs service': '#fcebeb', 'Out of service': '#fcebeb' };
+    var condColor  = condColors[eq.condition] || 'var(--text2)';
+    var condBg     = condBgs[eq.condition]    || 'var(--surface)';
+    var calDateStr = eq.type === 'dosimeter' ? (eq.calDue || eq.factoryCal) : eq.nistDue;
+    var calSt      = getCalStatus(calDateStr);
+    var calBadge   = calSt
+      ? '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:' + calSt.bg + '; color:' + calSt.color + '; border:1px solid ' + calSt.border + '; margin-left:6px;">' + calSt.label + '</span>'
+      : '';
+    var ihTag = eq.checkedInBy
+      ? '<span style="font-size:10px; color:var(--teal); font-weight:600; margin-left:6px;">' + esc(eq.checkedInBy) + '</span>'
+      : '';
+
+    var hist     = (eq.conditionHistory || []).slice(-5).reverse();
+    var histHtml = '';
+    if (hist.length > 1) {
+      var hRows = hist.map(function(h) {
+        var hc   = condColors[h.condition] || 'var(--text2)';
+        var hDate = h.date ? new Date(h.date).toLocaleDateString() : '—';
+        return '<div style="font-size:11px; color:var(--text2); padding:3px 0; border-bottom:1px solid var(--border);">'
+          + '<span style="font-weight:600; color:' + hc + ';">' + esc(h.condition) + '</span>'
+          + '<span style="color:var(--text3);"> · ' + hDate + (h.by ? ' · ' + esc(h.by) : '') + (h.notes ? ' — ' + esc(h.notes) : '') + '</span>'
+          + '</div>';
+      }).join('');
+      histHtml = '<details style="margin-top:8px;">'
+        + '<summary style="font-size:11px; color:var(--text3); cursor:pointer;">Condition history (' + hist.length + ' entries)</summary>'
+        + '<div style="margin-top:6px; border-left:2px solid var(--border); padding-left:10px;">' + hRows + '</div>'
+        + '</details>';
+    }
+
+    var detailLine = eq.type === 'dosimeter'
+      ? (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : '')) + ' · ' + (eq.exchange || '5') + ' dB ER · ' + (eq.criterion || '90') + ' dB criterion'
+      : (eq.nistDue ? ' · NIST due: ' + eq.nistDue : '') + (eq.refLevel ? ' · Ref: ' + eq.refLevel + ' dB' : '');
+
+    return '<div style="padding:13px 18px; border-bottom:1px solid var(--surface2);">'
+      + '<div style="display:grid; grid-template-columns:1fr auto; align-items:start; gap:12px;">'
+      + '<div>'
+      + '<div style="font-size:14px; font-weight:600; color:var(--text); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">'
+      + esc(eq.make) + ' ' + esc(eq.model)
+      + '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:' + condBg + '; color:' + condColor + ';">' + esc(eq.condition || 'Unknown') + '</span>'
+      + calBadge + ihTag
+      + '</div>'
+      + '<div style="font-size:12px; color:var(--text2); margin-top:3px;">S/N: <span style="font-family:var(--mono);">' + esc(eq.serial) + '</span>' + detailLine + '</div>'
+      + (eq.notes ? '<div style="font-size:11px; color:var(--text3); margin-top:2px;">' + esc(eq.notes) + '</div>' : '')
+      + histHtml
+      + '</div>'
+      + '<div style="display:flex; gap:6px; flex-shrink:0;">'
+      + '<button class="btn btn-teal btn-sm" onclick="loadEquipById(\'' + eq.id + '\')"  >Use on Survey</button>'
+      + '<button class="btn btn-outline btn-sm" onclick="openEquipModal(\'' + eq.id + '\')" >Edit</button>'
+      + '<button class="btn btn-danger btn-sm" onclick="deleteEquipment(\'' + eq.id + '\')" >Del</button>'
+      + '</div></div></div>';
   }
+
+  var dosCont = document.getElementById('equipDosList');
+  dosCont.innerHTML = dosimeters.length
+    ? dosimeters.map(renderEqCard).join('')
+    : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No dosimeters' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
+
+  var calCont = document.getElementById('equipCalList');
+  calCont.innerHTML = calibrators.length
+    ? calibrators.map(renderEqCard).join('')
+    : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No calibrators' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
 }
 
 function refreshEquipmentPickers() {
@@ -3159,6 +3242,8 @@ function checkInItem() {
       criterion:  document.getElementById('inv_dosCriterion').value,
       condition:  document.getElementById('inv_dosCondition').value,
       notes:      document.getElementById('inv_dosNotes').value.trim(),
+      checkedInBy: deviceNickname || '',
+      checkedInAt: new Date().toISOString(),
     };
   } else {
     const make   = document.getElementById('inv_calMake').value.trim();
@@ -3172,6 +3257,8 @@ function checkInItem() {
       refLevel:  document.getElementById('inv_calRefLevel').value,
       condition: document.getElementById('inv_calCondition').value,
       notes:     document.getElementById('inv_calNotes').value.trim(),
+      checkedInBy: deviceNickname || '',
+      checkedInAt: new Date().toISOString(),
     };
   }
 
@@ -3181,11 +3268,21 @@ function checkInItem() {
 
   let libAction = '';
   if (existing) {
+    // Log condition history entry before updating
+    if (!existing.conditionHistory) existing.conditionHistory = [];
+    existing.conditionHistory.push({
+      date: new Date().toISOString(),
+      condition: rec.condition,
+      notes: rec.notes || '',
+      by: rec.checkedInBy || '',
+    });
     // Update library record with fresher inventory data
-    existing.make  = rec.make;
-    existing.model = rec.model;
+    existing.make      = rec.make;
+    existing.model     = rec.model;
+    existing.condition = rec.condition;
     if (type === 'dosimeter') {
       if (rec.factoryCal) existing.factoryCal = rec.factoryCal;
+      if (rec.calDue)     existing.calDue     = rec.calDue;
       existing.exchange  = rec.exchange;
       existing.criterion = rec.criterion;
     } else {
@@ -3193,15 +3290,26 @@ function checkInItem() {
       if (rec.refLevel) existing.refLevel = rec.refLevel;
     }
     if (rec.notes) existing.notes = rec.notes;
+    existing.checkedInBy = rec.checkedInBy || existing.checkedInBy || '';
     libAction = 'updated';
   } else {
-    // Build new library record
+    // Build new library record with initial condition history
     const newRec = {
       id: 'EQ-' + Date.now().toString(36).toUpperCase(),
       type, make: rec.make, model: rec.model, serial: rec.serial,
+      condition: rec.condition || 'Good',
+      checkedInBy: rec.checkedInBy || '',
+      checkedInAt: rec.checkedInAt || new Date().toISOString(),
+      conditionHistory: [{
+        date: new Date().toISOString(),
+        condition: rec.condition || 'Good',
+        notes: rec.notes || '',
+        by: rec.checkedInBy || '',
+      }],
       notes: [rec.asset ? 'Tag: ' + rec.asset : '', rec.notes].filter(Boolean).join(' · '),
       ...(type === 'dosimeter' ? {
         factoryCal: rec.factoryCal,
+        calDue:     rec.calDue,
         exchange:   rec.exchange,
         criterion:  rec.criterion,
       } : {
