@@ -767,6 +767,11 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
           <div class="qa-value" id="qa5val">—</div>
           <div class="qa-status qa-pending" id="qa5">Pending</div>
         </div>
+        <div class="qa-row">
+          <div class="qa-label">Calculated TWA matches dosimeter report TWA ≤ 0.5 dB</div>
+          <div class="qa-value" id="qa6val">—</div>
+          <div class="qa-status qa-pending" id="qa6">Pending</div>
+        </div>
       </div>
     </div>
   </div>
@@ -959,9 +964,14 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
       <div class="section-label">Calculated / normalized values</div>
       <div class="form-grid">
         <div class="field">
-          <label>TWA (dB) — 8-hr</label>
-          <input type="number" id="resTWA" placeholder="Auto-calc or enter" step="0.1" oninput="autosave()">
+          <label>Calculated TWA (dB) — 8-hr</label>
+          <input type="number" id="resTWA" placeholder="Auto-calc or enter" step="0.1" oninput="checkTWAMatch(); autosave()">
           <div id="twaHint" class="hint"></div>
+        </div>
+        <div class="field">
+          <label>Dosimeter Report TWA (dB) — 8-hr</label>
+          <input type="number" id="resDosReportTWA" placeholder="As shown on dosimeter report" step="0.1" oninput="checkTWAMatch(); autosave()">
+          <div id="twaMismatchHint" class="hint"></div>
         </div>
         <div class="field">
           <label>Exposure Category</label>
@@ -2022,7 +2032,7 @@ function clearFormFields() {
     'postCalTime','postCalReading','postCalInitials',
     'empName','empId','empCompany','empTitle','empDept','empLocation','empTask',
     'dosPlacement','micType','windscreen','obstructions','placementNotes',
-    'resDose','resLavg','resPeak','resRunTime','resTWA','resCategory','resHPD',
+    'resDose','resLavg','resPeak','resRunTime','resTWA','resDosReportTWA','resCategory','resHPD',
     'lasmaxInterviewNotes','lasmax140CorrectiveNotes','lasmax140InvestigationNotes',
     'resEngControls','resAdminControls','resPPE',
     'resHour1','resHour2','resHour3','resHour4','resHour5','resHour6','resHour7','resHour8','resHour9','resHour10',
@@ -2078,7 +2088,7 @@ function getFormData() {
     },
     results: {
       dose: g('resDose'), lavg: g('resLavg'), peak: g('resPeak'),
-      runTime: g('resRunTime'), twa: g('resTWA'),
+      runTime: g('resRunTime'), twa: g('resTWA'), dosReportTWA: g('resDosReportTWA'),
       category: g('resCategory'), hpd: g('resHPD'), notes: g('resNotes'),
       lasmaxInterviewNotes: g('lasmaxInterviewNotes'),
       lasmax140CorrectiveNotes: g('lasmax140CorrectiveNotes'),
@@ -2110,7 +2120,7 @@ function populateForm(s) {
   sv('dosPlacement', s.placement?.location); sv('micType', s.placement?.micType);
   sv('windscreen', s.placement?.windscreen); sv('obstructions', s.placement?.obstructions); sv('placementNotes', s.placement?.notes);
   sv('resDose', s.results?.dose); sv('resLavg', s.results?.lavg); sv('resPeak', s.results?.peak);
-  sv('resRunTime', s.results?.runTime); sv('resTWA', s.results?.twa);
+  sv('resRunTime', s.results?.runTime); sv('resTWA', s.results?.twa); sv('resDosReportTWA', s.results?.dosReportTWA);
   sv('resCategory', s.results?.category); sv('resHPD', s.results?.hpd); sv('resNotes', s.results?.notes);
   sv('lasmaxInterviewNotes', s.results?.lasmaxInterviewNotes);
   sv('lasmax140CorrectiveNotes', s.results?.lasmax140CorrectiveNotes);
@@ -2260,12 +2270,12 @@ function renderSurveyList() {
 //  QA LOGIC
 // ═══════════════════════════════════════════════════════════
 function resetQADisplay() {
-  ['qa1','qa2','qa3','qa4','qa5'].forEach(id => {
+  ['qa1','qa2','qa3','qa4','qa5','qa6'].forEach(id => {
     const el = document.getElementById(id);
     el.textContent = 'Pending';
     el.className = 'qa-status qa-pending';
   });
-  ['qa1val','qa2val','qa3val','qa4val','qa5val'].forEach(id => {
+  ['qa1val','qa2val','qa3val','qa4val','qa5val','qa6val'].forEach(id => {
     document.getElementById(id).textContent = '—';
   });
 }
@@ -2305,8 +2315,17 @@ function getQAResult() {
     checks.calWithin5pct = diff <= 5;
   }
 
-  const results = [checks.preBefore, checks.postAfter, checks.preWithin1hr, checks.postWithin1hr, checks.calWithin5pct];
-  const allPass = results.every(r => r === true);
+  // TWA match check
+  const calcTWA   = parseFloat(document.getElementById('resTWA').value);
+  const reportTWA = parseFloat(document.getElementById('resDosReportTWA').value);
+  if (!isNaN(calcTWA) && !isNaN(reportTWA)) {
+    const twaDiff = Math.abs(calcTWA - reportTWA);
+    checks.twaDiff      = twaDiff;
+    checks.twaMatch     = twaDiff <= 0.5;
+  }
+
+  const results = [checks.preBefore, checks.postAfter, checks.preWithin1hr, checks.postWithin1hr, checks.calWithin5pct, checks.twaMatch];
+  const allPass = results.filter(r => r !== undefined).every(r => r === true);
 
   return { checks, allPass, anyRun };
 }
@@ -2367,6 +2386,19 @@ function runQA() {
     setCheck('qa5','qa5val', pass, diff.toFixed(2) + '% diff');
   } else setCheck('qa5','qa5val', null);
 
+  // QA6: Calculated TWA vs dosimeter report TWA
+  const calcTWA   = parseFloat(document.getElementById('resTWA').value);
+  const reportTWA = parseFloat(document.getElementById('resDosReportTWA').value);
+  if (!isNaN(calcTWA) && !isNaN(reportTWA)) {
+    const twaDiff = Math.abs(calcTWA - reportTWA);
+    const twaPass = twaDiff <= 0.5;
+    setCheck('qa6','qa6val', twaPass,
+      twaPass
+        ? 'Δ' + twaDiff.toFixed(2) + ' dB — within tolerance'
+        : 'Δ' + twaDiff.toFixed(2) + ' dB — exceeds 0.5 dB!'
+    );
+  } else setCheck('qa6','qa6val', null);
+
   // Update badge
   const { allPass, anyRun } = getQAResult();
   const badge = document.getElementById('calBadge');
@@ -2379,16 +2411,59 @@ function runQA() {
 //  CALCULATIONS
 // ═══════════════════════════════════════════════════════════
 function calcResults() {
-  const dose = parseFloat(document.getElementById('resDose').value);
-  const runTime = parseFloat(document.getElementById('resRunTime').value);
+  const dose      = parseFloat(document.getElementById('resDose').value);
+  const runTime   = parseFloat(document.getElementById('resRunTime').value);
   const criterion = parseFloat(document.getElementById('dosCriterion').value) || 90;
-  const exchange = parseFloat(document.getElementById('dosExchange').value) || 5;
+  const exchange  = parseFloat(document.getElementById('dosExchange').value) || 5;
 
   if (!isNaN(dose) && !isNaN(runTime) && runTime > 0) {
     // TWA = criterion + (exchange/log10(2)) * log10(dose/100 * 8/runTime)
     const twa = criterion + (exchange / Math.log10(2)) * Math.log10((dose / 100) * (8 / runTime));
     document.getElementById('resTWA').value = twa.toFixed(1);
     document.getElementById('twaHint').textContent = 'Normalized to 8-hr · Criterion ' + criterion + ' dB · ' + exchange + ' dB ER';
+  }
+  checkTWAMatch();
+}
+
+function checkTWAMatch() {
+  const calcTWA   = parseFloat(document.getElementById('resTWA').value);
+  const reportTWA = parseFloat(document.getElementById('resDosReportTWA').value);
+  const hintEl    = document.getElementById('twaMismatchHint');
+  if (!hintEl) return;
+
+  if (isNaN(calcTWA) || isNaN(reportTWA)) {
+    hintEl.textContent = '';
+    hintEl.style.color = '';
+    // Clear QA6 display
+    const qa6 = document.getElementById('qa6');
+    const qa6v = document.getElementById('qa6val');
+    if (qa6)  { qa6.textContent = 'Pending'; qa6.className = 'qa-status qa-pending'; }
+    if (qa6v) { qa6v.textContent = '—'; }
+    return;
+  }
+
+  const diff = Math.abs(calcTWA - reportTWA);
+  const pass = diff <= 0.5;
+
+  if (pass) {
+    hintEl.textContent = '✓ Matches calculated TWA within 0.5 dB (Δ' + diff.toFixed(2) + ' dB)';
+    hintEl.style.color = 'var(--green)';
+  } else {
+    hintEl.textContent = '⚠ Mismatch! Δ' + diff.toFixed(2) + ' dB — calculated ' + calcTWA.toFixed(1) + ' dB vs report ' + reportTWA.toFixed(1) + ' dB';
+    hintEl.style.color = 'var(--red)';
+  }
+
+  // Live-update QA6 row
+  const qa6 = document.getElementById('qa6');
+  const qa6v = document.getElementById('qa6val');
+  if (qa6) {
+    qa6.textContent = pass ? 'Pass' : 'FAIL';
+    qa6.className = pass ? 'qa-status qa-pass' : 'qa-status qa-fail';
+  }
+  if (qa6v) {
+    qa6v.textContent = pass
+      ? 'Δ' + diff.toFixed(2) + ' dB — within tolerance'
+      : 'Δ' + diff.toFixed(2) + ' dB — exceeds 0.5 dB!';
   }
 }
 
