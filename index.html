@@ -671,6 +671,10 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
           <input type="text" id="calSerial" placeholder="e.g., QC-2023-1124" oninput="autosave()">
         </div>
         <div class="field">
+          <label>Last NIST Cal. Date</label>
+          <input type="date" id="calLastNistCal" oninput="autosave()">
+        </div>
+        <div class="field">
           <label>NIST Cal. Due Date</label>
           <input type="date" id="calNistDue" oninput="autosave()">
         </div>
@@ -1176,6 +1180,7 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
             <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="inv_calModel" placeholder="e.g., QC-20"></div>
             <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="inv_calSerial" placeholder="e.g., QC-2023-1124"></div>
             <div class="field"><label>Asset / Tag #</label><input type="text" id="inv_calAsset" placeholder="Internal tag"></div>
+            <div class="field"><label>Last NIST Cal. Date</label><input type="date" id="inv_calLastNistCal"></div>
             <div class="field"><label>NIST Cal. Due Date</label><input type="date" id="inv_calNistDue"></div>
             <div class="field"><label>Reference Level (dB)</label><input type="number" id="inv_calRefLevel" placeholder="114.0" step="0.1"></div>
             <div class="field"><label>Condition</label>
@@ -1301,6 +1306,7 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
           <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="eq_calModel" placeholder="e.g., QC-20"></div>
           <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="eq_calSerial" placeholder="e.g., QC-2023-1124"></div>
           <div class="field"><label>Asset / Tag #</label><input type="text" id="eq_calAsset" placeholder="Internal asset tag"></div>
+          <div class="field"><label>Last NIST Cal. Date</label><input type="date" id="eq_calLastNistCal"></div>
           <div class="field"><label>NIST Cal. Due Date</label><input type="date" id="eq_calNistDue"></div>
           <div class="field"><label>Reference Level (dB)</label><input type="number" id="eq_calRefLevel" placeholder="114.0" step="0.1"></div>
           <div class="field"><label>Condition</label>
@@ -2056,7 +2062,7 @@ function startNewSurvey() {
 function clearFormFields() {
   const ids = [
     'dosMake','dosModel','dosSerial','dosFactoryCal','dosExchange','dosCriterion','dosWeighting','dosResponse',
-    'calMake','calModel','calSerial','calNistDue','calRefLevel',
+    'calMake','calModel','calSerial','calLastNistCal','calNistDue','calRefLevel',
     'preCalTime','preCalReading','preCalInitials',
     'surveyStart','surveyEnd',
     'postCalTime','postCalReading','postCalInitials',
@@ -2101,7 +2107,7 @@ function getFormData() {
     },
     calibrator: {
       make: g('calMake'), model: g('calModel'), serial: g('calSerial'),
-      nistDue: g('calNistDue'), refLevel: g('calRefLevel')
+      lastNistCal: g('calLastNistCal'), nistDue: g('calNistDue'), refLevel: g('calRefLevel')
     },
     calibration: {
       preTime: g('preCalTime'), preReading: g('preCalReading'), preInitials: g('preCalInitials'),
@@ -2141,7 +2147,7 @@ function populateForm(s) {
   sv('dosFactoryCal', s.dosimeter?.factoryCal); sv('dosExchange', s.dosimeter?.exchange); sv('dosCriterion', s.dosimeter?.criterion);
   sv('dosWeighting', s.dosimeter?.weighting); sv('dosResponse', s.dosimeter?.response);
   sv('calMake', s.calibrator?.make); sv('calModel', s.calibrator?.model); sv('calSerial', s.calibrator?.serial);
-  sv('calNistDue', s.calibrator?.nistDue); sv('calRefLevel', s.calibrator?.refLevel);
+  sv('calLastNistCal', s.calibrator?.lastNistCal); sv('calNistDue', s.calibrator?.nistDue); sv('calRefLevel', s.calibrator?.refLevel);
   sv('preCalTime', s.calibration?.preTime); sv('preCalReading', s.calibration?.preReading); sv('preCalInitials', s.calibration?.preInitials);
   sv('surveyStart', s.calibration?.surveyStart); sv('surveyEnd', s.calibration?.surveyEnd);
   sv('postCalTime', s.calibration?.postTime); sv('postCalReading', s.calibration?.postReading); sv('postCalInitials', s.calibration?.postInitials);
@@ -3063,7 +3069,7 @@ function openEquipModal(editId) {
   document.getElementById('equipEditId').value = editId || '';
   // Clear all fields first
   ['eq_dosMake','eq_dosModel','eq_dosSerial','eq_dosAsset','eq_dosFactoryCal','eq_dosCalDue','eq_dosNotes','eq_dosCondNote',
-   'eq_calMake','eq_calModel','eq_calSerial','eq_calAsset','eq_calNistDue','eq_calRefLevel','eq_calNotes','eq_calCondNote']
+   'eq_calMake','eq_calModel','eq_calSerial','eq_calAsset','eq_calLastNistCal','eq_calNistDue','eq_calRefLevel','eq_calNotes','eq_calCondNote']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('eq_dosExchange').value = '5';
   document.getElementById('eq_dosCriterion').value = '90';
@@ -3091,6 +3097,7 @@ function openEquipModal(editId) {
       document.getElementById('eq_calModel').value     = eq.model     || '';
       document.getElementById('eq_calSerial').value    = eq.serial    || '';
       document.getElementById('eq_calAsset').value     = eq.asset     || '';
+      document.getElementById('eq_calLastNistCal').value = eq.lastNistCal || '';
       document.getElementById('eq_calNistDue').value   = eq.nistDue   || '';
       document.getElementById('eq_calRefLevel').value  = eq.refLevel  || '';
       document.getElementById('eq_calCondition').value = eq.condition || 'Good';
@@ -3153,6 +3160,7 @@ function saveEquipment() {
       type:             'calibrator',
       make, model, serial,
       asset:            document.getElementById('eq_calAsset').value.trim(),
+      lastNistCal:      document.getElementById('eq_calLastNistCal').value,
       nistDue:          document.getElementById('eq_calNistDue').value,
       refLevel:         document.getElementById('eq_calRefLevel').value,
       condition:        newCondition,
@@ -3198,6 +3206,7 @@ function getCalStatus(dateStr) {
 }
 
 function renderEquipmentLists() {
+  var today      = new Date();
   var filterSel  = document.getElementById('equipIHFilter');
   var selectedIH = filterSel ? filterSel.value : '';
 
@@ -3218,16 +3227,24 @@ function renderEquipmentLists() {
   document.getElementById('dosBadge').textContent = dosimeters.length;
   document.getElementById('calBadgeLib').textContent = calibrators.length;
 
-  // ── Cal due date alerts ──
+  // ── QA: Cal due date alerts (overdue or within 30 days) ──
   var today  = new Date();
   var alerts = [];
   equipment.forEach(function(eq) {
-    var dateStr = eq.type === 'dosimeter' ? (eq.calDue || eq.factoryCal) : eq.nistDue;
-    if (!dateStr) return;
-    var days = Math.round((new Date(dateStr) - today) / 86400000);
     var label = eq.make + ' ' + eq.model + ' S/N ' + eq.serial;
-    if (days < 0)        alerts.push(label + ' — OVERDUE by ' + Math.abs(days) + ' days');
-    else if (days <= 30) alerts.push(label + ' — due in ' + days + ' days');
+    // Check 1: Cal due date vs today
+    var dueDateStr = eq.type === 'dosimeter' ? (eq.calDue || '') : (eq.nistDue || '');
+    if (dueDateStr) {
+      var days = Math.round((new Date(dueDateStr) - today) / 86400000);
+      if (days < 0)        alerts.push(label + ' — Cal OVERDUE by ' + Math.abs(days) + ' days');
+      else if (days <= 30) alerts.push(label + ' — Cal due in ' + days + ' days');
+    }
+    // Check 2: Last NIST cal within 1 year (calibrators only)
+    if (eq.type === 'calibrator' && eq.lastNistCal) {
+      var lastCal  = new Date(eq.lastNistCal);
+      var daysSince = Math.round((today - lastCal) / 86400000);
+      if (daysSince > 365) alerts.push(label + ' — Last NIST cal was ' + Math.round(daysSince/30) + ' months ago (exceeds 1 year)');
+    }
   });
   var banner    = document.getElementById('calAlertBanner');
   var alertText = document.getElementById('calAlertText');
@@ -3270,9 +3287,34 @@ function renderEquipmentLists() {
         + '</details>';
     }
 
+    // ── QA badges for calibrators ──
+    var qaHtml = '';
+    if (eq.type === 'calibrator') {
+      // QA 1: Cal due date vs today
+      if (eq.nistDue) {
+        var dueDays = Math.round((new Date(eq.nistDue) - today) / 86400000);
+        if (dueDays < 0) {
+          qaHtml += '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:#fcebeb;color:#a32d2d;border:1px solid #f09595;margin-left:4px;">Cal Overdue</span>';
+        } else if (dueDays <= 30) {
+          qaHtml += '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:#fff8e6;color:#7a4f00;border:1px solid #ef9f27;margin-left:4px;">Cal Due Soon</span>';
+        } else {
+          qaHtml += '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:#e1f5ee;color:#085041;border:1px solid #5dcaa5;margin-left:4px;">Cal Current</span>';
+        }
+      }
+      // QA 2: Last NIST cal within 1 year
+      if (eq.lastNistCal) {
+        var daysSince = Math.round((today - new Date(eq.lastNistCal)) / 86400000);
+        if (daysSince > 365) {
+          qaHtml += '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:#fcebeb;color:#a32d2d;border:1px solid #f09595;margin-left:4px;">NIST &gt;1 yr</span>';
+        } else {
+          qaHtml += '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:#e1f5ee;color:#085041;border:1px solid #5dcaa5;margin-left:4px;">NIST ' + Math.round(daysSince/30) + ' mo ago</span>';
+        }
+      }
+    }
+
     var detailLine = eq.type === 'dosimeter'
       ? (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : '')) + ' · ' + (eq.exchange || '5') + ' dB ER · ' + (eq.criterion || '90') + ' dB criterion'
-      : (eq.nistDue ? ' · NIST due: ' + eq.nistDue : '') + (eq.refLevel ? ' · Ref: ' + eq.refLevel + ' dB' : '');
+      : (eq.lastNistCal ? ' · Last cal: ' + eq.lastNistCal : '') + (eq.nistDue ? ' · NIST due: ' + eq.nistDue : '') + (eq.refLevel ? ' · Ref: ' + eq.refLevel + ' dB' : '');
 
     return '<div style="padding:13px 18px; border-bottom:1px solid var(--surface2);">'
       + '<div style="display:grid; grid-template-columns:1fr auto; align-items:start; gap:12px;">'
@@ -3280,7 +3322,7 @@ function renderEquipmentLists() {
       + '<div style="font-size:14px; font-weight:600; color:var(--text); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">'
       + esc(eq.make) + ' ' + esc(eq.model)
       + '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:' + condBg + '; color:' + condColor + ';">' + esc(eq.condition || 'Unknown') + '</span>'
-      + calBadge + ihTag
+      + calBadge + qaHtml + ihTag
       + '</div>'
       + '<div style="font-size:12px; color:var(--text2); margin-top:3px;">S/N: <span style="font-family:var(--mono);">' + esc(eq.serial) + '</span>' + detailLine + '</div>'
       + (eq.notes ? '<div style="font-size:11px; color:var(--text3); margin-top:2px;">' + esc(eq.notes) + '</div>' : '')
@@ -3339,11 +3381,12 @@ function loadEquipById(id) {
     document.getElementById('dosCriterion').value = eq.criterion || '90';
     showToast('Dosimeter loaded: ' + eq.make + ' ' + eq.model, 'success');
   } else {
-    document.getElementById('calMake').value = eq.make || '';
-    document.getElementById('calModel').value = eq.model || '';
-    document.getElementById('calSerial').value = eq.serial || '';
-    document.getElementById('calNistDue').value = eq.nistDue || '';
-    document.getElementById('calRefLevel').value = eq.refLevel || '';
+    document.getElementById('calMake').value        = eq.make        || '';
+    document.getElementById('calModel').value       = eq.model       || '';
+    document.getElementById('calSerial').value      = eq.serial      || '';
+    document.getElementById('calLastNistCal').value = eq.lastNistCal || '';
+    document.getElementById('calNistDue').value     = eq.nistDue     || '';
+    document.getElementById('calRefLevel').value    = eq.refLevel    || '';
     showToast('Calibrator loaded: ' + eq.make + ' ' + eq.model, 'success');
   }
   // If not already on form view, switch to it
@@ -3397,13 +3440,14 @@ function checkInItem() {
     if (!make || !model || !serial) { showToast('Make, model and serial are required', 'error'); return; }
     rec = {
       type, make, model, serial,
-      asset:     document.getElementById('inv_calAsset').value.trim(),
-      nistDue:   document.getElementById('inv_calNistDue').value,
-      refLevel:  document.getElementById('inv_calRefLevel').value,
-      condition: document.getElementById('inv_calCondition').value,
-      notes:     document.getElementById('inv_calNotes').value.trim(),
-      checkedInBy: deviceNickname || '',
-      checkedInAt: new Date().toISOString(),
+      asset:        document.getElementById('inv_calAsset').value.trim(),
+      lastNistCal:  document.getElementById('inv_calLastNistCal').value,
+      nistDue:      document.getElementById('inv_calNistDue').value,
+      refLevel:     document.getElementById('inv_calRefLevel').value,
+      condition:    document.getElementById('inv_calCondition').value,
+      notes:        document.getElementById('inv_calNotes').value.trim(),
+      checkedInBy:  deviceNickname || '',
+      checkedInAt:  new Date().toISOString(),
     };
   }
 
@@ -3431,8 +3475,9 @@ function checkInItem() {
       existing.exchange  = rec.exchange;
       existing.criterion = rec.criterion;
     } else {
-      if (rec.nistDue)  existing.nistDue  = rec.nistDue;
-      if (rec.refLevel) existing.refLevel = rec.refLevel;
+      if (rec.lastNistCal) existing.lastNistCal = rec.lastNistCal;
+      if (rec.nistDue)     existing.nistDue     = rec.nistDue;
+      if (rec.refLevel)    existing.refLevel    = rec.refLevel;
     }
     if (rec.notes) existing.notes = rec.notes;
     existing.checkedInBy = rec.checkedInBy || existing.checkedInBy || '';
