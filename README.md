@@ -19,6 +19,9 @@ A Progressive Web App (PWA) for industrial hygiene field data collection, built 
 - Auto-sync to Google Sheets — real-time access from any device
 - Device nickname — surveys automatically tagged per field IH
 - Filter surveys by individual field IH or view all
+- Delete from Google Sheets when deleted in the app
+- Conflict detection when same survey edited on two devices
+- Filtered batch export — export a single IH's surveys only
 
 ---
 
@@ -58,27 +61,45 @@ Each device registers a personal nickname on first launch. This allows multiple 
 ### First launch setup
 1. On first open, a prompt appears asking **"What is your name?"**
 2. The field IH enters their name or initials (e.g. "Eduardo V." or "EV")
-3. Tap **Save Name** — this is stored permanently on that device
+3. Tap **Save Name** — stored permanently on that device
 4. The name appears as a teal chip in the top-right header at all times
 
 ### How tagging works
 - Every survey saved on a device is automatically tagged with that device's nickname
-- No manual action required from field IHs — tagging happens invisibly on every save
+- No manual action required — tagging happens invisibly on every save
 - The nickname travels with the survey record to Google Sheets and to any device that imports the data
 
 ### Changing your name
-- Tap the name chip in the top-right header at any time
-- Enter a new name and tap **Save Name**
+Tap the name chip in the top-right header at any time, enter a new name, and tap **Save Name**.
 
 ### Filtering surveys
-- On the **Surveys** tab, a **Filter by IH** dropdown appears above the survey list
-- Select **All field IHs** to see every survey from every device
-- Select any individual name to see only that person's surveys
-- The dropdown auto-populates from all unique IH names found in the survey records
-- A count shows how many surveys are currently displayed
+On the **Surveys** tab, a **Filter by IH** dropdown auto-populates from all unique IH names in the survey records. Select any individual name or **All field IHs**.
 
-### Supervisor workflow
-As data syncs from all field IHs via Google Sheets, all surveys appear on the supervisor's device tagged with each IH's name. The supervisor can filter to any one field IH or view the full campaign at once.
+### Filtered batch export
+On the **Export** tab, the **Batch Export — Single Field IH** section lets you select one IH and export only their surveys to PDF, Excel, or a summary table.
+
+---
+
+## Data & Sync
+
+### Delete sync
+When a survey is deleted in the app, a delete request is automatically sent to Google Sheets to remove the matching rows from both the **Surveys** and **SurveysRaw** sheets. If the device is offline when the survey is deleted, the deletion is queued locally and sent automatically when internet is restored.
+
+### Conflict detection
+When the same survey (same Survey ID) is edited on two different devices and both versions sync to Sheets, the app detects the conflict on next pull:
+- The more recently saved version is kept as the primary record
+- The survey card is flagged with an amber **⚠ Conflict** badge
+- Hovering the badge shows: *"Edited on multiple devices — review and re-save to resolve"*
+- To resolve: open the survey, verify the data, and tap **Save & Finalize** — this writes a clean version and removes the conflict flag
+
+Conflicts only trigger when the same survey was edited on different devices within 24 hours. Routine syncs (e.g. pulling a remote survey for the first time) do not flag as conflicts.
+
+### Filtered batch export
+The Export tab includes a **Batch Export — Single Field IH** section:
+1. Select a field IH from the dropdown (auto-populated from all synced surveys)
+2. The survey count for that IH is shown
+3. Export to PDF, Excel, or Summary Table — only that IH's surveys are included
+4. Files are named with the IH's name and today's date
 
 ---
 
@@ -118,68 +139,55 @@ No location data, device identifiers, or usage analytics are collected beyond wh
 
 ### Google Sheets sync
 
-The app syncs survey data to a Google Sheet via a Google Apps Script Web App when an internet connection is available. This enables real-time data sharing across multiple devices and field personnel.
+The app syncs survey data to a Google Sheet via a Google Apps Script Web App when an internet connection is available.
 
 **How it works:**
-- Every time a survey is saved or a draft is saved, the app sends the full survey record to the configured Google Apps Script endpoint via an HTTPS POST request
-- The Apps Script writes the data to two sheets: a formatted **Surveys** sheet (human-readable columns) and a **SurveysRaw** sheet (JSON records used for pull-back sync)
-- When the app opens with internet, it automatically pulls all surveys from the SurveysRaw sheet and merges them with local data — the most recently updated version of each survey wins
-- If the device is offline when a survey is saved, the record is queued locally and synced automatically when internet is restored
-- Each survey record includes the device nickname so all records are identifiable by field IH in the sheet
+- Every save sends the full survey record to the Apps Script endpoint via HTTPS POST
+- The Apps Script writes to two sheets: **Surveys** (formatted columns) and **SurveysRaw** (JSON for pull-back sync)
+- On app open, all surveys are pulled from SurveysRaw and merged with local data
+- Deletions are synced to Sheets — rows are removed from both sheets
+- Offline saves and deletions are queued locally and flushed when internet returns
+- Conflicts between devices are detected and flagged for review
 
-**Data in transit:**
-- All data is transmitted over HTTPS (encrypted in transit)
-- The Google Apps Script endpoint is deployed under the user's own Google account
-- No data passes through any third-party servers — the flow is: device → Google Apps Script → Google Sheets (all within Google's infrastructure)
+**Data in transit:** All data is transmitted over HTTPS within Google's infrastructure. No third-party servers are involved.
 
-**Data in Google Sheets:**
-- The Google Sheet is owned by and accessible only to the account holder and anyone they explicitly share it with
-- Survey records in Google Sheets are not deleted when surveys are deleted from the app — Sheets serves as a permanent audit log
-- The sheet can be exported, shared with supervisors, or used as a data source for further reporting
+**Data in Google Sheets:** The sheet is owned by the account holder. Access is controlled by standard Google Sheets sharing permissions.
 
 ### Data backup and transfer
 
-**JSON export:** The Export tab provides a **Download .json** option that saves all survey records to a single file. This file:
-- Can be used as a complete backup of all local data
-- Can be imported on any other device running the app via **Import .json**
-- Should be saved to cloud storage (iCloud, Google Drive, OneDrive) or emailed at the end of each field day as a precaution
+**JSON export:** Export tab → **Download .json** — saves all survey records. Import on any device via **Import .json**.
 
-**PDF export:** Individual or batch PDF reports can be generated entirely offline. PDFs are generated in-browser using the bundled jsPDF library.
+**PDF export:** Generated offline using bundled jsPDF. Individual, batch (all), or filtered (single IH).
 
-**Excel export:** Individual or batch Excel workbooks can be generated offline using the bundled SheetJS library. Each row represents one survey with all fields as columns, including the device nickname column.
+**Excel export:** Generated offline using bundled SheetJS. Individual, batch (all), or filtered (single IH).
 
-**Summary table:** Copies a tab-separated summary of all surveys to the clipboard for direct pasting into Word or Excel.
+**Summary table:** Copies tab-separated data to clipboard for pasting into Word or Excel. Available for all surveys or a single IH.
 
 ### Data retention and deletion
 
-- Data in localStorage is retained indefinitely until the user explicitly deletes it via **Export → Delete All**, or until the browser's site data is cleared
-- Clearing browser history, cache, or site data in Safari/Chrome/Edge will permanently delete all locally stored surveys — always export a JSON backup before clearing browser data
-- Device nicknames are stored separately in localStorage and are not affected by survey deletion
-- Data in Google Sheets is retained according to the Google account owner's own retention policies and is not affected by app-side deletions
-- There is no server-side copy of data outside of the user's own Google Sheet
+- localStorage data is retained until explicitly deleted via **Export → Delete All** or browser data is cleared
+- Deleting in the app also removes records from Google Sheets
+- Device nicknames are stored separately and not affected by survey deletion
+- Always export a JSON backup before clearing browser data
 
 ### Offline operation
 
-After the first load with internet, the app is fully cached by the service worker and operates completely offline:
-- All data entry, QA calculations, and local saves work without internet
-- PDF and Excel exports work offline (libraries are bundled in the app)
-- JSON import and export work offline
-- Device nickname is stored locally and works offline
-- Google Sheets sync queues locally and flushes when connection is restored
-- The only features requiring internet: initial load, Google Sheets sync, and the deployment date in the header
+After first load, the app runs fully offline:
+- All data entry, QA, and local saves work without internet
+- PDF, Excel, and JSON exports work offline
+- Sync operations queue locally and flush when connection returns
+- Only requires internet: initial load, Google Sheets sync, deployment date in header
 
 ---
 
 ## Updating the App
 
-1. Download the new `index.html` and `sw.js` from the developer
-2. In GitHub, navigate to the repository
-3. Click **Add file → Upload files**
-4. Upload both files (they overwrite the existing versions)
-5. Click **Commit changes**
-6. GitHub Pages redeploys automatically within 2 minutes
-7. All devices receive the update the next time they open the app with internet
-8. The deployment date in the app header updates automatically
+1. Download new `index.html` and `sw.js` from the developer
+2. In GitHub: **Add file → Upload files** → upload both → **Commit changes**
+3. GitHub Pages redeploys within 2 minutes
+4. All devices update automatically on next open with internet
+
+**Also update the Apps Script** if the `apps-script.js` file was changed — paste the new script into the Apps Script editor and redeploy as a new version.
 
 ---
 
@@ -196,3 +204,4 @@ After the first load with internet, the app is fully cached by the service worke
 | Hosting | GitHub Pages (free) |
 | PWA install | Web App Manifest + Service Worker |
 | Multi-IH identification | Device nickname (localStorage) |
+| Conflict detection | Timestamp + device comparison on sync merge |

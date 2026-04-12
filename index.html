@@ -1332,6 +1332,31 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
   </div>
 
   <div class="export-group">
+    <div class="export-group-header">Batch Export — Single Field IH</div>
+    <div class="export-row">
+      <div style="flex:1;">
+        <div class="export-label">Export one IH's surveys only</div>
+        <div class="export-sub">Select a field IH then export their surveys</div>
+        <div style="margin-top:8px;">
+          <select id="exportIHFilter" onchange="updateExportIHCount()" style="padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px; width:100%; max-width:280px;">
+            <option value="">Select a field IH...</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="export-row">
+      <div>
+        <div id="exportIHCount" style="font-size:12px; color:var(--text3);">Select a name above to see survey count</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn btn-outline btn-sm" onclick="exportFilteredPDF()">PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="exportFilteredExcel()">Excel</button>
+        <button class="btn btn-teal btn-sm" onclick="exportFilteredSummary()">Summary Table</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="export-group">
     <div class="export-group-header">Data Management</div>
     <div class="export-row">
       <div>
@@ -2136,6 +2161,7 @@ function deleteSurvey(id) {
   document.getElementById('deleteModalConfirm').onclick = () => {
     surveys = surveys.filter(s => s.id !== id);
     saveToStorage();
+    deleteFromSheets(id);
     renderSurveyList();
     renderExportList();
     closeModal('deleteModal');
@@ -2199,9 +2225,10 @@ function renderSurveyList() {
     const survDate = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : 'No date';
     const meta = [s.dosimeter?.make, s.dosimeter?.model, s.dosimeter?.serial].filter(Boolean).join(' · ');
     const ihTag = s.deviceNickname || s.ih?.name || '';
+    const conflict = s.conflictFlag ? '<span title="Edited on multiple devices — review and re-save to resolve" style="display:inline-flex;align-items:center;gap:3px;background:#fff8e6;border:1px solid var(--amber);color:#7a4f00;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;">&#9651; Conflict</span>' : '';
     return `<div class="survey-card">
       <div>
-        <div class="survey-card-name">${esc(s.employee?.name || 'Unnamed Employee')}</div>
+        <div class="survey-card-name">${esc(s.employee?.name || 'Unnamed Employee')}${conflict}</div>
         <div class="survey-card-meta">${esc(s.employee?.title || '')}${s.employee?.title ? ' — ' : ''}${esc(s.employee?.company || '')} · ${survDate}${ihTag ? ' · <span style="color:var(--teal);font-weight:600;">' + esc(ihTag) + '</span>' : ''}</div>
         <div class="survey-card-meta" style="margin-top:2px; font-family:var(--mono); font-size:11px; color:var(--text3);">${esc(meta)}</div>
       </div>
@@ -2833,20 +2860,39 @@ function renderExportList() {
   const fin = surveys.filter(s => s.status !== 'draft');
   if (!fin.length) {
     container.innerHTML = '<div class="empty-state" style="padding:30px 16px;"><div class="empty-sub">No finalized surveys yet.</div></div>';
-    return;
+  } else {
+    container.innerHTML = fin.map(s => `
+      <div class="export-row">
+        <div>
+          <div class="export-label">${esc(s.employee?.name || 'Unnamed')}</div>
+          <div class="export-sub">${esc(s.employee?.title || '')} · ${s.calibration?.surveyStart?.split('T')[0] || ''} · S/N: ${esc(s.dosimeter?.serial || '')}</div>
+        </div>
+        <div class="export-actions">
+          <button class="btn btn-outline btn-sm" onclick="exportSinglePDF('${s.id}')">PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportSingleExcel('${s.id}')">Excel</button>
+        </div>
+      </div>
+    `).join('');
   }
-  container.innerHTML = fin.map(s => `
-    <div class="export-row">
-      <div>
-        <div class="export-label">${esc(s.employee?.name || 'Unnamed')}</div>
-        <div class="export-sub">${esc(s.employee?.title || '')} · ${s.calibration?.surveyStart?.split('T')[0] || ''} · S/N: ${esc(s.dosimeter?.serial || '')}</div>
-      </div>
-      <div class="export-actions">
-        <button class="btn btn-outline btn-sm" onclick="exportSinglePDF('${s.id}')">PDF</button>
-        <button class="btn btn-outline btn-sm" onclick="exportSingleExcel('${s.id}')">Excel</button>
-      </div>
-    </div>
-  `).join('');
+  // Populate IH filter dropdown for filtered batch export
+  const sel = document.getElementById('exportIHFilter');
+  if (sel) {
+    const names = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Select a field IH...</option>' +
+      names.map(n => `<option value="${esc(n)}" ${n === current ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    updateExportIHCount();
+  }
+}
+
+function updateExportIHCount() {
+  const sel = document.getElementById('exportIHFilter');
+  const countEl = document.getElementById('exportIHCount');
+  if (!sel || !countEl) return;
+  const name = sel.value;
+  if (!name) { countEl.textContent = 'Select a name above to see survey count'; return; }
+  const count = surveys.filter(s => (s.deviceNickname || s.ih?.name || '') === name).length;
+  countEl.textContent = count + ' survey' + (count !== 1 ? 's' : '') + ' for ' + name;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3248,6 +3294,98 @@ function updateInventoryBadge() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  DELETE FROM GOOGLE SHEETS
+// ═══════════════════════════════════════════════════════════
+function deleteFromSheets(surveyId) {
+  if (!SHEETS_URL || !navigator.onLine) return;
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ _action: 'delete', id: surveyId })
+  }).catch(function() {
+    // Queue deletion for when back online
+    try {
+      var q = JSON.parse(localStorage.getItem('ih_delete_queue') || '[]');
+      if (!q.includes(surveyId)) q.push(surveyId);
+      localStorage.setItem('ih_delete_queue', JSON.stringify(q));
+    } catch(e) {}
+  });
+}
+
+function flushDeleteQueue() {
+  if (!navigator.onLine) return;
+  try {
+    var q = JSON.parse(localStorage.getItem('ih_delete_queue') || '[]');
+    if (!q.length) return;
+    q.forEach(function(id) { deleteFromSheets(id); });
+    localStorage.removeItem('ih_delete_queue');
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILTERED BATCH EXPORT (single IH)
+// ═══════════════════════════════════════════════════════════
+function getFilteredSurveys() {
+  const sel = document.getElementById('exportIHFilter');
+  const name = sel ? sel.value : '';
+  if (!name) { showToast('Please select a field IH first', 'error'); return null; }
+  const filtered = surveys.filter(s => (s.deviceNickname || s.ih?.name || '') === name);
+  if (!filtered.length) { showToast('No surveys found for ' + name, 'error'); return null; }
+  return { surveys: filtered, name: name };
+}
+
+function exportFilteredPDF() {
+  try {
+    if (!window.jspdf) { showToast('PDF library not loaded', 'error'); return; }
+    const res = getFilteredSurveys();
+    if (!res) return;
+    const doc = buildPDFDoc(res.surveys);
+    doc.save('NoiseDosimetry_' + res.name.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+    showToast('PDF exported — ' + res.surveys.length + ' surveys for ' + res.name, 'success');
+  } catch(e) { showToast('PDF export failed: ' + e.message, 'error'); }
+}
+
+function exportFilteredExcel() {
+  try {
+    if (!window.XLSX) { showToast('Excel library not loaded', 'error'); return; }
+    const res = getFilteredSurveys();
+    if (!res) return;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(buildExcelData(res.surveys));
+    XLSX.utils.book_append_sheet(wb, ws, res.name.substring(0, 31));
+    XLSX.writeFile(wb, 'NoiseDosimetry_' + res.name.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+    showToast('Excel exported — ' + res.surveys.length + ' surveys for ' + res.name, 'success');
+  } catch(e) { showToast('Excel export failed: ' + e.message, 'error'); }
+}
+
+function exportFilteredSummary() {
+  try {
+    const res = getFilteredSurveys();
+    if (!res) return;
+    const headers = ['Employee Name','Title','Employer','Date','Dosimeter S/N','Weighting','Response','Run Time (hr)','Dose (%)','TWA (dBA)','QA','Category'];
+    const rows = res.surveys.map(s => [
+      s.employee?.name || '', s.employee?.title || '', s.employee?.company || '',
+      s.calibration?.surveyStart?.split('T')[0] || '', s.dosimeter?.serial || '',
+      s.dosimeter?.weighting ? s.dosimeter.weighting + '-weighting' : '',
+      s.dosimeter?.response || '', s.results?.runTime || '',
+      s.results?.dose || '', s.results?.twa || '',
+      s.qa?.allPass ? 'Pass' : 'Flag', s.results?.category || '',
+    ]);
+    const tsv = [headers, ...rows].map(function(r){ return r.join('\t'); }).join('\n');
+    navigator.clipboard.writeText(tsv).then(function() {
+      showToast('Summary for ' + res.name + ' copied to clipboard', 'success');
+    }).catch(function() {
+      const blob = new Blob([tsv], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = 'Summary_' + res.name.replace(/\s+/g,'-') + '.txt'; a.click();
+      URL.revokeObjectURL(url);
+    });
+  } catch(e) { showToast('Export failed: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  DEVICE NICKNAME
 // ═══════════════════════════════════════════════════════════
 function loadDeviceNickname() {
@@ -3331,10 +3469,21 @@ function pullFromSheets() {
           surveys.unshift(remote);
           newCount++;
         } else {
-          // Keep whichever is more recently updated
           const localTime  = new Date(surveys[idx].timestamp || 0).getTime();
           const remoteTime = new Date(remote.timestamp || 0).getTime();
-          if (remoteTime > localTime) {
+          const localDevice  = surveys[idx].deviceNickname || '';
+          const remoteDevice = remote.deviceNickname || '';
+          // Conflict: same survey edited on different devices within 24hrs
+          const timeDiff = Math.abs(remoteTime - localTime);
+          const differentDevice = localDevice && remoteDevice && localDevice !== remoteDevice;
+          if (differentDevice && timeDiff < 86400000 && timeDiff > 5000) {
+            // Flag conflict but keep the newer version
+            const winner = remoteTime > localTime ? remote : surveys[idx];
+            winner.conflictFlag = true;
+            surveys[idx] = winner;
+            updCount++;
+          } else if (remoteTime > localTime) {
+            remote.conflictFlag = false;
             surveys[idx] = remote;
             updCount++;
           }
@@ -3426,7 +3575,7 @@ function flushSyncQueue() {
   } catch(e) {}
 }
 
-window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); pullFromSheets(); });
+window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); flushDeleteQueue(); pullFromSheets(); });
 window.addEventListener('offline', () => setSyncStatus('offline'));
 
 
