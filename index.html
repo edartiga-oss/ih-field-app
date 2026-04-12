@@ -1268,7 +1268,9 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
           <div class="field"><label>Make / Manufacturer <span class="req">*</span></label><input type="text" id="eq_dosMake" placeholder="e.g., Quest, Larson Davis"></div>
           <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="eq_dosModel" placeholder="e.g., NoisePro DLX"></div>
           <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="eq_dosSerial" placeholder="e.g., QT-2024-0891"></div>
+          <div class="field"><label>Asset / Tag #</label><input type="text" id="eq_dosAsset" placeholder="Internal asset tag"></div>
           <div class="field"><label>Last Factory Cal. Date</label><input type="date" id="eq_dosFactoryCal"></div>
+          <div class="field"><label>Cal. Due Date</label><input type="date" id="eq_dosCalDue"></div>
           <div class="field"><label>Exchange Rate</label>
             <select id="eq_dosExchange"><option value="5">5 dB (OSHA)</option><option value="3">3 dB (ACGIH/NIOSH)</option></select>
           </div>
@@ -1279,6 +1281,15 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
               <option value="80">80 dB</option>
             </select>
           </div>
+          <div class="field"><label>Condition</label>
+            <select id="eq_dosCondition">
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Needs service">Needs service</option>
+              <option value="Out of service">Out of service</option>
+            </select>
+          </div>
+          <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_dosCondNote" placeholder="Optional note for this update"></div>
           <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_dosNotes" placeholder="Optional notes (e.g., spare unit, assigned to field kit #2)"></div>
         </div>
       </div>
@@ -1289,9 +1300,19 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
           <div class="field"><label>Make / Manufacturer <span class="req">*</span></label><input type="text" id="eq_calMake" placeholder="e.g., Quest, Larson Davis"></div>
           <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="eq_calModel" placeholder="e.g., QC-20"></div>
           <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="eq_calSerial" placeholder="e.g., QC-2023-1124"></div>
+          <div class="field"><label>Asset / Tag #</label><input type="text" id="eq_calAsset" placeholder="Internal asset tag"></div>
           <div class="field"><label>NIST Cal. Due Date</label><input type="date" id="eq_calNistDue"></div>
           <div class="field"><label>Reference Level (dB)</label><input type="number" id="eq_calRefLevel" placeholder="114.0" step="0.1"></div>
-          <div class="field"><label>Notes</label><input type="text" id="eq_calNotes" placeholder="Optional notes"></div>
+          <div class="field"><label>Condition</label>
+            <select id="eq_calCondition">
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Needs service">Needs service</option>
+              <option value="Out of service">Out of service</option>
+            </select>
+          </div>
+          <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_calCondNote" placeholder="Optional note for this update"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_calNotes" placeholder="Optional notes"></div>
         </div>
       </div>
     </div>
@@ -3029,68 +3050,105 @@ function setEquipType(type) {
 
 function openEquipModal(editId) {
   document.getElementById('equipEditId').value = editId || '';
+  // Clear all fields first
+  ['eq_dosMake','eq_dosModel','eq_dosSerial','eq_dosAsset','eq_dosFactoryCal','eq_dosCalDue','eq_dosNotes','eq_dosCondNote',
+   'eq_calMake','eq_calModel','eq_calSerial','eq_calAsset','eq_calNistDue','eq_calRefLevel','eq_calNotes','eq_calCondNote']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('eq_dosExchange').value = '5';
+  document.getElementById('eq_dosCriterion').value = '90';
+  document.getElementById('eq_dosCondition').value = 'Good';
+  document.getElementById('eq_calCondition').value = 'Good';
+
   if (editId) {
     const eq = equipment.find(e => e.id === editId);
     if (!eq) return;
     setEquipType(eq.type);
     document.getElementById('equipModalTitle').textContent = 'Edit Equipment';
     if (eq.type === 'dosimeter') {
-      document.getElementById('eq_dosMake').value = eq.make || '';
-      document.getElementById('eq_dosModel').value = eq.model || '';
-      document.getElementById('eq_dosSerial').value = eq.serial || '';
-      document.getElementById('eq_dosFactoryCal').value = eq.factoryCal || '';
-      document.getElementById('eq_dosExchange').value = eq.exchange || '5';
-      document.getElementById('eq_dosCriterion').value = eq.criterion || '90';
-      document.getElementById('eq_dosNotes').value = eq.notes || '';
+      document.getElementById('eq_dosMake').value      = eq.make       || '';
+      document.getElementById('eq_dosModel').value     = eq.model      || '';
+      document.getElementById('eq_dosSerial').value    = eq.serial     || '';
+      document.getElementById('eq_dosAsset').value     = eq.asset      || '';
+      document.getElementById('eq_dosFactoryCal').value= eq.factoryCal || '';
+      document.getElementById('eq_dosCalDue').value    = eq.calDue     || '';
+      document.getElementById('eq_dosExchange').value  = eq.exchange   || '5';
+      document.getElementById('eq_dosCriterion').value = eq.criterion  || '90';
+      document.getElementById('eq_dosCondition').value = eq.condition  || 'Good';
+      document.getElementById('eq_dosNotes').value     = eq.notes      || '';
     } else {
-      document.getElementById('eq_calMake').value = eq.make || '';
-      document.getElementById('eq_calModel').value = eq.model || '';
-      document.getElementById('eq_calSerial').value = eq.serial || '';
-      document.getElementById('eq_calNistDue').value = eq.nistDue || '';
-      document.getElementById('eq_calRefLevel').value = eq.refLevel || '';
-      document.getElementById('eq_calNotes').value = eq.notes || '';
+      document.getElementById('eq_calMake').value      = eq.make      || '';
+      document.getElementById('eq_calModel').value     = eq.model     || '';
+      document.getElementById('eq_calSerial').value    = eq.serial    || '';
+      document.getElementById('eq_calAsset').value     = eq.asset     || '';
+      document.getElementById('eq_calNistDue').value   = eq.nistDue   || '';
+      document.getElementById('eq_calRefLevel').value  = eq.refLevel  || '';
+      document.getElementById('eq_calCondition').value = eq.condition || 'Good';
+      document.getElementById('eq_calNotes').value     = eq.notes     || '';
     }
   } else {
     document.getElementById('equipModalTitle').textContent = 'Add Equipment';
     setEquipType('dosimeter');
-    ['eq_dosMake','eq_dosModel','eq_dosSerial','eq_dosFactoryCal','eq_dosNotes',
-     'eq_calMake','eq_calModel','eq_calSerial','eq_calNistDue','eq_calRefLevel','eq_calNotes']
-      .forEach(id => { document.getElementById(id).value = ''; });
-    document.getElementById('eq_dosExchange').value = '5';
-    document.getElementById('eq_dosCriterion').value = '90';
   }
   document.getElementById('equipModal').classList.add('open');
 }
 
 function saveEquipment() {
-  const editId = document.getElementById('equipEditId').value;
-  const type = currentEquipType;
+  const editId  = document.getElementById('equipEditId').value;
+  const type    = currentEquipType;
+  const isEdit  = !!editId;
+  const existing = isEdit ? equipment.find(e => e.id === editId) : null;
   let rec;
 
   if (type === 'dosimeter') {
-    const make = document.getElementById('eq_dosMake').value.trim();
-    const model = document.getElementById('eq_dosModel').value.trim();
+    const make   = document.getElementById('eq_dosMake').value.trim();
+    const model  = document.getElementById('eq_dosModel').value.trim();
     const serial = document.getElementById('eq_dosSerial').value.trim();
     if (!make || !model || !serial) { showToast('Make, model, and serial are required', 'error'); return; }
+    const newCondition = document.getElementById('eq_dosCondition').value;
+    const condNote     = document.getElementById('eq_dosCondNote').value.trim();
+    // Preserve existing condition history, add entry if condition changed or note provided
+    const condHistory  = (existing && existing.conditionHistory) ? [...existing.conditionHistory] : [];
+    if (!isEdit || newCondition !== (existing && existing.condition) || condNote) {
+      condHistory.push({ date: new Date().toISOString(), condition: newCondition, notes: condNote, by: deviceNickname || '' });
+    }
     rec = {
-      id: editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
-      type: 'dosimeter', make, model, serial,
-      factoryCal: document.getElementById('eq_dosFactoryCal').value,
-      exchange: document.getElementById('eq_dosExchange').value,
-      criterion: document.getElementById('eq_dosCriterion').value,
-      notes: document.getElementById('eq_dosNotes').value.trim(),
+      id:               editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
+      type:             'dosimeter',
+      make, model, serial,
+      asset:            document.getElementById('eq_dosAsset').value.trim(),
+      factoryCal:       document.getElementById('eq_dosFactoryCal').value,
+      calDue:           document.getElementById('eq_dosCalDue').value,
+      exchange:         document.getElementById('eq_dosExchange').value,
+      criterion:        document.getElementById('eq_dosCriterion').value,
+      condition:        newCondition,
+      conditionHistory: condHistory,
+      checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
+      checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
+      notes:            document.getElementById('eq_dosNotes').value.trim(),
     };
   } else {
-    const make = document.getElementById('eq_calMake').value.trim();
-    const model = document.getElementById('eq_calModel').value.trim();
+    const make   = document.getElementById('eq_calMake').value.trim();
+    const model  = document.getElementById('eq_calModel').value.trim();
     const serial = document.getElementById('eq_calSerial').value.trim();
     if (!make || !model || !serial) { showToast('Make, model, and serial are required', 'error'); return; }
+    const newCondition = document.getElementById('eq_calCondition').value;
+    const condNote     = document.getElementById('eq_calCondNote').value.trim();
+    const condHistory  = (existing && existing.conditionHistory) ? [...existing.conditionHistory] : [];
+    if (!isEdit || newCondition !== (existing && existing.condition) || condNote) {
+      condHistory.push({ date: new Date().toISOString(), condition: newCondition, notes: condNote, by: deviceNickname || '' });
+    }
     rec = {
-      id: editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
-      type: 'calibrator', make, model, serial,
-      nistDue: document.getElementById('eq_calNistDue').value,
-      refLevel: document.getElementById('eq_calRefLevel').value,
-      notes: document.getElementById('eq_calNotes').value.trim(),
+      id:               editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
+      type:             'calibrator',
+      make, model, serial,
+      asset:            document.getElementById('eq_calAsset').value.trim(),
+      nistDue:          document.getElementById('eq_calNistDue').value,
+      refLevel:         document.getElementById('eq_calRefLevel').value,
+      condition:        newCondition,
+      conditionHistory: condHistory,
+      checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
+      checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
+      notes:            document.getElementById('eq_calNotes').value.trim(),
     };
   }
 
@@ -3100,7 +3158,7 @@ function saveEquipment() {
   renderEquipmentLists();
   refreshEquipmentPickers();
   closeModal('equipModal');
-  showToast((editId ? 'Equipment updated' : 'Equipment saved'), 'success');
+  showToast(isEdit ? 'Equipment updated' : 'Equipment saved', 'success');
 }
 
 function deleteEquipment(id) {
