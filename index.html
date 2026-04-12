@@ -1349,6 +1349,15 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
         <button class="btn btn-outline btn-sm" onclick="syncAllToSheets()">Push All</button>
       </div>
     </div>
+    <div class="export-row">
+      <div>
+        <div class="export-label">Sync equipment library to Google Sheets</div>
+        <div class="export-sub">Pushes all equipment records — use to share library across devices</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn btn-outline btn-sm" onclick="syncAllEquipToSheets()">Sync Equipment</button>
+      </div>
+    </div>
   </div>
 
   <div class="export-group">
@@ -3033,9 +3042,11 @@ function loadEquipmentFromStorage() {
   refreshEquipmentPickers();
 }
 
-function saveEquipmentToStorage() {
+function saveEquipmentToStorage(changedItem) {
   try { localStorage.setItem(EQUIP_KEY, JSON.stringify(equipment)); }
   catch(e) { showToast('Storage error saving equipment', 'error'); }
+  // Sync the changed item to Sheets if provided
+  if (changedItem) syncEquipToSheets(changedItem);
 }
 
 let currentEquipType = 'dosimeter';
@@ -3154,7 +3165,7 @@ function saveEquipment() {
 
   const idx = equipment.findIndex(e => e.id === rec.id);
   if (idx >= 0) equipment[idx] = rec; else equipment.push(rec);
-  saveEquipmentToStorage();
+  saveEquipmentToStorage(rec);
   renderEquipmentLists();
   refreshEquipmentPickers();
   closeModal('equipModal');
@@ -3166,6 +3177,7 @@ function deleteEquipment(id) {
   document.getElementById('deleteModalConfirm').onclick = () => {
     equipment = equipment.filter(e => e.id !== id);
     saveEquipmentToStorage();
+    deleteEquipFromSheets(id);
     renderEquipmentLists();
     refreshEquipmentPickers();
     closeModal('deleteModal');
@@ -3454,7 +3466,9 @@ function checkInItem() {
     libAction = 'added';
   }
 
-  saveEquipmentToStorage();
+  // Determine which item was added/updated to sync it
+  const syncItem = existing || equipment.find(e => e.type === rec.type && e.serial === rec.serial);
+  saveEquipmentToStorage(syncItem);
   refreshEquipmentPickers();
   renderEquipmentLists();
 
@@ -3698,27 +3712,23 @@ function pullFromSheets() {
   fetch(SHEETS_URL + '?t=' + Date.now())
     .then(r => r.json())
     .then(data => {
-      if (!data.success || !data.surveys || !data.surveys.length) {
-        setSyncStatus('idle');
-        return;
-      }
-      let newCount = 0;
-      let updCount = 0;
-      data.surveys.forEach(remote => {
+      if (!data.success) { setSyncStatus('error'); return; }
+
+      // ── Pull surveys ──
+      let newCount = 0, updCount = 0;
+      (data.surveys || []).forEach(remote => {
         const idx = surveys.findIndex(s => s.id === remote.id);
         if (idx < 0) {
           surveys.unshift(remote);
           newCount++;
         } else {
-          const localTime  = new Date(surveys[idx].timestamp || 0).getTime();
-          const remoteTime = new Date(remote.timestamp || 0).getTime();
+          const localTime    = new Date(surveys[idx].timestamp || 0).getTime();
+          const remoteTime   = new Date(remote.timestamp || 0).getTime();
           const localDevice  = surveys[idx].deviceNickname || '';
           const remoteDevice = remote.deviceNickname || '';
-          // Conflict: same survey edited on different devices within 24hrs
-          const timeDiff = Math.abs(remoteTime - localTime);
+          const timeDiff     = Math.abs(remoteTime - localTime);
           const differentDevice = localDevice && remoteDevice && localDevice !== remoteDevice;
           if (differentDevice && timeDiff < 86400000 && timeDiff > 5000) {
-            // Flag conflict but keep the newer version
             const winner = remoteTime > localTime ? remote : surveys[idx];
             winner.conflictFlag = true;
             surveys[idx] = winner;
@@ -3734,8 +3744,40 @@ function pullFromSheets() {
         saveToStorage();
         renderSurveyList();
         renderExportList();
-        showToast('Sheets sync: ' + newCount + ' new, ' + updCount + ' updated', 'success');
+        showToast('Surveys: ' + newCount + ' new, ' + updCount + ' updated', 'success');
       }
+
+      // ── Pull equipment ──
+      let eqNew = 0, eqUpd = 0;
+      (data.equipment || []).forEach(remote => {
+        const idx = equipment.findIndex(e => e.id === remote.id);
+        if (idx < 0) {
+          equipment.push(remote);
+          eqNew++;
+        } else {
+          const localTime  = new Date(equipment[idx].updatedAt || equipment[idx].checkedInAt || 0).getTime();
+          const remoteTime = new Date(remote.updatedAt || remote.checkedInAt || 0).getTime();
+          if (remoteTime > localTime) {
+            // Merge condition history — keep all unique entries from both
+            const merged = [...(equipment[idx].conditionHistory || []), ...(remote.conditionHistory || [])];
+            const seen = new Set();
+            remote.conditionHistory = merged.filter(h => {
+              const key = h.date + h.condition;
+              if (seen.has(key)) return false;
+              seen.add(key); return true;
+            });
+            equipment[idx] = remote;
+            eqUpd++;
+          }
+        }
+      });
+      if (eqNew > 0 || eqUpd > 0) {
+        saveEquipmentToStorage();
+        renderEquipmentLists();
+        refreshEquipmentPickers();
+        if (eqNew > 0 || eqUpd > 0) showToast('Equipment: ' + eqNew + ' new, ' + eqUpd + ' updated', 'success');
+      }
+
       setSyncStatus('ok');
     })
     .catch(() => setSyncStatus('error'));
@@ -3816,7 +3858,101 @@ function flushSyncQueue() {
   } catch(e) {}
 }
 
-window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); flushDeleteQueue(); pullFromSheets(); });
+window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); flushDeleteQueue(); flushEquipQueue(); pullFromSheets(); });
+
+// ═══════════════════════════════════════════════════════════
+//  EQUIPMENT SYNC
+// ═══════════════════════════════════════════════════════════
+function syncEquipToSheets(item) {
+  if (!SHEETS_URL || !item) return;
+  const payload = Object.assign({}, item, { _type: 'equipment', updatedAt: new Date().toISOString() });
+  if (!navigator.onLine) { queueEquipSync(item); return; }
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(() => {
+    removeEquipPendingSync(item.id);
+  }).catch(() => { queueEquipSync(item); });
+}
+
+function deleteEquipFromSheets(id) {
+  if (!SHEETS_URL) return;
+  const payload = { _action: 'delete', _type: 'equipment', id: id };
+  if (!navigator.onLine) {
+    try {
+      var q = JSON.parse(localStorage.getItem('ih_equip_delete_queue') || '[]');
+      if (!q.includes(id)) q.push(id);
+      localStorage.setItem('ih_equip_delete_queue', JSON.stringify(q));
+    } catch(e) {}
+    return;
+  }
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {
+    try {
+      var q = JSON.parse(localStorage.getItem('ih_equip_delete_queue') || '[]');
+      if (!q.includes(id)) q.push(id);
+      localStorage.setItem('ih_equip_delete_queue', JSON.stringify(q));
+    } catch(e) {}
+  });
+}
+
+function queueEquipSync(item) {
+  try {
+    var q = JSON.parse(localStorage.getItem('ih_equip_sync_queue') || '[]');
+    var idx = q.findIndex(function(e) { return e.id === item.id; });
+    if (idx >= 0) q[idx] = item; else q.push(item);
+    localStorage.setItem('ih_equip_sync_queue', JSON.stringify(q));
+  } catch(e) {}
+}
+
+function removeEquipPendingSync(id) {
+  try {
+    var q = JSON.parse(localStorage.getItem('ih_equip_sync_queue') || '[]');
+    localStorage.setItem('ih_equip_sync_queue', JSON.stringify(q.filter(function(e) { return e.id !== id; })));
+  } catch(e) {}
+}
+
+function flushEquipQueue() {
+  if (!navigator.onLine) return;
+  try {
+    var sq = JSON.parse(localStorage.getItem('ih_equip_sync_queue') || '[]');
+    sq.forEach(function(item) { syncEquipToSheets(item); });
+    var dq = JSON.parse(localStorage.getItem('ih_equip_delete_queue') || '[]');
+    dq.forEach(function(id) { deleteEquipFromSheets(id); });
+    if (dq.length) localStorage.removeItem('ih_equip_delete_queue');
+  } catch(e) {}
+}
+
+function syncAllEquipToSheets() {
+  if (!equipment.length) { showToast('No equipment to sync', 'error'); return; }
+  if (!navigator.onLine) { showToast('No internet — sync when online', 'error'); return; }
+  var count = 0;
+  var queue = equipment.slice();
+  setSyncStatus('syncing');
+  function next() {
+    if (!queue.length) {
+      setSyncStatus('ok');
+      showToast('All ' + count + ' equipment records synced', 'success');
+      return;
+    }
+    var item = queue.shift();
+    var payload = Object.assign({}, item, { _type: 'equipment', updatedAt: new Date().toISOString() });
+    fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function() { count++; setTimeout(next, 300); })
+      .catch(function() { setTimeout(next, 300); });
+  }
+  next();
+}
 window.addEventListener('offline', () => setSyncStatus('offline'));
 
 

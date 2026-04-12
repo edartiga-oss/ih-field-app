@@ -1,5 +1,5 @@
-/* IH Field App — Service Worker v14 */
-const CACHE_NAME = 'ih-field-v14';
+/* IH Field App — Service Worker v15 */
+const CACHE_NAME = 'ih-field-v15';
 const ASSETS = ['./index.html', './', './sw.js'];
 
 self.addEventListener('install', e => {
