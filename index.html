@@ -537,6 +537,7 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
   <button class="nav-tab active" onclick="showView('surveys')">Surveys</button>
   <button class="nav-tab" onclick="showView('form')">Data Entry</button>
   <button class="nav-tab" onclick="showView('equipment')">Equipment</button>
+  <button class="nav-tab" onclick="showView('stats')">Statistics</button>
   <button class="nav-tab" onclick="showView('export')">Export</button>
 </div>
 
@@ -551,12 +552,21 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
     </div>
     <button class="btn btn-teal" onclick="startNewSurvey()">+ New Survey</button>
   </div>
-  <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-    <div style="font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Filter by IH:</div>
-    <select id="ihFilter" onchange="renderSurveyList()" style="flex:1; max-width:280px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
-      <option value="">All field IHs</option>
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap;">
+    <div style="font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Filter:</div>
+    <select id="ihFilter" onchange="renderSurveyList()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;">
+      <option value="">All IHs</option>
     </select>
-    <div id="filterCount" style="font-size:11px; color:var(--text3);"></div>
+    <select id="locationFilter" onchange="renderSurveyList()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;">
+      <option value="">All Locations</option>
+    </select>
+    <select id="segFilter" onchange="renderSurveyList()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;">
+      <option value="">All SEGs</option>
+    </select>
+    <select id="processFilter" onchange="renderSurveyList()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;">
+      <option value="">All Processes</option>
+    </select>
+    <div id="filterCount" style="font-size:11px; color:var(--text3); white-space:nowrap;"></div>
   </div>
   <div id="surveyList" class="survey-list">
     <div class="empty-state">
@@ -811,6 +821,33 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
         <div class="field">
           <label>Location / Building</label>
           <input type="text" id="empLocation" placeholder="e.g., Unit 3 — Compressor Bay" oninput="autosave()">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Similarly Exposed Group (SEG)</label>
+          <select id="empSegSelect" oninput="onSegSelectChange(); autosave();" style="margin-bottom:8px;">
+            <option value="">Select SEG...</option>
+            <option>Vehicle Maintenance</option>
+            <option>Administrative</option>
+            <option>Production / Manufacturing</option>
+            <option>Maintenance / Facilities</option>
+            <option>Warehousing / Shipping</option>
+            <option>Construction</option>
+            <option>Grounds / Utilities</option>
+            <option>Healthcare / Clinical</option>
+            <option>Laboratory</option>
+            <option>Security / Law Enforcement</option>
+            <option>Aviation / Flight Operations</option>
+            <option>Military Operations</option>
+            <option>Other</option>
+          </select>
+          <input type="text" id="empSegOther" placeholder="Describe SEG..." style="display:none;" oninput="autosave()">
+          <label style="margin-top:8px; display:block;">Process / Task Category</label>
+          <select id="empProcessSelect" oninput="onProcessSelectChange(); autosave();" style="margin-bottom:8px; display:none;">
+            <option value="">Select process...</option>
+          </select>
+          <input type="text" id="empProcessOther" placeholder="Describe process..." style="display:none;" oninput="autosave()">
+          <input type="hidden" id="empSeg">
+          <div class="hint">Group of workers with similar noise exposure profiles</div>
         </div>
       </div>
       <div class="section-spacer"></div>
@@ -1327,6 +1364,33 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
       <button class="btn btn-teal btn-sm" onclick="saveEquipment()">Save Equipment</button>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════════════════════ STATS VIEW ═══════════════════════════════ -->
+<div id="view-stats" class="view">
+
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+    <div>
+      <div style="font-size:18px; font-weight:600; color:var(--text);">SEG Statistics</div>
+      <div style="font-size:12px; color:var(--text3); margin-top:2px;">Noise exposure summary by Similarly Exposed Group</div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="renderStats()">Refresh</button>
+  </div>
+
+  <!-- SEG selector -->
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+    <div style="font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Show SEGs:</div>
+    <div id="statsSegChips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+    <button class="btn btn-outline btn-sm" onclick="statsSelectAll()" style="padding:4px 10px; font-size:11px;">All</button>
+    <button class="btn btn-outline btn-sm" onclick="statsSelectNone()" style="padding:4px 10px; font-size:11px;">None</button>
+  </div>
+
+  <!-- Summary metric cards -->
+  <div id="statsMetrics" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:20px;"></div>
+
+  <!-- Per-SEG stat tables -->
+  <div id="statsBody"></div>
+
 </div>
 
 <!-- ═══════════════════════════════ EXPORT VIEW ═══════════════════════════════ -->
@@ -2034,10 +2098,11 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
-  document.querySelectorAll('.nav-tab')[['surveys','form','equipment','export'].indexOf(name)].classList.add('active');
+  document.querySelectorAll('.nav-tab')[['surveys','form','equipment','stats','export'].indexOf(name)].classList.add('active');
   if (name === 'surveys') renderSurveyList();
   if (name === 'export') renderExportList();
   if (name === 'equipment') renderEquipmentLists();
+  if (name === 'stats') renderStats();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2066,7 +2131,7 @@ function clearFormFields() {
     'preCalTime','preCalReading','preCalInitials',
     'surveyStart','surveyEnd',
     'postCalTime','postCalReading','postCalInitials',
-    'empName','empId','empCompany','empTitle','empDept','empLocation','empTask',
+    'empName','empId','empCompany','empTitle','empDept','empLocation','empTask','empSegOther','empProcessOther',
     'dosPlacement','micType','windscreen','obstructions','placementNotes',
     'resDose','resLavg','resPeak','resRunTime','resTWA','resDosReportTWA','resCategory','resHPD',
     'lasmaxInterviewNotes','lasmax140CorrectiveNotes','lasmax140InvestigationNotes',
@@ -2079,6 +2144,15 @@ function clearFormFields() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  // Reset SEG select + hide free-write input
+  var segSel = document.getElementById('empSegSelect');
+  var segOth = document.getElementById('empSegOther');
+  var procSel = document.getElementById('empProcessSelect');
+  var procOth = document.getElementById('empProcessOther');
+  if (segSel) segSel.value = '';
+  if (segOth) { segOth.value = ''; segOth.style.display = 'none'; }
+  if (procSel) { procSel.value = ''; procSel.style.display = 'none'; }
+  if (procOth) { procOth.value = ''; procOth.style.display = 'none'; }
   resetQADisplay();
   document.getElementById('calBadge').textContent = 'PENDING';
   document.getElementById('calBadge').style.background = '';
@@ -2116,7 +2190,9 @@ function getFormData() {
     },
     employee: {
       name: g('empName'), empId: g('empId'), company: g('empCompany'),
-      title: g('empTitle'), dept: g('empDept'), location: g('empLocation'), task: g('empTask')
+      title: g('empTitle'), dept: g('empDept'), location: g('empLocation'), task: g('empTask'),
+      seg: (function(){ var sel=document.getElementById('empSegSelect'); var oth=document.getElementById('empSegOther'); return sel&&sel.value==='Other'?(oth?oth.value.trim():''):(sel?sel.value:''); })(),
+      process: (function(){ var p=document.getElementById('empProcessSelect'); var po=document.getElementById('empProcessOther'); if(!p||!p.style||p.style.display==='none') return ''; return p.value==='Other'?(po?po.value.trim():''):(p?p.value:''); })()
     },
     placement: {
       location: g('dosPlacement'), micType: g('micType'),
@@ -2153,6 +2229,27 @@ function populateForm(s) {
   sv('postCalTime', s.calibration?.postTime); sv('postCalReading', s.calibration?.postReading); sv('postCalInitials', s.calibration?.postInitials);
   sv('empName', s.employee?.name); sv('empId', s.employee?.empId); sv('empCompany', s.employee?.company);
   sv('empTitle', s.employee?.title); sv('empDept', s.employee?.dept); sv('empLocation', s.employee?.location); sv('empTask', s.employee?.task);
+  // Populate SEG field
+  (function() {
+    var seg = s.employee?.seg || '';
+    var sel = document.getElementById('empSegSelect');
+    var oth = document.getElementById('empSegOther');
+    if (!sel) return;
+    var opts = Array.from(sel.options).map(function(o){ return o.value; });
+    if (!seg) { sel.value = ''; }
+    else if (opts.indexOf(seg) >= 0) { sel.value = seg; }
+    else { sel.value = 'Other'; if(oth){ oth.value = seg; oth.style.display = ''; } }
+    onSegSelectChange();
+    // Restore process
+    var proc = s.employee?.process || '';
+    var pSel = document.getElementById('empProcessSelect');
+    var pOth = document.getElementById('empProcessOther');
+    if (pSel && pSel.style.display !== 'none' && proc) {
+      var pOpts = Array.from(pSel.options).map(function(o){ return o.value; });
+      if (pOpts.indexOf(proc) >= 0) { pSel.value = proc; }
+      else { pSel.value = 'Other'; if(pOth){ pOth.value = proc; pOth.style.display = ''; } }
+    }
+  })();
   sv('dosPlacement', s.placement?.location); sv('micType', s.placement?.micType);
   sv('windscreen', s.placement?.windscreen); sv('obstructions', s.placement?.obstructions); sv('placementNotes', s.placement?.notes);
   sv('resDose', s.results?.dose); sv('resLavg', s.results?.lavg); sv('resPeak', s.results?.peak);
@@ -2169,6 +2266,122 @@ function populateForm(s) {
   sv('resHour10', s.results?.hour10);
   sv('ihName', s.ih?.name); sv('ihCreds', s.ih?.creds); sv('ihFirm', s.ih?.firm); sv('ihPhone', s.ih?.phone);
   runQA();
+}
+
+var SEG_PROCESSES = {
+  'Vehicle Maintenance': [
+    'Engine repair / overhaul','Transmission / drivetrain service','Brake service',
+    'Exhaust system repair','Sheet metal / body work','Painting / coating',
+    'Tire mounting / balancing','Welding / cutting','Hydraulic system service',
+    'Air compressor operation','Parts cleaning / degreasing','Other'
+  ],
+  'Administrative': [
+    'Office work — general','Call center / dispatch','Data entry',
+    'Printing / copying operations','HVAC-adjacent workspace','Near mechanical room',
+    'Cafeteria / food service area','Other'
+  ],
+  'Production / Manufacturing': [
+    'Press / stamping operation','Grinding / abrasive machining','Turning / milling (CNC)',
+    'Welding / cutting / brazing','Assembly line work','Packaging / palletizing',
+    'Injection molding','Die casting','Sheet metal fabrication',
+    'Painting / spray coating','Bottling / canning','Conveyor operation','Other'
+  ],
+  'Maintenance / Facilities': [
+    'Preventive maintenance — mechanical','HVAC maintenance',
+    'Plumbing / piping work','Electrical work','Boiler / pressure vessel maintenance',
+    'Grinding / cutting / drilling','Welding / brazing','Painting / surface prep',
+    'Janitorial — floor equipment','Compressor room work','Pump maintenance','Other'
+  ],
+  'Warehousing / Shipping': [
+    'Forklift operation','Pallet jack operation','Receiving / unloading',
+    'Order picking','Loading dock work','Conveyor operation',
+    'Shrink wrap / banding equipment','Other'
+  ],
+  'Construction': [
+    'Jackhammering / demolition','Concrete cutting / grinding','Pile driving',
+    'Compaction / tamping','Roofing operations','Structural steel work',
+    'Welding / cutting','Power tool use (drills, saws, grinders)',
+    'Heavy equipment operation','Blasting operations','Other'
+  ],
+  'Grounds / Utilities': [
+    'Mowing / grounds keeping','Chainsaw / brush cutting','Leaf blower operation',
+    'Generator operation','Pump station maintenance','Water / wastewater treatment',
+    'Electrical substation work','Utility trenching / excavation','Other'
+  ],
+  'Healthcare / Clinical': [
+    'Surgical suite — general','Sterile processing / autoclave',
+    'Dental — handpiece / suction','Radiology / imaging equipment',
+    'Laboratory equipment operation','NICU / patient monitoring equipment',
+    'Cafeteria / food preparation','Laundry / linen services','Other'
+  ],
+  'Laboratory': [
+    'Centrifuge operation','Fume hood / blower','Sonicator / ultrasonic bath',
+    'HVAC-adjacent workspace','Analytical instrument operation',
+    'Autoclave operation','Clean room HVAC system','Other'
+  ],
+  'Security / Law Enforcement': [
+    'Firearm qualification / range','Patrol — vehicle operations',
+    'Aviation support / helipad work','Crowd control / event security',
+    'Detention / corrections facility','K-9 operations','Other'
+  ],
+  'Aviation / Flight Operations': [
+    'Flight line — jet aircraft','Flight line — propeller aircraft',
+    'Helicopter operations','Ground support equipment (GSE)',
+    'Maintenance test runs — jet engine','Maintenance test runs — turboprop',
+    'Aircraft marshalling / ramp','Air traffic control (tower)','Other'
+  ],
+  'Military Operations': [
+    'Small arms qualification','Crew-served weapon operation',
+    'Artillery / mortar operations','Armored vehicle crew',
+    'Aviation — fixed wing','Aviation — rotary wing',
+    'Explosive ordnance disposal (EOD)','Engine room / shipboard machinery',
+    'Flight deck operations — carrier','Generator / power plant maintenance','Other'
+  ]
+};
+
+function onSegSelectChange() {
+  var sel  = document.getElementById('empSegSelect');
+  var oth  = document.getElementById('empSegOther');
+  var proc = document.getElementById('empProcessSelect');
+  var pOth = document.getElementById('empProcessOther');
+  if (!sel) return;
+
+  // Handle Other free-write
+  if (sel.value === 'Other') {
+    if (oth) { oth.style.display = ''; oth.focus(); }
+    if (proc) proc.style.display = 'none';
+    if (pOth) { pOth.style.display = 'none'; pOth.value = ''; }
+  } else {
+    if (oth) { oth.style.display = 'none'; oth.value = ''; }
+  }
+
+  // Populate process dropdown for selected SEG
+  if (proc) {
+    var processes = sel.value && SEG_PROCESSES[sel.value] ? SEG_PROCESSES[sel.value] : [];
+    if (processes.length) {
+      proc.innerHTML = '<option value="">Select process...</option>' +
+        processes.map(function(p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
+      proc.style.display = '';
+      proc.value = '';
+    } else {
+      proc.style.display = 'none';
+      proc.value = '';
+    }
+    if (pOth) { pOth.style.display = 'none'; pOth.value = ''; }
+  }
+}
+
+function onProcessSelectChange() {
+  var proc = document.getElementById('empProcessSelect');
+  var pOth = document.getElementById('empProcessOther');
+  if (!proc || !pOth) return;
+  if (proc.value === 'Other') {
+    pOth.style.display = '';
+    pOth.focus();
+  } else {
+    pOth.style.display = 'none';
+    pOth.value = '';
+  }
 }
 
 function saveDraft() {
@@ -2250,28 +2463,60 @@ function renderSurveyList() {
   const filterSel = document.getElementById('ihFilter');
   const filterCount = document.getElementById('filterCount');
 
-  // Rebuild filter dropdown with all unique IH names
-  const selectedFilter = filterSel ? filterSel.value : '';
+  // ── Rebuild IH filter ──
+  const selectedIH  = filterSel ? filterSel.value : '';
   const allNicknames = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
   if (filterSel) {
-    filterSel.innerHTML = '<option value="">All field IHs</option>' +
-      allNicknames.map(n => `<option value="${esc(n)}" ${n === selectedFilter ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    filterSel.innerHTML = '<option value="">All IHs</option>' +
+      allNicknames.map(n => `<option value="${esc(n)}" ${n === selectedIH ? 'selected' : ''}>${esc(n)}</option>`).join('');
   }
 
-  // Apply filter
-  const filtered = selectedFilter
-    ? surveys.filter(s => (s.deviceNickname || s.ih?.name || '') === selectedFilter)
-    : surveys;
+  // ── Rebuild SEG filter ──
+  const segSel = document.getElementById('segFilter');
+  const selectedSEG = segSel ? segSel.value : '';
+  const allSEGs = [...new Set(surveys.map(s => s.employee?.seg || '').filter(Boolean))].sort();
+  if (segSel) {
+    segSel.innerHTML = '<option value="">All SEGs</option>' +
+      allSEGs.map(g => `<option value="${esc(g)}" ${g === selectedSEG ? 'selected' : ''}>${esc(g)}</option>`).join('');
+  }
+
+  // ── Rebuild Location filter ──
+  const locSel = document.getElementById('locationFilter');
+  const selectedLoc = locSel ? locSel.value : '';
+  const allLocs = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
+  if (locSel) {
+    locSel.innerHTML = '<option value="">All Locations</option>' +
+      allLocs.map(l => `<option value="${esc(l)}" ${l === selectedLoc ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  }
+
+  // ── Rebuild Process filter ──
+  const procSel = document.getElementById('processFilter');
+  const selectedProc = procSel ? procSel.value : '';
+  const allProcs = [...new Set(surveys.map(s => s.employee?.process || '').filter(Boolean))].sort();
+  if (procSel) {
+    procSel.innerHTML = '<option value="">All Processes</option>' +
+      allProcs.map(p => `<option value="${esc(p)}" ${p === selectedProc ? 'selected' : ''}>${esc(p)}</option>`).join('');
+  }
+
+  // ── Apply all filters ──
+  const filtered = surveys.filter(s => {
+    if (selectedIH   && (s.deviceNickname || s.ih?.name || '') !== selectedIH)  return false;
+    if (selectedSEG  && (s.employee?.seg  || '') !== selectedSEG)  return false;
+    if (selectedLoc  && (s.employee?.location || '') !== selectedLoc) return false;
+    if (selectedProc && (s.employee?.process || '') !== selectedProc) return false;
+    return true;
+  });
 
   // Update counts
   document.getElementById('surveyCount').textContent = surveys.length + ' survey' + (surveys.length !== 1 ? 's' : '') + ' saved';
+  const activeFilters = [selectedIH, selectedSEG, selectedLoc, selectedProc].filter(Boolean).length;
   if (filterCount) {
-    filterCount.textContent = selectedFilter ? filtered.length + ' shown' : '';
+    filterCount.textContent = activeFilters ? filtered.length + ' of ' + surveys.length + ' shown' : '';
   }
 
   if (!filtered.length) {
     container.innerHTML = surveys.length
-      ? '<div class="empty-state"><div class="empty-title">No surveys for this IH</div><div class="empty-sub">Select "All field IHs" to see all surveys</div></div>'
+      ? '<div class="empty-state"><div class="empty-title">No surveys match these filters</div><div class="empty-sub">Try clearing one or more filters</div></div>'
       : '<div class="empty-state"><span class="empty-icon">📋</span><div class="empty-title">No surveys yet</div><div class="empty-sub">Tap "New Survey" to begin data collection</div></div>';
     return;
   }
@@ -2283,12 +2528,15 @@ function renderSurveyList() {
     const lbl = statusLabel[s.status] || 'Draft';
     const survDate = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : 'No date';
     const meta = [s.dosimeter?.make, s.dosimeter?.model, s.dosimeter?.serial].filter(Boolean).join(' · ');
-    const ihTag = s.deviceNickname || s.ih?.name || '';
+    const ihTag  = s.deviceNickname || s.ih?.name || '';
+    const segTag = s.employee?.seg || '';
+    const locTag = s.employee?.location || '';
     const conflict = s.conflictFlag ? '<span title="Edited on multiple devices — review and re-save to resolve" style="display:inline-flex;align-items:center;gap:3px;background:#fff8e6;border:1px solid var(--amber);color:#7a4f00;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;">&#9651; Conflict</span>' : '';
     return `<div class="survey-card">
       <div>
         <div class="survey-card-name">${esc(s.employee?.name || 'Unnamed Employee')}${conflict}</div>
         <div class="survey-card-meta">${esc(s.employee?.title || '')}${s.employee?.title ? ' — ' : ''}${esc(s.employee?.company || '')} · ${survDate}${ihTag ? ' · <span style="color:var(--teal);font-weight:600;">' + esc(ihTag) + '</span>' : ''}</div>
+        <div class="survey-card-meta" style="margin-top:2px; font-size:11px; color:var(--text2);">${segTag ? '<span style="background:var(--surface2);padding:1px 6px;border-radius:4px;margin-right:4px;">' + esc(segTag) + '</span>' : ''}${s.employee?.process ? '<span style="background:var(--surface2);padding:1px 6px;border-radius:4px;margin-right:4px;color:var(--teal);">' + esc(s.employee.process) + '</span>' : ''}${locTag ? '<span style="color:var(--text3);">&#x1F4CD; ' + esc(locTag) + '</span>' : ''}</div>
         <div class="survey-card-meta" style="margin-top:2px; font-family:var(--mono); font-size:11px; color:var(--text3);">${esc(meta)}</div>
       </div>
       <div class="survey-card-right">
@@ -3591,6 +3839,249 @@ function renderInventoryLog() {
 function updateInventoryBadge() {
   const badge = document.getElementById('inventoryBadge');
   if (badge) badge.textContent = inventoryLog.length + (inventoryLog.length === 1 ? ' item' : ' items');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATISTICS
+// ═══════════════════════════════════════════════════════════
+var statsSelectedSEGs = null; // null = all
+
+function renderStats() {
+  const chipsEl   = document.getElementById('statsSegChips');
+  const metricsEl = document.getElementById('statsMetrics');
+  const bodyEl    = document.getElementById('statsBody');
+  if (!chipsEl || !metricsEl || !bodyEl) return;
+
+  // Gather all SEGs present in surveys
+  const allSEGs = [...new Set(surveys.map(s => s.employee?.seg || '').filter(Boolean))].sort();
+
+  if (!allSEGs.length) {
+    metricsEl.innerHTML = '';
+    bodyEl.innerHTML = '<div class="empty-state"><div class="empty-title">No surveys with SEG data yet</div><div class="empty-sub">Assign a SEG when entering survey data to see statistics here</div></div>';
+    chipsEl.innerHTML = '';
+    return;
+  }
+
+  // Init selection (all on first render)
+  if (statsSelectedSEGs === null) statsSelectedSEGs = new Set(allSEGs);
+
+  // Render SEG chips
+  chipsEl.innerHTML = allSEGs.map(seg => {
+    const active = statsSelectedSEGs.has(seg);
+    return `<button onclick="statsToggleSEG('${esc(seg)}')" style="
+      padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;
+      border:1.5px solid ${active ? 'var(--teal)' : 'var(--border)'};
+      background:${active ? 'rgba(0,184,160,0.12)' : 'var(--surface)'};
+      color:${active ? 'var(--teal)' : 'var(--text2)'};
+    ">${esc(seg)}</button>`;
+  }).join('');
+
+  // Filter surveys to selected SEGs
+  const sel = surveys.filter(s => statsSelectedSEGs.has(s.employee?.seg || ''));
+
+  if (!sel.length) {
+    metricsEl.innerHTML = '<div style="font-size:13px; color:var(--text3); padding:12px 0;">No surveys for selected SEGs.</div>';
+    bodyEl.innerHTML = '';
+    return;
+  }
+
+  // ── Global summary metrics ──
+  const twas    = sel.map(s => parseFloat(s.results?.twa)).filter(n => !isNaN(n));
+  const doses   = sel.map(s => parseFloat(s.results?.dose)).filter(n => !isNaN(n));
+  const atOrAbovePEL  = sel.filter(s => parseFloat(s.results?.twa) >= 90).length;
+  const atOrAboveAL   = sel.filter(s => parseFloat(s.results?.twa) >= 85 && parseFloat(s.results?.twa) < 90).length;
+  const belowAL       = sel.filter(s => parseFloat(s.results?.twa) < 85).length;
+  const qaFails       = sel.filter(s => s.status === 'qa-fail').length;
+
+  function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
+  function maxVal(arr) { return arr.length ? Math.max(...arr) : null; }
+  function minVal(arr) { return arr.length ? Math.min(...arr) : null; }
+  function fmt(v,d=1) { return v===null?'—':v.toFixed(d); }
+
+  const metricCards = [
+    { label: 'Total Surveys', value: sel.length, unit: '' },
+    { label: 'Avg TWA', value: fmt(avg(twas)), unit: 'dBA' },
+    { label: 'Max TWA', value: fmt(maxVal(twas)), unit: 'dBA' },
+    { label: 'Min TWA', value: fmt(minVal(twas)), unit: 'dBA' },
+    { label: 'Avg Dose', value: fmt(avg(doses)), unit: '%' },
+    { label: 'At / Above PEL', value: atOrAbovePEL, unit: '' },
+    { label: 'At / Above AL', value: atOrAboveAL, unit: '' },
+    { label: 'Below AL', value: belowAL, unit: '' },
+    { label: 'QA Flags', value: qaFails, unit: '' },
+  ];
+
+  metricsEl.innerHTML = metricCards.map(m => {
+    const isAlert = (m.label === 'At / Above PEL' && m.value > 0) || (m.label === 'QA Flags' && m.value > 0);
+    const bg = isAlert ? 'background:#fcebeb;' : '';
+    const col = isAlert ? 'color:#a32d2d;' : 'color:var(--text);';
+    return `<div style="background:var(--surface); border-radius:var(--radius); padding:12px 14px; ${bg}">
+      <div style="font-size:11px; color:var(--text3); margin-bottom:4px;">${m.label}</div>
+      <div style="font-size:22px; font-weight:600; ${col}">${m.value}<span style="font-size:12px; font-weight:400; color:var(--text3); margin-left:3px;">${m.unit}</span></div>
+    </div>`;
+  }).join('');
+
+  // ── Per-SEG breakdown ──
+  const segGroups = {};
+  sel.forEach(s => {
+    const seg = s.employee?.seg || 'Unknown';
+    if (!segGroups[seg]) segGroups[seg] = [];
+    segGroups[seg].push(s);
+  });
+
+  bodyEl.innerHTML = Object.keys(segGroups).sort().map(seg => {
+    const group = segGroups[seg];
+    const gTWAs  = group.map(s => parseFloat(s.results?.twa)).filter(n => !isNaN(n));
+    const gDoses = group.map(s => parseFloat(s.results?.dose)).filter(n => !isNaN(n));
+
+    // Category distribution
+    const cats = {};
+    group.forEach(s => {
+      const c = s.results?.category || 'Not recorded';
+      cats[c] = (cats[c] || 0) + 1;
+    });
+
+    // Process breakdown within SEG
+    const procs = {};
+    group.forEach(s => {
+      const p = s.employee?.process || 'Not specified';
+      procs[p] = (procs[p] || 0) + 1;
+    });
+
+    // Location breakdown
+    const locs = {};
+    group.forEach(s => {
+      const l = s.employee?.location || 'Not specified';
+      locs[l] = (locs[l] || 0) + 1;
+    });
+
+    const catRows = Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,n]) => {
+      const pct = (n/group.length*100).toFixed(0);
+      const barColor = c.includes('PEL') ? '#e05252' : c.includes('Action') ? '#f0a500' : '#3ec97a';
+      return `<tr>
+        <td style="padding:6px 10px; font-size:12px; color:var(--text2);">${esc(c)}</td>
+        <td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">${n}</td>
+        <td style="padding:6px 10px; width:120px;">
+          <div style="background:var(--surface2); border-radius:3px; height:6px;">
+            <div style="background:${barColor}; width:${pct}%; height:6px; border-radius:3px;"></div>
+          </div>
+        </td>
+        <td style="padding:6px 10px; font-size:11px; color:var(--text3); text-align:right;">${pct}%</td>
+      </tr>`;
+    }).join('');
+
+    const procRows = Object.entries(procs).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([p,n]) =>
+      `<tr><td style="padding:4px 10px; font-size:12px; color:var(--text2);">${esc(p)}</td>
+       <td style="padding:4px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">${n}</td></tr>`
+    ).join('');
+
+    const locRows = Object.entries(locs).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([l,n]) =>
+      `<tr><td style="padding:4px 10px; font-size:12px; color:var(--text2);">${esc(l)}</td>
+       <td style="padding:4px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">${n}</td></tr>`
+    ).join('');
+
+    // TWA distribution bins
+    const bins = [
+      { label:'< 80', min:-Infinity, max:80 },
+      { label:'80–84', min:80, max:85 },
+      { label:'85–89 (AL)', min:85, max:90 },
+      { label:'90–99 (PEL)', min:90, max:100 },
+      { label:'≥ 100', min:100, max:Infinity },
+    ];
+    const binCounts = bins.map(b => gTWAs.filter(v => v >= b.min && v < b.max).length);
+    const maxBin = Math.max(...binCounts, 1);
+    const binBars = bins.map((b,i) => {
+      const pct = (binCounts[i]/maxBin*100).toFixed(0);
+      const color = b.min >= 100 ? '#e05252' : b.min >= 90 ? '#e05252' : b.min >= 85 ? '#f0a500' : '#3ec97a';
+      return `<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+        <div style="font-size:10px; color:var(--text3); width:76px; flex-shrink:0; text-align:right;">${b.label}</div>
+        <div style="flex:1; background:var(--surface2); border-radius:3px; height:14px;">
+          <div style="background:${color}; width:${pct}%; height:14px; border-radius:3px; min-width:${binCounts[i]?2:0}px;"></div>
+        </div>
+        <div style="font-size:11px; font-weight:600; color:var(--text); width:18px; text-align:right;">${binCounts[i]}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="card" style="margin-bottom:18px;">
+      <div class="card-header" style="font-size:14px;">${esc(seg)}
+        <span style="margin-left:8px; font-size:11px; font-weight:400; color:rgba(255,255,255,0.55);">${group.length} survey${group.length!==1?'s':''}</span>
+      </div>
+      <div class="card-body" style="padding:14px 16px;">
+
+        <!-- Mini metrics row -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-bottom:16px;">
+          ${[
+            ['Avg TWA', fmt(avg(gTWAs)) + ' dBA'],
+            ['Max TWA', fmt(maxVal(gTWAs)) + ' dBA'],
+            ['Min TWA', fmt(minVal(gTWAs)) + ' dBA'],
+            ['Avg Dose', fmt(avg(gDoses)) + ' %'],
+          ].map(([l,v])=>`<div style="background:var(--surface); border-radius:var(--radius); padding:8px 10px;">
+            <div style="font-size:10px; color:var(--text3);">${l}</div>
+            <div style="font-size:16px; font-weight:600; color:var(--text);">${v}</div>
+          </div>`).join('')}
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; flex-wrap:wrap;">
+
+          <!-- Exposure category table -->
+          <div>
+            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Exposure Categories</div>
+            <table style="width:100%; border-collapse:collapse;">
+              <thead><tr>
+                <th style="font-size:10px; color:var(--text3); font-weight:500; text-align:left; padding:4px 10px;">Category</th>
+                <th style="font-size:10px; color:var(--text3); font-weight:500; text-align:right; padding:4px 10px;">n</th>
+                <th colspan="2" style="font-size:10px; color:var(--text3); font-weight:500; padding:4px 10px;"></th>
+              </tr></thead>
+              <tbody>${catRows || '<tr><td colspan="4" style="font-size:12px;color:var(--text3);padding:8px 10px;">No category data</td></tr>'}</tbody>
+            </table>
+          </div>
+
+          <!-- TWA distribution histogram -->
+          <div>
+            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">TWA Distribution (dBA)</div>
+            ${gTWAs.length ? binBars : '<div style="font-size:12px;color:var(--text3);">No TWA data</div>'}
+          </div>
+
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px;">
+
+          <!-- Process breakdown -->
+          <div>
+            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Processes</div>
+            <table style="width:100%; border-collapse:collapse;">
+              <tbody>${procRows || '<tr><td colspan="2" style="font-size:12px;color:var(--text3);padding:4px 10px;">None recorded</td></tr>'}</tbody>
+            </table>
+          </div>
+
+          <!-- Location breakdown -->
+          <div>
+            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Locations</div>
+            <table style="width:100%; border-collapse:collapse;">
+              <tbody>${locRows || '<tr><td colspan="2" style="font-size:12px;color:var(--text3);padding:4px 10px;">None recorded</td></tr>'}</tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function statsToggleSEG(seg) {
+  if (!statsSelectedSEGs) statsSelectedSEGs = new Set();
+  if (statsSelectedSEGs.has(seg)) statsSelectedSEGs.delete(seg);
+  else statsSelectedSEGs.add(seg);
+  renderStats();
+}
+
+function statsSelectAll() {
+  statsSelectedSEGs = null;
+  renderStats();
+}
+
+function statsSelectNone() {
+  statsSelectedSEGs = new Set();
+  renderStats();
 }
 
 // ═══════════════════════════════════════════════════════════
