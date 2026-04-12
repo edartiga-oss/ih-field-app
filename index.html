@@ -515,6 +515,7 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
       <div id="syncDot" style="width:7px; height:7px; border-radius:50%; background:#8096b0; flex-shrink:0;"></div>
       <span id="syncLabel">Sheets</span>
     </div>
+    <button id="nicknameChip" onclick="openNicknameModal()" title="Your device name" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.7); padding:4px 10px; border-radius:20px; font-size:11px; cursor:pointer; font-family:var(--mono); white-space:nowrap;">Set name</button>
     <button class="btn btn-teal btn-sm" onclick="startNewSurvey()">+ New Survey</button>
   </div>
 </header>
@@ -549,6 +550,13 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
       <div id="surveyCount" style="font-size:12px; color:var(--text3); margin-top:2px;">0 surveys saved</div>
     </div>
     <button class="btn btn-teal" onclick="startNewSurvey()">+ New Survey</button>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+    <div style="font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Filter by IH:</div>
+    <select id="ihFilter" onchange="renderSurveyList()" style="flex:1; max-width:280px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+      <option value="">All field IHs</option>
+    </select>
+    <div id="filterCount" style="font-size:11px; color:var(--text3);"></div>
   </div>
   <div id="surveyList" class="survey-list">
     <div class="empty-state">
@@ -1361,6 +1369,27 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 </main>
 </div>
 
+<!-- NICKNAME MODAL -->
+<div class="modal-overlay" id="nicknameModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <span id="nicknameModalTitle">What is your name?</span>
+      <button class="modal-close" onclick="closeNicknameModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px; color:var(--text2); line-height:1.6; margin-bottom:14px;">Enter your name or initials. This is saved on this device and automatically tagged to every survey you create — making it easy to filter surveys by field IH.</p>
+      <div class="field">
+        <label>Your Name / Initials <span class="req">*</span></label>
+        <input type="text" id="nicknameInput" placeholder="e.g. Eduardo V. or EV" maxlength="40" style="font-size:15px;" onkeydown="if(event.key==='Enter') saveNickname()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeNicknameModal()">Skip</button>
+      <button class="btn btn-teal btn-sm" onclick="saveNickname()">Save Name</button>
+    </div>
+  </div>
+</div>
+
 <!-- DELETE CONFIRM MODAL -->
 <div class="modal-overlay" id="deleteModal">
   <div class="modal">
@@ -1816,6 +1845,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 // ═══════════════════════════════════════════════════════════
 let surveys = [];
 let equipment = [];
+let deviceNickname = '';
 let currentSurveyId = null;
 let autosaveTimer = null;
 let projectMeta = { name: '', standard: 'BOTH', date: '' };
@@ -1823,6 +1853,7 @@ let projectMeta = { name: '', standard: 'BOTH', date: '' };
 const STORAGE_KEY = 'ih_noise_surveys_v2';
 const META_KEY = 'ih_noise_meta_v2';
 const EQUIP_KEY = 'ih_noise_equipment_v1';
+const DEVICE_KEY = 'ih_device_nickname_v1';
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsym__2GhktyMtexOsK6YvutTVSbNo8YWNaP3Eg1pKQG4yQmQ/exec';
 
 // ═══════════════════════════════════════════════════════════
@@ -1832,6 +1863,7 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
   loadFromStorage();
   loadEquipmentFromStorage();
   loadProjectMeta();
+  loadDeviceNickname();
   renderSurveyList();
   renderExportList();
   // set today's date as default
@@ -1982,6 +2014,7 @@ function getFormData() {
   return {
     id: currentSurveyId,
     timestamp: new Date().toISOString(),
+    deviceNickname: deviceNickname || '',
     project: { ...projectMeta },
     dosimeter: {
       make: g('dosMake'), model: g('dosModel'), serial: g('dosSerial'),
@@ -2129,22 +2162,47 @@ function confirmDeleteAll() {
 // ═══════════════════════════════════════════════════════════
 function renderSurveyList() {
   const container = document.getElementById('surveyList');
+  const filterSel = document.getElementById('ihFilter');
+  const filterCount = document.getElementById('filterCount');
+
+  // Rebuild filter dropdown with all unique IH names
+  const selectedFilter = filterSel ? filterSel.value : '';
+  const allNicknames = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
+  if (filterSel) {
+    filterSel.innerHTML = '<option value="">All field IHs</option>' +
+      allNicknames.map(n => `<option value="${esc(n)}" ${n === selectedFilter ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  }
+
+  // Apply filter
+  const filtered = selectedFilter
+    ? surveys.filter(s => (s.deviceNickname || s.ih?.name || '') === selectedFilter)
+    : surveys;
+
+  // Update counts
   document.getElementById('surveyCount').textContent = surveys.length + ' survey' + (surveys.length !== 1 ? 's' : '') + ' saved';
-  if (!surveys.length) {
-    container.innerHTML = '<div class="empty-state"><span class="empty-icon">📋</span><div class="empty-title">No surveys yet</div><div class="empty-sub">Tap "New Survey" to begin data collection</div></div>';
+  if (filterCount) {
+    filterCount.textContent = selectedFilter ? filtered.length + ' shown' : '';
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = surveys.length
+      ? '<div class="empty-state"><div class="empty-title">No surveys for this IH</div><div class="empty-sub">Select "All field IHs" to see all surveys</div></div>'
+      : '<div class="empty-state"><span class="empty-icon">📋</span><div class="empty-title">No surveys yet</div><div class="empty-sub">Tap "New Survey" to begin data collection</div></div>';
     return;
   }
-  container.innerHTML = surveys.map(s => {
+
+  container.innerHTML = filtered.map(s => {
     const statusMap = { complete: 'status-complete', draft: 'status-draft', 'qa-fail': 'status-qa-fail' };
     const statusLabel = { complete: 'Complete', draft: 'Draft', 'qa-fail': 'QA Flag' };
     const cls = statusMap[s.status] || 'status-draft';
     const lbl = statusLabel[s.status] || 'Draft';
     const survDate = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : 'No date';
     const meta = [s.dosimeter?.make, s.dosimeter?.model, s.dosimeter?.serial].filter(Boolean).join(' · ');
+    const ihTag = s.deviceNickname || s.ih?.name || '';
     return `<div class="survey-card">
       <div>
         <div class="survey-card-name">${esc(s.employee?.name || 'Unnamed Employee')}</div>
-        <div class="survey-card-meta">${esc(s.employee?.title || '')}${s.employee?.title ? ' — ' : ''}${esc(s.employee?.company || '')} · ${survDate}</div>
+        <div class="survey-card-meta">${esc(s.employee?.title || '')}${s.employee?.title ? ' — ' : ''}${esc(s.employee?.company || '')} · ${survDate}${ihTag ? ' · <span style="color:var(--teal);font-weight:600;">' + esc(ihTag) + '</span>' : ''}</div>
         <div class="survey-card-meta" style="margin-top:2px; font-family:var(--mono); font-size:11px; color:var(--text3);">${esc(meta)}</div>
       </div>
       <div class="survey-card-right">
@@ -3187,6 +3245,51 @@ function renderInventoryLog() {
 function updateInventoryBadge() {
   const badge = document.getElementById('inventoryBadge');
   if (badge) badge.textContent = inventoryLog.length + (inventoryLog.length === 1 ? ' item' : ' items');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DEVICE NICKNAME
+// ═══════════════════════════════════════════════════════════
+function loadDeviceNickname() {
+  deviceNickname = localStorage.getItem(DEVICE_KEY) || '';
+  updateNicknameChip();
+  // Show setup modal on first launch if no nickname set
+  if (!deviceNickname) {
+    setTimeout(function() {
+      document.getElementById('nicknameModal').classList.add('open');
+      document.getElementById('nicknameInput').focus();
+    }, 800);
+  }
+}
+
+function updateNicknameChip() {
+  const chip = document.getElementById('nicknameChip');
+  if (!chip) return;
+  chip.textContent = deviceNickname || 'Set name';
+  chip.style.color = deviceNickname ? '#00b8a0' : 'rgba(255,255,255,0.5)';
+  chip.style.borderColor = deviceNickname ? 'rgba(0,184,160,0.4)' : 'rgba(255,255,255,0.2)';
+}
+
+function openNicknameModal() {
+  document.getElementById('nicknameInput').value = deviceNickname || '';
+  document.getElementById('nicknameModalTitle').textContent = deviceNickname ? 'Change your name' : 'What is your name?';
+  document.getElementById('nicknameModal').classList.add('open');
+  setTimeout(function() { document.getElementById('nicknameInput').focus(); }, 100);
+}
+
+function closeNicknameModal() {
+  closeModal('nicknameModal');
+}
+
+function saveNickname() {
+  const val = document.getElementById('nicknameInput').value.trim();
+  if (!val) { showToast('Please enter your name', 'error'); return; }
+  deviceNickname = val;
+  localStorage.setItem(DEVICE_KEY, val);
+  updateNicknameChip();
+  closeModal('nicknameModal');
+  showToast('Name saved — surveys will be tagged as: ' + val, 'success');
+  renderSurveyList();
 }
 
 // ═══════════════════════════════════════════════════════════
