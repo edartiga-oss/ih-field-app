@@ -1843,46 +1843,26 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
 })();
 
 // ═══════════════════════════════════════════════════════════
-//  DEPLOYMENT STAMP — GitHub API commit count + Last-Modified
+//  DEPLOYMENT STAMP — Last-Modified date from sw.js
 // ═══════════════════════════════════════════════════════════
 (function() {
   var el = document.getElementById('deployStamp');
   if (!el) return;
-
-  var REPO = 'edartiga-oss/ih-field-app';
-  var apiUrl = 'https://api.github.com/repos/' + REPO + '/commits?per_page=1';
-  var swUrl  = 'sw.js?nocache=' + Date.now();
-
-  // Fetch commit count and deploy time in parallel
-  Promise.all([
-    fetch(apiUrl, { cache: 'no-store' }).then(function(r) {
-      // Total commit count is in the Link header rel="last" page number
-      var link = r.headers.get('Link') || '';
-      var match = link.match(/page=(\d+)>; rel="last"/);
-      return match ? parseInt(match[1], 10) : null;
-    }).catch(function() { return null; }),
-    fetch(swUrl, { cache: 'no-store' }).then(function(r) {
+  var swUrl = 'sw.js?nocache=' + Date.now();
+  fetch(swUrl, { cache: 'no-store' })
+    .then(function(r) {
       var lm = r.headers.get('Last-Modified') || r.headers.get('Date');
-      if (!lm) return null;
+      if (!lm) return;
       var d = new Date(lm);
-      if (isNaN(d.getTime())) return null;
+      if (isNaN(d.getTime())) return;
       var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       var h = d.getHours();
       var ampm = h >= 12 ? 'PM' : 'AM';
       h = h % 12 || 12;
       var min = ('0' + d.getMinutes()).slice(-2);
-      return months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear() + ' ' + h + ':' + min + ' ' + ampm;
-    }).catch(function() { return null; })
-  ]).then(function(results) {
-    var count = results[0];
-    var dateStr = results[1];
-    var version = count ? 'v' + count : 'v?';
-    var stamp = version;
-    if (dateStr) stamp += ' · Deployed ' + dateStr;
-    el.textContent = stamp;
-  }).catch(function() {
-    el.textContent = 'v?';
-  });
+      el.textContent = 'Deployed ' + months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear() + ' ' + h + ':' + min + ' ' + ampm;
+    })
+    .catch(function() { el.textContent = ''; });
 })();
 
 // ═══════════════════════════════════════════════════════════
