@@ -12657,6 +12657,18 @@ function renderRAC() {
         personnel + (overrideSet ? '<div style="font-size:10px;color:var(--teal);margin-top:1px;">IH entered (' + surveyCt + ' sampled)</div>' : '<div style="font-size:10px;color:var(--text3);margin-top:1px;">= surveys sampled</div>'),
         'background:var(--surface);', 'color:var(--text);'],
       ['GM',            stats ? fmtDb(stats.gm) : '—', 'background:var(--surface);', 'color:var(--text);'],
+      (function() {
+        var uclVal = (!stats || isNaN(stats.ucl95)) ? '—' : fmtDb(stats.ucl95);
+        var uclBg  = (!stats || isNaN(stats.ucl95)) ? 'background:var(--surface);'
+                   : stats.ucl95 >= 90 ? 'background:#fcebeb;'
+                   : stats.ucl95 >= 82 ? 'background:#fff8e6;'
+                   : 'background:var(--surface);';
+        var uclCol = (!stats || isNaN(stats.ucl95)) ? 'color:var(--text);'
+                   : stats.ucl95 >= 90 ? 'color:#a32d2d;'
+                   : stats.ucl95 >= 82 ? 'color:#7a4f00;'
+                   : 'color:var(--text);';
+        return ['UCL 95%', uclVal, uclBg, uclCol];
+      })(),
       ['UTL 95/95',     utlVal, utlBg2, utlCol2],
     ];
 
