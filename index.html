@@ -447,6 +447,7 @@ body { padding: 20px 18px; }
   .card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
   .card-header { background: #1a2a3a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #racResults, #view-rac { display: block !important; }
+  #racPrintFilterSummary { display: block !important; }
   /* Hide filter label rows in print */
   #view-rac > div:first-child > div:first-child { display: none !important; }
 }
@@ -6396,13 +6397,42 @@ function renderRAC() {
 }
 
 function printRAC() {
+  // Build filter summary for printout
+  var ihLabels  = racSelectedIHs       === null ? ['All IHs']        : [...racSelectedIHs].sort();
+  var locLabels = racSelectedLocations === null ? ['All Locations']   : [...racSelectedLocations].sort();
+  var segLabels = racSelectedSEGs      === null ? ['All SEGs']        : [...racSelectedSEGs].sort();
+
+  var summaryHTML =
+    '<div id="racPrintFilterSummary" style="display:none; margin-bottom:16px; padding:10px 14px;'
+    + 'border:1px solid #ccc; border-radius:6px; font-size:11px; color:#4a5c72;">'
+    + '<div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;'
+    + 'color:#8096b0; margin-bottom:6px;">Filters Applied</div>'
+    + '<div style="display:flex; flex-wrap:wrap; gap:12px;">'
+    + '<div><strong>IH:</strong> ' + ihLabels.map(function(s){ return esc(s); }).join(', ') + '</div>'
+    + '<div><strong>Location:</strong> ' + locLabels.map(function(s){ return esc(s); }).join(', ') + '</div>'
+    + '<div><strong>SEG:</strong> ' + segLabels.map(function(s){ return esc(s); }).join(', ') + '</div>'
+    + '</div>'
+    + '<div style="margin-top:6px; font-size:10px; color:#8096b0;">Printed: ' + new Date().toLocaleString() + '</div>'
+    + '</div>';
+
+  // Inject summary before racResults
+  var resultsEl = document.getElementById('racResults');
+  var summaryEl = document.getElementById('racPrintFilterSummary');
+  if (summaryEl) summaryEl.remove();
+  resultsEl.insertAdjacentHTML('beforebegin', summaryHTML);
+
+  // Activate RAC view and print
   var views = document.querySelectorAll('.view');
   var prevActive = document.querySelector('.view.active');
   views.forEach(function(v) { v.classList.remove('active'); });
   document.getElementById('view-rac').classList.add('active');
   window.print();
+
+  // Restore
   views.forEach(function(v) { v.classList.remove('active'); });
   if (prevActive) prevActive.classList.add('active');
+  var injected = document.getElementById('racPrintFilterSummary');
+  if (injected) injected.remove();
 }
 
 </script>
