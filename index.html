@@ -5050,16 +5050,31 @@ function verifyExtractFields(text, filename) {
   function get(key) { return kvMap[key.toLowerCase()] || null; }
 
   // ── Serial number + worker name ──────────────────────────
-  // "Serial Number\t2106079 / Austin Donaghey"
+  // Casella puts both on one line with various separators:
+  //   "2106079 / Austin Donaghey"   (standard: space-slash-space)
+  //   "2106167/Robert Considine"    (slash, no spaces)
+  //   "2106167 - Robert Considine"  (dash)
+  //   "2106167_Robert Considine"    (underscore)
+  //   "2106167 Robert Considine"    (space only)
   var serialRaw = get('serial number') || get('serial no') || get('serial');
   var serial = null, reportName = null;
   if (serialRaw) {
-    var slashIdx = serialRaw.indexOf(' / ');
-    if (slashIdx > -1) {
-      serial     = serialRaw.slice(0, slashIdx).trim();
-      reportName = serialRaw.slice(slashIdx + 3).trim();
+    var sm;
+    // digits then any separator (/, -, _) then name
+    sm = serialRaw.match(/^(\d+)\s*[\/\-_]\s*(.+)$/);
+    if (sm) {
+      serial     = sm[1].trim();
+      reportName = sm[2].trim();
     } else {
-      serial = serialRaw.trim();
+      // digits then space then name (no separator char)
+      sm = serialRaw.match(/^(\d+)\s+(.+)$/);
+      if (sm) {
+        serial     = sm[1].trim();
+        reportName = sm[2].trim();
+      } else {
+        // serial only, no name on this line
+        serial = serialRaw.trim();
+      }
     }
   }
 
