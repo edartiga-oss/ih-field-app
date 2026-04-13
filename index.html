@@ -4986,7 +4986,40 @@ function verifyParsePDF(file, name) {
             pagePromises.push(
               pdf.getPage(pageNum).then(function(page) {
                 return page.getTextContent().then(function(content) {
-                  return content.items.map(function(item) { return item.str; }).join(' ');
+                  // The Casella PDF uses a two-column layout where labels (left col)
+                  // and values (right col) are typeset ~0.4pt apart vertically.
+                  // Simple space-joining loses line structure; y-grouping fixes it.
+                  var itemsWithPos = content.items
+                    .filter(function(item) { return item.str && item.str.trim(); })
+                    .map(function(item) {
+                      var y = item.transform ? item.transform[5] : 0;
+                      var x = item.transform ? item.transform[4] : 0;
+                      return { str: item.str, x: x, y: y };
+                    });
+                  if (!itemsWithPos.length) return '';
+                  // Group into lines with 6pt y-tolerance
+                  var TOL = 6;
+                  var lineGroups = [];
+                  itemsWithPos.forEach(function(item) {
+                    var placed = false;
+                    for (var gi = 0; gi < lineGroups.length; gi++) {
+                      if (Math.abs(lineGroups[gi].y - item.y) <= TOL) {
+                        lineGroups[gi].items.push(item);
+                        lineGroups[gi].y = (lineGroups[gi].y + item.y) / 2;
+                        placed = true;
+                        break;
+                      }
+                    }
+                    if (!placed) lineGroups.push({ y: item.y, items: [item] });
+                  });
+                  // Sort groups top-to-bottom (PDF y increases upward, so descending = top-first)
+                  lineGroups.sort(function(a, b) { return b.y - a.y; });
+                  // Within each group sort left-to-right, join
+                  var lines = lineGroups.map(function(g) {
+                    g.items.sort(function(a, b) { return a.x - b.x; });
+                    return g.items.map(function(i) { return i.str; }).join('').trim();
+                  }).filter(Boolean);
+                  return lines.join('\n');
                 });
               })
             );
