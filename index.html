@@ -5087,7 +5087,7 @@ function verifyExtractFields(text, filename) {
   // ── Calibration ──────────────────────────────────────────
   // Pre: "Calibration Before SPL\t114.0 dB"
   var preCalRaw  = get('calibration before spl') || get('pre-calibration') || get('pre calibration');
-  var preCal = preCalRaw ? parseFloat(preCalRaw) : null;
+  var preCal = preCalRaw ? numParse(preCalRaw) : null;
 
   // Pre time: "Calibration Before Time\t2/11/2026 6:58:42 AM"
   var preCalTime = get('calibration before time') || get('pre-calibration time');
@@ -5095,26 +5095,35 @@ function verifyExtractFields(text, filename) {
   // Post: Casella stores DRIFT, not absolute post-cal SPL
   // "Calibration Drift\t0.0 dB"  → postCal = preCal + drift
   var driftRaw   = get('calibration drift') || get('cal drift');
-  var drift      = driftRaw ? parseFloat(driftRaw) : null;
+  var drift      = numParse(driftRaw);
   var postCal    = (preCal !== null && drift !== null) ? Math.round((preCal + drift) * 10) / 10 : null;
   var postCalTime = get('calibration after time') || get('post-calibration time');
+
+  // Strip thousands-separator commas before parseFloat.
+  // Casella formats large numbers with commas: "4,717.3 %" → parseFloat stops at comma → 4.
+  // numParse removes all commas first so "4,717.3" correctly becomes 4717.3.
+  function numParse(s) {
+    if (!s) return null;
+    var n = parseFloat(String(s).replace(/,/g, ''));
+    return isNaN(n) ? null : n;
+  }
 
   // ── Results — "D1 " prefixed ─────────────────────────────
   // "D1 TWA 8Hrs\t59.0 dB"
   var twaRaw  = get('d1 twa 8hrs') || get('d1 twa 8 hrs') || get('d1 twa') || get('twa 8hrs') || get('twa');
-  var twa     = twaRaw  ? parseFloat(twaRaw)  : null;
+  var twa     = numParse(twaRaw);
 
-  // "D1 Dose\t0.2 %"
+  // "D1 Dose\t0.2 %" or "D1 Dose\t4,717.3 %" for high-exposure workers
   var doseRaw = get('d1 dose') || get('dose');
-  var dose    = doseRaw ? parseFloat(doseRaw) : null;
+  var dose    = numParse(doseRaw);
 
   // "D1 Lavg\t58.4 dB"
   var lavgRaw = get('d1 lavg') || get('d1 laeq') || get('lavg') || get('laeq');
-  var lavg    = lavgRaw ? parseFloat(lavgRaw) : null;
+  var lavg    = numParse(lavgRaw);
 
   // LASmax (for LASmax > 115 flag)
   var lasmaxRaw = get('d1 lasmax (time)') || get('d1 lasmax');
-  var lasmax    = lasmaxRaw ? parseFloat(lasmaxRaw) : null;
+  var lasmax    = numParse(lasmaxRaw);
 
   // ── Dosimeter setup ──────────────────────────────────────
   // "Dosimeter 1 Setup\tACGIH (T80, C85, Q3)"
