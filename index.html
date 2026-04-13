@@ -5244,7 +5244,7 @@ function verifyCompareFields(survey, report) {
   var checks = {};
 
   // Name — fuzzy Jaccard
-  var appName = survey.workerName || survey.subject || '';
+  var appName = (survey.employee && survey.employee.name) || survey.workerName || survey.subject || '';
   var rptName = report.reportName || '';
   var nameResult = verifyNameScore(appName, rptName);
   checks.name = { app: appName, rpt: rptName, score: nameResult.score, status: nameResult.status };
@@ -5269,13 +5269,58 @@ function verifyCompareFields(survey, report) {
   numCheck(cal.preReading,                   report.preCal, 0.1, 'preCal');
   numCheck(cal.postReading,                  report.postCal,0.1, 'postCal');
 
-  // Run time — normalize to hh:mm:ss string comparison
-  var appRT = (res.runTime || '').toString().trim();
-  var rptRT = (report.runTime || '').toString().trim();
+  // Run time — calculate from surveyStart/surveyEnd for comparison.
+  // App stores run time as decimal hours (e.g. "8.0") via resRunTime field,
+  // but the most accurate source is the actual start/end datetime.
+  // Report stores as hh:mm:ss (e.g. "08:59:38").
+  // Strategy: convert both to total minutes and compare within ±2 min.
+  function calcAppRunTimeMinutes() {
+    // Prefer start/end datetime calculation
+    var s = cal.surveyStart, e = cal.surveyEnd;
+    if (s && e) {
+      var st = new Date(s).getTime(), et = new Date(e).getTime();
+      if (!isNaN(st) && !isNaN(et) && et > st) return Math.round((et - st) / 60000);
+    }
+    // Fall back to stored run time (decimal hours)
+    var rt = parseFloat(res.runTime);
+    if (!isNaN(rt)) return Math.round(rt * 60);
+    return null;
+  }
+  function rptRunTimeMinutes(s) {
+    if (!s) return null;
+    s = s.trim();
+    // hh:mm:ss
+    var m = s.match(/^(\d+):(\d{2}):(\d{2})$/);
+    if (m) return parseInt(m[1])*60 + parseInt(m[2]);
+    // hh:mm
+    m = s.match(/^(\d+):(\d{2})$/);
+    if (m) return parseInt(m[1])*60 + parseInt(m[2]);
+    // decimal hours
+    var h = parseFloat(s);
+    if (!isNaN(h)) return Math.round(h * 60);
+    return null;
+  }
+  var appRTmin = calcAppRunTimeMinutes();
+  var rptRTmin = rptRunTimeMinutes(report.runTime);
+  // Display values
+  var appRTDisplay = (function() {
+    var s = cal.surveyStart, e = cal.surveyEnd;
+    if (s && e) {
+      var st = new Date(s).getTime(), et = new Date(e).getTime();
+      if (!isNaN(st) && !isNaN(et) && et > st) {
+        var tot = Math.round((et-st)/1000);
+        var hh = Math.floor(tot/3600), mm = Math.floor((tot%3600)/60), ss = tot%60;
+        return hh + ':' + String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+      }
+    }
+    return (res.runTime || '') + (res.runTime ? ' hr' : '');
+  })();
   checks.runTime = {
-    app: appRT, rpt: rptRT,
-    status: (!appRT || !rptRT) ? 'MISSING' :
-            normalizeRunTime(appRT) === normalizeRunTime(rptRT) ? 'PASS' : 'FAIL'
+    app: appRTDisplay,
+    rpt: report.runTime || '',
+    deltaMin: (appRTmin !== null && rptRTmin !== null) ? Math.abs(appRTmin - rptRTmin) : null,
+    status: (appRTmin === null || rptRTmin === null) ? 'MISSING'
+          : Math.abs(appRTmin - rptRTmin) <= 2 ? 'PASS' : 'FAIL'
   };
 
   // Time fields — ±1 min tolerance
@@ -5484,7 +5529,7 @@ function verifyRenderResults(rows) {
       cell(c.twa,      function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
       cell(c.dose,     function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + '%'  : ''); }) +
       cell(c.lavg,     function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
-      cell(c.runTime)  +
+      cell(c.runTime, function(k) { return k.deltaMin !== null ? '✗ ' + k.deltaMin + 'm' : '✗'; }) +
       cell(c.preCal,   function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
       cell(c.postCal,  function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
       cell(c.startTime,function(k) { return '✗ ' + (k.diffMin ? k.diffMin.toFixed(0) + 'm' : ''); }) +
@@ -5550,7 +5595,11 @@ function verifyOpenDrawer(row) {
   lines.push(detailRow('Lavg (dBA)', c.lavg, function(k) {
     return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
   }));
-  lines.push(detailRow('Run Time', c.runTime, null));
+  lines.push(detailRow('Run Time', c.runTime, function(k) {
+    if (k.status === 'PASS') return 'Match' + (k.deltaMin !== null ? ' (Δ ' + k.deltaMin + ' min, tolerance ±2)' : '');
+    if (k.deltaMin !== null) return 'Δ ' + k.deltaMin + ' min (tolerance ±2) — App calculated from Start/End times';
+    return '';
+  }));
   lines.push(detailRow('Pre-Cal (dB)', c.preCal, function(k) {
     return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
   }));
