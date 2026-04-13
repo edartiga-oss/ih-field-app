@@ -4239,15 +4239,21 @@ function renderStats() {
               + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + stats.n + '</div>'
             + '</div>'
             + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
-              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Geometric Mean</div>'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Geom. Mean <span style="font-weight:400;">(50th pct)</span></div>'
               + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtDb(stats.gm) + '</div>'
             + '</div>'
+            + (function(){
+              var gsd = stats.gsd || 1;
+              var gsdColor = gsd < 1.5 ? 'var(--teal)' : gsd < 2.0 ? '#e08800' : 'var(--red)';
+              var gsdNote = gsd < 1.5 ? 'Homogeneous SEG' : gsd < 2.0 ? 'Moderate spread' : 'Consider splitting SEG';
+              return '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+                + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">GSD <span style="font-weight:400;">(SEG spread)</span></div>'
+                + '<div style="font-size:18px; font-weight:700; color:' + gsdColor + ';line-height:1.1;">' + fmtX(gsd) + '</div>'
+                + '<div style="font-size:9px; color:' + gsdColor + '; margin-top:3px;">' + gsdNote + '</div>'
+              + '</div>';
+            })()
             + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
-              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">GSD</div>'
-              + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtX(stats.gsd) + '</div>'
-            + '</div>'
-            + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
-              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Arith. Mean (AM)</div>'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Arith. Mean <span style="font-weight:400;">(AM)</span></div>'
               + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtDb(stats.am || stats.gm) + '</div>'
             + '</div>'
             + statCell('95% UCL on AM', fmtDb(stats.ucl95), pelUCL, alUCL)
@@ -4256,7 +4262,7 @@ function renderStats() {
             + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
               + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
               + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Owen’s K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
-              + 'Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed.'
+              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5�� = homogeneous SEG; 1.5–2.0�� = moderate spread; > 2.0�� = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed.'
             + '</div>'
             + smallNote
             + '</div>';
