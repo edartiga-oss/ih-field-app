@@ -6927,6 +6927,48 @@ function renderStats() {
 //  NOISE RAC TAB
 // ═══════════════════════════════════════════════════════════
 
+
+function statsToggleSEG(seg) {
+  if (!statsSelectedSEGs) statsSelectedSEGs = new Set();
+  if (statsSelectedSEGs.has(seg)) statsSelectedSEGs.delete(seg);
+  else statsSelectedSEGs.add(seg);
+  renderStats();
+}
+
+function statsToggleIH(ih) {
+  if (!statsSelectedIHs) statsSelectedIHs = new Set();
+  if (statsSelectedIHs.has(ih)) statsSelectedIHs.delete(ih);
+  else statsSelectedIHs.add(ih);
+  renderStats();
+}
+
+function statsToggleLocation(loc) {
+  if (!statsSelectedLocations) statsSelectedLocations = new Set();
+  if (statsSelectedLocations.has(loc)) statsSelectedLocations.delete(loc);
+  else statsSelectedLocations.add(loc);
+  renderStats();
+}
+
+function statsSelectAll() {
+  statsSelectedSEGs = null;
+  renderStats();
+}
+
+function statsSelectNone() {
+  statsSelectedSEGs = new Set();
+  renderStats();
+}
+
+function statsSelectAllIH() {
+  statsSelectedIHs = null;
+  renderStats();
+}
+
+function statsSelectAllLocations() {
+  statsSelectedLocations = null;
+  renderStats();
+}
+
 var racSelectedIHs        = null;
 var racSelectedLocations  = null;
 var racSelectedSEGs       = null;
@@ -7172,6 +7214,1035 @@ function renderRAC() {
     + '</tr></thead><tbody>' + summaryRows + '</tbody>'
     + '</table></div></div></div>'
     + detailCards;
+}
+
+
+function loadScript(url, cb) {
+  var s = document.createElement('script');
+  s.src = url;
+  s.onload = cb;
+  s.onerror = function() { cb(new Error('Failed to load ' + url)); };
+  document.head.appendChild(s);
+}
+
+function ensureJSZip(cb) {
+  if (typeof JSZip !== 'undefined') return cb();
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', cb);
+}
+
+function ensurePDFJS(cb) {
+  // PDF.js is inlined — always available
+  cb();
+}
+
+function ensureMammoth(cb) {
+  if (typeof mammoth !== 'undefined') return cb();
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', cb);
+}
+
+// ── Drop / file intake ────────────────────────────────────
+
+// ── Drop / file intake ────────────────────────────────────
+function verifyHandleDrop(event) {
+  event.preventDefault();
+  document.getElementById('verifyDropZone').classList.remove('vdz-hover');
+  verifyHandleFiles(event.dataTransfer.files);
+}
+
+function verifyHandleFiles(files) {
+  if (!files || !files.length) return;
+  var fileList = Array.from(files);
+  verifySetStatus('Loading libraries…');
+  ensureJSZip(function() {
+    ensurePDFJS(function() {
+      ensureMammoth(function() {
+        verifyProcessFiles(fileList);
+      });
+    });
+  });
+}
+
+function verifyProcessFiles(fileList) {
+  verifySetStatus('Processing ' + fileList.length + ' file(s)…');
+  var promises = [];
+  fileList.forEach(function(file) {
+    var ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'zip') {
+      promises.push(verifyExpandZip(file));
+    } else {
+      promises.push(verifyParseFile(file, file.name));
+    }
+  });
+  Promise.all(promises).then(function(nested) {
+    var reports = [].concat.apply([], nested);
+    if (!reports.length) {
+      verifySetStatus('No parseable reports found.');
+      return;
+    }
+    verifySetStatus('Matching ' + reports.length + ' report(s) to surveys…');
+    var rows = reports.map(verifyMatchAndCompare);
+    verifyRenderResults(rows);
+  }).catch(function(err) {
+    verifySetStatus('Error: ' + (err.message || err));
+  });
+}
+
+function verifyExpandZip(file) {
+  return JSZip.loadAsync(file).then(function(zip) {
+    var promises = [];
+    zip.forEach(function(path, entry) {
+      if (entry.dir) return;
+      var ext = path.split('.').pop().toLowerCase();
+      if (['pdf','csv','docx'].indexOf(ext) === -1) return;
+      promises.push(
+        entry.async('blob').then(function(blob) {
+          var f = new File([blob], path);
+          return verifyParseFile(f, path);
+        })
+      );
+    });
+    return Promise.all(promises).then(function(a) { return [].concat.apply([], a); });
+  });
+}
+
+// ── File parsers ──────────────────────────────────────────
+function verifyParseFile(file, name) {
+  var ext = name.split('.').pop().toLowerCase();
+  if (ext === 'csv')  return verifyParseCSV(file, name);
+  if (ext === 'pdf')  return verifyParsePDF(file, name);
+  if (ext === 'docx') return verifyParseDOCX(file, name);
+  return Promise.resolve([]);
+}
+
+function verifyParseCSV(file, name) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var text = e.target.result;
+      resolve([verifyExtractFields(text, name)]);
+    };
+    reader.readAsText(file);
+  });
+}
+
+function verifyParsePDF(file, name) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var data = new Uint8Array(e.target.result);
+      pdfjsLib.getDocument({ data: data }).promise.then(function(pdf) {
+        // Process every page independently.
+        // PDF.js joins content items with spaces → flat string per page, no newlines.
+        // Multi-report PDFs: one Summary page + one Chart page per survey.
+        // We parse every page and keep only those that yield a valid serial number.
+        var pagePromises = [];
+        for (var pi = 1; pi <= pdf.numPages; pi++) {
+          (function(pageNum) {
+            pagePromises.push(
+              pdf.getPage(pageNum).then(function(page) {
+                return page.getTextContent().then(function(content) {
+                  // The Casella PDF uses a two-column layout where labels (left col)
+                  // and values (right col) are typeset ~0.4pt apart vertically.
+                  // Simple space-joining loses line structure; y-grouping fixes it.
+                  var itemsWithPos = content.items
+                    .filter(function(item) { return item.str && item.str.trim(); })
+                    .map(function(item) {
+                      var y = item.transform ? item.transform[5] : 0;
+                      var x = item.transform ? item.transform[4] : 0;
+                      // item.width = rendered width of the text item
+                      // item.height ≈ font size for single-line items
+                      return {
+                        str: item.str,
+                        x: x,
+                        y: y,
+                        w: item.width || 0,
+                        size: item.height || (item.transform ? Math.abs(item.transform[3]) : 10)
+                      };
+                    });
+                  if (!itemsWithPos.length) return '';
+                  // Group into lines with 6pt y-tolerance
+                  // The Casella PDF renders individual character glyphs — labels and values
+                  // sit ~0.4pt apart vertically (two-column layout).
+                  var TOL = 6;
+                  var lineGroups = [];
+                  itemsWithPos.forEach(function(item) {
+                    var placed = false;
+                    for (var gi = 0; gi < lineGroups.length; gi++) {
+                      if (Math.abs(lineGroups[gi].y - item.y) <= TOL) {
+                        lineGroups[gi].items.push(item);
+                        lineGroups[gi].y = (lineGroups[gi].y + item.y) / 2;
+                        placed = true;
+                        break;
+                      }
+                    }
+                    if (!placed) lineGroups.push({ y: item.y, items: [item] });
+                  });
+                  // Sort groups top-to-bottom (PDF y increases upward, so descending = top-first)
+                  lineGroups.sort(function(a, b) { return b.y - a.y; });
+                  // Within each group: sort left-to-right, then join with smart spacing.
+                  // Insert a space between items when the x-gap exceeds ~30% of font size
+                  // (word boundary detection — handles character-level glyph PDFs).
+                  var lines = lineGroups.map(function(g) {
+                    g.items.sort(function(a, b) { return a.x - b.x; });
+                    if (!g.items.length) return '';
+                    var result = g.items[0].str;
+                    for (var ii = 1; ii < g.items.length; ii++) {
+                      var prev = g.items[ii - 1];
+                      var curr = g.items[ii];
+                      var gap = curr.x - (prev.x + (prev.w || 0));
+                      var threshold = (prev.size || 10) * 0.25;
+                      if (gap > threshold) result += ' ';
+                      result += curr.str;
+                    }
+                    return result.trim();
+                  }).filter(Boolean);
+                  return lines.join('\n');
+                });
+              })
+            );
+          })(pi);
+        }
+        Promise.all(pagePromises).then(function(pageTexts) {
+          var reports = [];
+          var isSingleReport = (pdf.numPages <= 2);
+          pageTexts.forEach(function(pageText, idx) {
+            var fname = isSingleReport ? name : name + ' p' + (idx + 1);
+            var parsed = verifyExtractFields(pageText, fname);
+            // Only keep pages that yielded a serial number (Summary pages)
+            if (parsed.serial) {
+              if (isSingleReport) parsed._filename = name;
+              reports.push(parsed);
+            }
+          });
+          if (!reports.length) {
+            reports.push({ _filename: name, _parseError: true });
+          }
+          resolve(reports);
+        });
+      }).catch(function(err) {
+        resolve([{ _filename: name, _parseError: true }]);
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function verifyParseDOCX(file, name) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function(result) {
+        resolve([verifyExtractFields(result.value, name)]);
+      }).catch(function() { resolve([{ _filename: name, _parseError: true }]); });
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── Field extraction from raw text ───────────────────────
+// Tuned for Casella dBadge2 DOCX/PDF export format.
+// Tab-delimited label/value pairs, one per line.
+// Example lines (real format):
+//   "Serial Number\t2106079 / Austin Donaghey"
+//   "Start Time\t2/11/2026 6:58:53 AM"
+//   "Measurement Duration\t09:13:42"
+//   "Calibration Before SPL\t114.0 dB"
+//   "Calibration Drift\t0.0 dB"
+//   "Dosimeter 1 Setup\tACGIH (T80, C85, Q3)"
+//   "D1 TWA 8Hrs\t59.0 dB"
+//   "D1 Lavg\t58.4 dB"
+//   "D1 Dose\t0.2 %"
+// Note: Inclusion Zone section repeats all D1 values — stop at first occurrence.
+function verifyExtractFields(text, filename) {
+
+  // Build a key→value map from the report text.
+  // Three supported formats:
+  //   DOCX: tab-delimited lines  "Label\tValue"
+  //   PDF (newlines): "Label Value" lines  (pdfplumber / direct text)
+  //   PDF (flat):     one long space-separated string — what PDF.js produces
+  //                   by joining content.items with spaces (no newlines)
+  //
+  // Detection:
+  //   hasTab  → DOCX mode
+  //   hasNewlines (but no tabs) → PDF newline mode
+  //   no tabs AND no newlines → PDF flat mode (PDF.js output)
+  var kvMap = {};
+
+  // Known labels ordered longest-first to prevent prefix collisions
+  var PDF_LABELS = [
+    'Calibration Before Time','Calibration Before SPL','Calibration After Time',
+    'Calibration Drift','Dosimeter 1 Setup',
+    'D1 TWA 8Hrs Projected','D1 TWA 8Hrs','D1 Dose Projected','D1 Dose',
+    'D1 LAeq','D1 Lavg','D1 LASmax (Time)','D1 LCpeak (Time)','D1 LZpeak (Time)',
+    'D1 LAFmax (Time)','D1 LAImax (Time)','D1 LASmin (Time)',
+    'D1 LAE','D1 LCeq - LAeq',
+    'Measurement Duration','Run Duration',
+    'Serial Number','Start Time','End Time',
+    'Run Number','Audio Note Recorded','Overload Duration',
+    'UnderRange Duration','Over 140 Duration','Motion Index','Octaves Enabled',
+    'User Text Line 1','Note'
+  ];
+
+  // Build lookahead alternation for the flat-string regex
+  // Escapes parentheses in label names for regex use
+  function reEscape(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+  var labelAlt = PDF_LABELS.map(reEscape).join('|');
+  // Also include stop-words in the lookahead
+  var stopAlt = 'Profile Chart|Inclusion.Exclusion Information|Inclusion Zone';
+  var fullAlt = labelAlt + '|' + stopAlt;
+
+  var lines = text.split(/\r?\n/);
+  var hasTab = text.indexOf('\t') > -1;
+  var hasNewline = text.indexOf('\n') > -1;
+  // PDF.js flat mode: no tabs, and either no newlines OR all lines are very long
+  // (long lines = PDF.js joining multiple text items without proper line breaks)
+  var avgLineLen = hasNewline ? (text.length / lines.length) : text.length;
+  var isFlat = !hasTab && (!hasNewline || avgLineLen > 150);
+
+  if (hasTab) {
+    // ── DOCX mode ──────────────────────────────────────────
+    var stopParsing = false;
+    lines.forEach(function(line) {
+      if (stopParsing) return;
+      var clean = line.replace(/^\s+/, '');
+      if (/Inclusion.*Exclusion/i.test(clean) || /^Profile Chart/i.test(clean)) {
+        stopParsing = true; return;
+      }
+      var tabIdx = clean.indexOf('\t');
+      if (tabIdx < 1) return;
+      var key = clean.slice(0, tabIdx).trim().toLowerCase();
+      var val = clean.slice(tabIdx + 1).trim();
+      if (!(key in kvMap)) kvMap[key] = val;
+    });
+
+  } else if (hasNewline && !isFlat) {
+    // ── PDF newline mode: PDF.js output with hasEOL newlines ──
+    // The Casella PDF uses a two-column layout. PDF.js sometimes emits the label
+    // and its value on SEPARATE lines because they are separate text columns.
+    // Two split patterns occur:
+    //   Pattern A: label-only line followed by orphan-value line
+    //   Pattern B: orphan-value line followed by label-only line
+    // Fix: pre-process lines to merge these pairs before building the kvMap.
+
+    function startsWithLabel(s) {
+      for (var li = 0; li < PDF_LABELS.length; li++) {
+        var lbl = PDF_LABELS[li];
+        if (s === lbl) return lbl;
+        if (s.length > lbl.length && s.slice(0, lbl.length) === lbl && s.charAt(lbl.length) === ' ') return lbl;
+      }
+      return null;
+    }
+
+    // Strip and stop at section dividers
+    var cleanLines = [];
+    for (var ci = 0; ci < lines.length; ci++) {
+      var cl = lines[ci].replace(/^\s+/, '');
+      if (/^Profile Chart/i.test(cl) || /^Inclusion.Exclusion/i.test(cl) || /^Inclusion Zone/i.test(cl)) break;
+      if (cl) cleanLines.push(cl);
+    }
+
+    // Merge split label/value pairs
+    var mergedLines = [];
+    var mi = 0;
+    while (mi < cleanLines.length) {
+      var cur = cleanLines[mi];
+      var curLabel = startsWithLabel(cur);
+      var isLabelOnly = (curLabel !== null && cur === curLabel);
+
+      if (mi + 1 < cleanLines.length) {
+        var nxt = cleanLines[mi + 1];
+        var nxtLabel = startsWithLabel(nxt);
+        var nxtIsLabelOnly = (nxtLabel !== null && nxt === nxtLabel);
+
+        // Pattern A: current = label-only, next = value (no label)
+        if (isLabelOnly && !nxtLabel) {
+          mergedLines.push(cur + ' ' + nxt);
+          mi += 2;
+          continue;
+        }
+        // Pattern B: current = value (no label), next = label-only
+        if (!curLabel && nxtIsLabelOnly) {
+          mergedLines.push(nxt + ' ' + cur);
+          mi += 2;
+          continue;
+        }
+      }
+      mergedLines.push(cur);
+      mi++;
+    }
+
+    // Build kvMap from merged lines
+    mergedLines.forEach(function(line) {
+      var lbl = startsWithLabel(line);
+      if (lbl && line !== lbl) {
+        var key = lbl.toLowerCase();
+        var val = line.slice(lbl.length + 1).trim();
+        if (!(key in kvMap)) kvMap[key] = val;
+      }
+    });
+
+  } else {
+    // ── PDF flat mode: PDF.js output or long-line newline text ──
+    // Truncate at stop words first
+    var stopMatch = text.search(/\bProfile Chart\b|\bInclusion\/Exclusion\b|\bInclusion Zone\b/i);
+    var flat = stopMatch > -1 ? text.slice(0, stopMatch) : text;
+    // Extract each label's value using lookahead regex
+    PDF_LABELS.forEach(function(label) {
+      var rx = new RegExp(
+        '(?:^|\\s)' + reEscape(label) + '\\s+(.+?)(?=\\s+(?:' + fullAlt + ')|$)',
+        'i'
+      );
+      var m = flat.match(rx);
+      if (m) {
+        var key = label.toLowerCase();
+        if (!(key in kvMap)) kvMap[key] = m[1].trim();
+      }
+    });
+  }
+
+  function get(key) { return kvMap[key.toLowerCase()] || null; }
+
+  // ── Serial number + worker name ──────────────────────────
+  // Casella puts both on one line with various separators:
+  //   "2106079 / Austin Donaghey"   (standard: space-slash-space)
+  //   "2106167/Robert Considine"    (slash, no spaces)
+  //   "2106167 - Robert Considine"  (dash)
+  //   "2106167_Robert Considine"    (underscore)
+  //   "2106167 Robert Considine"    (space only)
+  var serialRaw = get('serial number') || get('serial no') || get('serial');
+  var serial = null, reportName = null;
+  if (serialRaw) {
+    var sm;
+    // digits then any separator (/, -, _) then name
+    sm = serialRaw.match(/^(\d+)\s*[\/\-_]\s*(.+)$/);
+    if (sm) {
+      serial     = sm[1].trim();
+      reportName = sm[2].trim();
+    } else {
+      // digits then space then name (no separator char)
+      sm = serialRaw.match(/^(\d+)\s+(.+)$/);
+      if (sm) {
+        serial     = sm[1].trim();
+        reportName = sm[2].trim();
+      } else {
+        // serial only, no name on this line
+        serial = serialRaw.trim();
+      }
+    }
+  }
+
+  // ── Times ────────────────────────────────────────────────
+  // Format: "2/11/2026 6:58:53 AM"
+  var startRaw = get('start time');
+  var stopRaw  = get('end time') || get('stop time');
+
+  // Survey date from start time
+  var surveyDate = null;
+  if (startRaw) {
+    var dm = startRaw.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/);
+    if (dm) {
+      // Convert m/d/yyyy → yyyy-mm-dd
+      var parts = dm[1].split('/');
+      surveyDate = parts[2] + '-' + parts[0].padStart(2,'0') + '-' + parts[1].padStart(2,'0');
+    }
+  }
+
+  // ── Run time ─────────────────────────────────────────────
+  // "Measurement Duration\t09:13:42"
+  var runTime = get('measurement duration') || get('run duration') || get('run time') || get('elapsed time') || get('duration');
+  if (runTime) runTime = runTime.replace(/\s*dB.*$/i,'').trim();
+
+  // ── Calibration ──────────────────────────────────────────
+  // Pre: "Calibration Before SPL\t114.0 dB"
+  var preCalRaw  = get('calibration before spl') || get('pre-calibration') || get('pre calibration');
+  var preCal = preCalRaw ? numParse(preCalRaw) : null;
+
+  // Pre time: "Calibration Before Time\t2/11/2026 6:58:42 AM"
+  var preCalTime = get('calibration before time') || get('pre-calibration time');
+
+  // Post: Casella stores DRIFT, not absolute post-cal SPL
+  // "Calibration Drift\t0.0 dB"  → postCal = preCal + drift
+  var driftRaw   = get('calibration drift') || get('cal drift');
+  var drift      = numParse(driftRaw);
+  var postCal    = (preCal !== null && drift !== null) ? Math.round((preCal + drift) * 10) / 10 : null;
+  var postCalTime = get('calibration after time') || get('post-calibration time');
+
+  // Strip thousands-separator commas before parseFloat.
+  // Casella formats large numbers with commas: "4,717.3 %" → parseFloat stops at comma → 4.
+  // numParse removes all commas first so "4,717.3" correctly becomes 4717.3.
+  function numParse(s) {
+    if (!s) return null;
+    var n = parseFloat(String(s).replace(/,/g, ''));
+    return isNaN(n) ? null : n;
+  }
+
+  // ── Results — "D1 " prefixed ─────────────────────────────
+  // "D1 TWA 8Hrs\t59.0 dB"
+  var twaRaw  = get('d1 twa 8hrs') || get('d1 twa 8 hrs') || get('d1 twa') || get('twa 8hrs') || get('twa');
+  var twa     = numParse(twaRaw);
+
+  // "D1 Dose\t0.2 %" or "D1 Dose\t4,717.3 %" for high-exposure workers
+  var doseRaw = get('d1 dose') || get('dose');
+  var dose    = numParse(doseRaw);
+
+  // "D1 Lavg\t58.4 dB"
+  var lavgRaw = get('d1 lavg') || get('d1 laeq') || get('lavg') || get('laeq');
+  var lavg    = numParse(lavgRaw);
+
+  // LASmax (for LASmax > 115 flag)
+  var lasmaxRaw = get('d1 lasmax (time)') || get('d1 lasmax');
+  var lasmax    = numParse(lasmaxRaw);
+
+  // ── Dosimeter setup ──────────────────────────────────────
+  // "Dosimeter 1 Setup\tACGIH (T80, C85, Q3)"
+  // Standard Casella setup string: T##=threshold, C##=criterion, Q#=exchange
+  var setupRaw = get('dosimeter 1 setup') || get('dosimeter setup') || get('d1 setup');
+  var exchange = null, criterion = null, threshold = null, weighting = null, response = null;
+  if (setupRaw) {
+    var tMatch = setupRaw.match(/T(\d+)/i);
+    var cMatch = setupRaw.match(/C(\d+)/i);
+    var qMatch = setupRaw.match(/Q(\d+)/i);
+    if (tMatch) threshold = parseFloat(tMatch[1]);
+    if (cMatch) criterion = parseFloat(cMatch[1]);
+    if (qMatch) exchange  = parseFloat(qMatch[1]);
+    // ACGIH/NIOSH implies A-weighting Slow; OSHA implies A-weighting Slow as well
+    // Weighting and response are not explicitly in setup string — infer if needed
+    if (/[ACZ]-?weight/i.test(setupRaw)) {
+      var wm = setupRaw.match(/([ACZ])-?weight/i);
+      if (wm) weighting = wm[1].toUpperCase();
+    } else if (/ACGIH|NIOSH|OSHA/i.test(setupRaw)) {
+      weighting = 'A'; // all standard methods use A-weighting
+    }
+    if (/slow/i.test(setupRaw)) response = 'Slow';
+    else if (/fast/i.test(setupRaw)) response = 'Fast';
+    else if (/ACGIH|NIOSH|OSHA/i.test(setupRaw)) response = 'Slow'; // standard default
+  }
+
+  return {
+    _filename:  filename,
+    _rawText:   text,
+    _kvMap:     kvMap,       // expose for debug mode
+    serial:     serial,
+    reportName: reportName,
+    surveyDate: surveyDate,
+    startRaw:   startRaw,
+    stopRaw:    stopRaw,
+    preCalTime: preCalTime,
+    postCalTime: postCalTime,
+    twa:        twa,
+    dose:       dose,
+    lavg:       lavg,
+    lasmax:     lasmax,
+    runTime:    runTime,
+    preCal:     preCal,
+    postCal:    postCal,
+    calDrift:   drift,
+    exchange:   exchange,
+    criterion:  criterion,
+    threshold:  threshold,
+    weighting:  weighting,
+    response:   response
+  };
+}
+
+
+
+// ── Match report to survey ────────────────────────────────
+function verifyMatchAndCompare(report) {
+  if (report._parseError) {
+    return { _filename: report._filename, _error: 'Parse failed', overall: 'ERROR' };
+  }
+  if (!report.serial) {
+    return { _filename: report._filename, _error: 'Serial not found in report', overall: 'UNMATCHED' };
+  }
+
+  // Load all surveys
+  var surveys = [];
+  try { surveys = JSON.parse(localStorage.getItem('ih_noise_surveys_v2') || '[]'); } catch(e) {}
+
+  // Match by serial (and optionally date)
+  var matched = surveys.filter(function(s) {
+    var serial = (s.dosimeter && s.dosimeter.serial) || s.serial || '';
+    return serial && serial.replace(/\s/g,'') === report.serial.replace(/\s/g,'');
+  });
+
+  // If multiple serials match, narrow by date
+  if (matched.length > 1 && report.surveyDate) {
+    var rDate = normalizeDate(report.surveyDate);
+    var narrowed = matched.filter(function(s) {
+      var sDate = normalizeDate(extractSurveyDate(s));
+      return rDate && sDate && rDate === sDate;
+    });
+    if (narrowed.length) matched = narrowed;
+  }
+
+  if (!matched.length) {
+    return {
+      _filename: report._filename,
+      serial: report.serial,
+      reportName: report.reportName,
+      _error: 'No survey found for serial ' + report.serial,
+      overall: 'UNMATCHED'
+    };
+  }
+
+  var survey = matched[0];
+  return verifyCompareFields(survey, report);
+}
+
+function extractSurveyDate(s) {
+  var dt = (s.calibration && s.calibration.surveyStart) || s.surveyStart || '';
+  if (!dt) return '';
+  return dt.split('T')[0];
+}
+
+function normalizeDate(d) {
+  if (!d) return '';
+  d = d.trim();
+  var m;
+  // Already ISO yyyy-mm-dd
+  m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  // Casella format: m/d/yyyy or mm/dd/yyyy (may have time appended)
+  m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
+  // ISO with dashes but partial
+  m = d.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
+  return d;
+}
+
+// ── Field-by-field comparison ─────────────────────────────
+function verifyCompareFields(survey, report) {
+  var cal = survey.calibration || {};
+  var res = survey.results     || {};
+  var dos = survey.dosimeter   || {};
+
+  var checks = {};
+
+  // Name — fuzzy Jaccard
+  var appName = (survey.employee && survey.employee.name) || survey.workerName || survey.subject || '';
+  var rptName = report.reportName || '';
+  var nameResult = verifyNameScore(appName, rptName);
+  checks.name = { app: appName, rpt: rptName, score: nameResult.score, status: nameResult.status };
+
+  // Serial number — exact match (whitespace-normalised)
+  var appSerial = (dos.serial || '').replace(/\s/g, '');
+  var rptSerial = (report.serial || '').replace(/\s/g, '');
+  checks.serial = {
+    app: dos.serial || '',
+    rpt: report.serial || '',
+    status: (appSerial && rptSerial && appSerial === rptSerial) ? 'PASS'
+          : (!appSerial || !rptSerial) ? 'MISSING'
+          : 'FAIL'
+  };
+
+  // Identification: serial OR name — either is sufficient
+  var identOk   = checks.serial.status === 'PASS' || checks.name.status === 'PASS';
+  var identWarn = !identOk && (checks.name.status === 'WARN');
+
+  // Numeric fields
+  function numCheck(appVal, rptVal, tolerance, key) {
+    var a = parseFloat(appVal), r = rptVal;
+    if (isNaN(a) || r === null) {
+      checks[key] = { app: appVal, rpt: rptVal, status: 'MISSING' };
+    } else {
+      var delta = Math.abs(a - r);
+      checks[key] = {
+        app: a, rpt: r, delta: delta,
+        status: delta <= tolerance ? 'PASS' : 'FAIL'
+      };
+    }
+  }
+
+  numCheck(res.twa     || res.dosReportTWA, report.twa,    0.5, 'twa');
+  numCheck(res.dose,                         report.dose,   1.0, 'dose');
+  numCheck(res.lavg,                         report.lavg,   0.1, 'lavg');
+  numCheck(cal.preReading,                   report.preCal, 0.1, 'preCal');
+  numCheck(cal.postReading,                  report.postCal,0.1, 'postCal');
+
+  // Run time — calculate from surveyStart/surveyEnd for comparison.
+  // App stores run time as decimal hours (e.g. "8.0") via resRunTime field,
+  // but the most accurate source is the actual start/end datetime.
+  // Report stores as hh:mm:ss (e.g. "08:59:38").
+  // Strategy: convert both to total minutes and compare within ±2 min.
+  function calcAppRunTimeMinutes() {
+    // Prefer start/end datetime calculation
+    var s = cal.surveyStart, e = cal.surveyEnd;
+    if (s && e) {
+      var st = new Date(s).getTime(), et = new Date(e).getTime();
+      if (!isNaN(st) && !isNaN(et) && et > st) return Math.round((et - st) / 60000);
+    }
+    // Fall back to stored run time (decimal hours)
+    var rt = parseFloat(res.runTime);
+    if (!isNaN(rt)) return Math.round(rt * 60);
+    return null;
+  }
+  function rptRunTimeMinutes(s) {
+    if (!s) return null;
+    s = s.trim();
+    // hh:mm:ss
+    var m = s.match(/^(\d+):(\d{2}):(\d{2})$/);
+    if (m) return parseInt(m[1])*60 + parseInt(m[2]);
+    // hh:mm
+    m = s.match(/^(\d+):(\d{2})$/);
+    if (m) return parseInt(m[1])*60 + parseInt(m[2]);
+    // decimal hours
+    var h = parseFloat(s);
+    if (!isNaN(h)) return Math.round(h * 60);
+    return null;
+  }
+  var appRTmin = calcAppRunTimeMinutes();
+  var rptRTmin = rptRunTimeMinutes(report.runTime);
+  // Display values
+  var appRTDisplay = (function() {
+    var s = cal.surveyStart, e = cal.surveyEnd;
+    if (s && e) {
+      var st = new Date(s).getTime(), et = new Date(e).getTime();
+      if (!isNaN(st) && !isNaN(et) && et > st) {
+        var tot = Math.round((et-st)/1000);
+        var hh = Math.floor(tot/3600), mm = Math.floor((tot%3600)/60), ss = tot%60;
+        return hh + ':' + String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+      }
+    }
+    return (res.runTime || '') + (res.runTime ? ' hr' : '');
+  })();
+  checks.runTime = {
+    app: appRTDisplay,
+    rpt: report.runTime || '',
+    deltaMin: (appRTmin !== null && rptRTmin !== null) ? Math.abs(appRTmin - rptRTmin) : null,
+    status: (appRTmin === null || rptRTmin === null) ? 'MISSING'
+          : Math.abs(appRTmin - rptRTmin) <= 2 ? 'PASS' : 'FAIL'
+  };
+
+  // Time fields — ±1 min tolerance
+  function timeCheck(appDT, rptRaw, key) {
+    if (!appDT || !rptRaw) {
+      checks[key] = { app: appDT, rpt: rptRaw, status: 'MISSING' };
+      return;
+    }
+    // Casella format: "2/11/2026 6:58:53 AM" — convert for reliable Date parsing
+    function parseCasellaTime(s) {
+      if (!s) return NaN;
+      // Try native parse first
+      var t = new Date(s).getTime();
+      if (!isNaN(t)) return t;
+      // m/d/yyyy h:mm:ss AM/PM
+      var m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+      if (!m) return NaN;
+      var mo=parseInt(m[1])-1, dy=parseInt(m[2]), yr=parseInt(m[3]);
+      var hr=parseInt(m[4]), mn=parseInt(m[5]), sc=parseInt(m[6]||0);
+      var ampm = (m[7]||'').toUpperCase();
+      if (ampm === 'PM' && hr < 12) hr += 12;
+      if (ampm === 'AM' && hr === 12) hr = 0;
+      return new Date(yr, mo, dy, hr, mn, sc).getTime();
+    }
+    var at = new Date(appDT).getTime();
+    var rt = parseCasellaTime(rptRaw);
+    if (isNaN(at) || isNaN(rt)) {
+      checks[key] = { app: appDT, rpt: rptRaw, status: 'MISSING' };
+      return;
+    }
+    var diff = Math.abs(at - rt) / 60000; // minutes
+    checks[key] = {
+      app: appDT, rpt: rptRaw, diffMin: diff,
+      status: diff <= 1 ? 'PASS' : 'FAIL'
+    };
+  }
+
+  timeCheck(cal.surveyStart, report.startRaw, 'startTime');
+  timeCheck(cal.surveyEnd,   report.stopRaw,  'stopTime');
+
+  // Dosimeter setup parameters — exact match (these are deliberately set by IH)
+  function setupCheck(appVal, rptVal, key) {
+    var a = (appVal !== undefined && appVal !== null && appVal !== '') ? String(appVal).trim() : null;
+    var r = rptVal !== null ? String(rptVal).trim() : null;
+    if (!a || !r) {
+      checks[key] = { app: a, rpt: r, status: 'MISSING' };
+    } else {
+      // Numeric comparison for exchange/criterion/threshold (allow ±0.1 for float display differences)
+      var af = parseFloat(a), rf = parseFloat(r);
+      if (!isNaN(af) && !isNaN(rf)) {
+        checks[key] = { app: a, rpt: r, delta: Math.abs(af - rf),
+                        status: Math.abs(af - rf) < 0.15 ? 'PASS' : 'FAIL' };
+      } else {
+        // String comparison (weighting, response)
+        checks[key] = { app: a, rpt: r,
+                        status: a.toUpperCase() === r.toUpperCase() ? 'PASS' : 'FAIL' };
+      }
+    }
+  }
+
+  setupCheck(dos.exchange,   report.exchange,   'exchange');
+  setupCheck(dos.criterion,  report.criterion,  'criterion');
+  setupCheck(dos.weighting,  report.weighting,  'weighting');
+  setupCheck(dos.response,   report.response,   'response');
+
+  // Overall — identification passes if EITHER serial OR name matches
+  var hasHardFail = ['twa','dose','lavg','preCal','postCal','runTime','startTime','stopTime',
+                     'exchange','criterion','weighting','response']
+    .some(function(k) { return checks[k] && checks[k].status === 'FAIL'; });
+  var hasMissing = Object.keys(checks).filter(function(k) { return k !== 'serial' && k !== 'name'; })
+    .some(function(k) { return checks[k] && checks[k].status === 'MISSING'; });
+
+  var overall = hasHardFail  ? 'FAIL'
+              : !identOk && !identWarn ? 'FLAG'
+              : !identOk     ? 'WARN'
+              : hasMissing   ? 'INCOMPLETE'
+              : 'PASS';
+
+  return {
+    _filename: report._filename,
+    surveyId:  survey.id,
+    serial:    (dos.serial || ''),
+    date:      extractSurveyDate(survey),
+    appName:   appName,
+    checks:    checks,
+    overall:   overall,
+    identOk:   identOk,
+    identWarn: identWarn,
+    _survey:   survey,
+    _report:   report
+  };
+}
+
+// ── Name matching ─────────────────────────────────────────
+function verifyNameScore(a, b) {
+  if (!a || !b) return { score: 0, status: 'MISSING' };
+  function tokens(s) {
+    return s.toLowerCase()
+            .replace(/[,.\-']/g, ' ')
+            .split(/\s+/)
+            .filter(Boolean);
+  }
+  var ta = new Set(tokens(a));
+  var tb = new Set(tokens(b));
+  var intersection = 0;
+  ta.forEach(function(t) { if (tb.has(t)) intersection++; });
+  var union = new Set([...ta, ...tb]).size;
+  var score = union ? intersection / union : 0;
+  var status = score >= 0.75 ? 'PASS'
+             : score >= 0.5  ? 'WARN'
+             : 'FAIL';
+  return { score: Math.round(score * 100) / 100, status: status };
+}
+
+function normalizeRunTime(s) {
+  // Accept "hh:mm:ss", "Xh Ym", "X.XX" hours — normalize to total minutes
+  s = s.trim();
+  var m;
+  m = s.match(/^(\d+):(\d{2}):(\d{2})$/);
+  if (m) return parseInt(m[1])*60 + parseInt(m[2]);
+  m = s.match(/^(\d+):(\d{2})$/);
+  if (m) return parseInt(m[1])*60 + parseInt(m[2]);
+  m = s.match(/^([\d.]+)\s*h/i);
+  if (m) return Math.round(parseFloat(m[1])*60);
+  return s;
+}
+
+// ── Render results table ──────────────────────────────────
+function verifyRenderResults(rows) {
+  var total  = rows.length;
+  var passed = rows.filter(function(r) { return r.overall === 'PASS'; }).length;
+  var warns  = rows.filter(function(r) { return r.overall === 'WARN' || r.overall === 'FLAG'; }).length;
+  var failed = rows.filter(function(r) { return r.overall === 'FAIL'; }).length;
+  var unmatched = rows.filter(function(r) { return r.overall === 'UNMATCHED' || r.overall === 'ERROR'; }).length;
+
+  // Summary badges
+  var summaryEl = document.getElementById('verifySummary');
+  summaryEl.innerHTML =
+    badge(total    + ' Total',     'var(--text3)',   'var(--surface2)') +
+    badge(passed   + ' Pass',      '#1d7a45',        '#eafaf1') +
+    (warns   ? badge(warns  + ' Warn/Flag', '#8a5c00', '#fff8e6') : '') +
+    (failed  ? badge(failed + ' Fail',      '#b83030', '#fdf0f0') : '') +
+    (unmatched ? badge(unmatched + ' Unmatched', 'var(--text3)', 'var(--surface2)') : '');
+
+  function badge(text, color, bg) {
+    return '<span style="display:inline-block; padding:4px 12px; border-radius:20px; ' +
+           'font-size:11px; font-weight:700; color:' + color + '; background:' + bg + ';">' +
+           text + '</span>';
+  }
+
+  // Table rows
+  var tbody = document.getElementById('verifyTableBody');
+  tbody.innerHTML = '';
+
+  rows.forEach(function(row) {
+    var tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border)';
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('mouseenter', function() { tr.style.background = 'var(--surface)'; });
+    tr.addEventListener('mouseleave', function() { tr.style.background = ''; });
+    tr.addEventListener('click', function() { verifyOpenDrawer(row); });
+
+    if (row.overall === 'UNMATCHED' || row.overall === 'ERROR') {
+      tr.innerHTML =
+        '<td colspan="12" style="padding:10px 14px; color:var(--text3); font-style:italic;">' +
+        '⚠ ' + (row._error || row.overall) + ' — ' + row._filename +
+        '</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+
+    var c = row.checks || {};
+
+    function cell(chk, fmt) {
+      if (!chk) return tdCell('—', 'var(--text3)');
+      if (chk.status === 'PASS') return tdCell('✓', '#1d7a45');
+      if (chk.status === 'MISSING') return tdCell('—', 'var(--text3)');
+      if (chk.status === 'WARN') {
+        var label = fmt ? fmt(chk) : '⚠';
+        return tdCell(label, '#8a5c00', '#fff8e6');
+      }
+      if (chk.status === 'FAIL') {
+        var label2 = fmt ? fmt(chk) : '✗';
+        return tdCell(label2, '#b83030', '#fdf0f0');
+      }
+      return tdCell('?', 'var(--text3)');
+    }
+
+    function tdCell(text, color, bg) {
+      return '<td style="padding:8px 10px; text-align:center; color:' + color + ';' +
+             (bg ? 'background:' + bg + ';' : '') +
+             ' font-size:11px; font-weight:600; font-family:var(--mono);">' + text + '</td>';
+    }
+
+    var overallColor = { PASS: '#1d7a45', WARN: '#8a5c00', FLAG: '#8a5c00',
+                         FAIL: '#b83030', INCOMPLETE: 'var(--text3)' }[row.overall] || 'var(--text3)';
+    var overallBg    = { PASS: '#eafaf1', WARN: '#fff8e6', FLAG: '#fff8e6',
+                         FAIL: '#fdf0f0', INCOMPLETE: 'var(--surface2)' }[row.overall] || 'var(--surface2)';
+
+    tr.innerHTML =
+      '<td style="padding:8px 10px; font-family:var(--mono); font-size:11px; white-space:nowrap;">' + (row.serial || '—') + '</td>' +
+      '<td style="padding:8px 10px; font-family:var(--mono); font-size:11px; white-space:nowrap;">' + (row.date || '—') + '</td>' +
+      '<td style="padding:8px 10px; font-size:11px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + (row.appName || '') + '">' +
+        (c.name && c.name.status !== 'PASS' ?
+          '<span style="color:' + (c.name.status === 'WARN' ? '#8a5c00' : '#b83030') + '; font-size:10px;">⚠ </span>' : '') +
+        (row.appName || '—') + '</td>' +
+      cell(c.serial,   function(k) { return '✗ ' + (k.rpt || '') + '≠' + (k.app || ''); }) +
+      cell(c.twa,      function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
+      cell(c.dose,     function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + '%'  : ''); }) +
+      cell(c.lavg,     function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
+      cell(c.runTime, function(k) { return k.deltaMin !== null ? '✗ ' + k.deltaMin + 'm' : '✗'; }) +
+      cell(c.preCal,   function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
+      cell(c.postCal,  function(k) { return '✗ ' + (k.delta ? k.delta.toFixed(1) + 'dB' : ''); }) +
+      cell(c.startTime,function(k) { return '✗ ' + (k.diffMin ? k.diffMin.toFixed(0) + 'm' : ''); }) +
+      cell(c.stopTime,  function(k) { return '✗ ' + (k.diffMin ? k.diffMin.toFixed(0) + 'm' : ''); }) +
+      cell(c.exchange,  function(k) { return '✗ ' + (k.app || '') + '≠' + (k.rpt || ''); }) +
+      cell(c.criterion, function(k) { return '✗ ' + (k.app || '') + '≠' + (k.rpt || ''); }) +
+      cell(c.weighting, function(k) { return '✗ ' + (k.app || '') + '≠' + (k.rpt || ''); }) +
+      cell(c.response,  function(k) { return '✗ ' + (k.app || '') + '≠' + (k.rpt || ''); }) +
+      '<td style="padding:6px 10px; text-align:center;">' +
+        '<span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px;' +
+        ' font-weight:700; color:' + overallColor + '; background:' + overallBg + ';">' +
+        row.overall + '</span></td>';
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('verifyResults').style.display = 'block';
+  verifySetStatus('');
+  verifyCurrentRows = rows;
+}
+
+var verifyCurrentRows = [];
+
+// ── Drawer (single survey detail) ────────────────────────
+function verifyOpenDrawer(row) {
+  var c = row.checks || {};
+  var identOk   = row.identOk;
+  var identWarn = row.identWarn;
+  var lines = [];
+
+  lines.push('<div style="font-size:11px; color:var(--text3); margin-bottom:12px; font-family:var(--mono);">File: ' + row._filename + '</div>');
+
+  function detailRow(label, chk, fmtFn) {
+    if (!chk) return '';
+    var statusColor = chk.status === 'PASS'    ? '#1d7a45'
+                    : chk.status === 'WARN'    ? '#8a5c00'
+                    : chk.status === 'FAIL'    ? '#b83030'
+                    : chk.status === 'MISSING' ? 'var(--text3)'
+                    : 'var(--text3)';
+    var icon = chk.status === 'PASS' ? '✓' : chk.status === 'WARN' ? '⚠' :
+               chk.status === 'FAIL' ? '✗' : '—';
+    var detail = fmtFn ? fmtFn(chk) : '';
+    return '<div style="display:grid; grid-template-columns:1fr auto; gap:8px; padding:9px 0; border-bottom:1px solid var(--border); align-items:start;">' +
+      '<div>' +
+        '<div style="font-size:11px; font-weight:600; color:var(--text2); margin-bottom:2px;">' + label + '</div>' +
+        '<div style="font-size:11px; color:var(--text3); line-height:1.5;">' +
+          'App: <span style="font-family:var(--mono);">' + (chk.app !== undefined && chk.app !== null ? chk.app : '—') + '</span><br>' +
+          'Report: <span style="font-family:var(--mono);">' + (chk.rpt !== undefined && chk.rpt !== null ? chk.rpt : '—') + '</span>' +
+          (detail ? '<br><span style="color:' + statusColor + ';">' + detail + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:16px; font-weight:700; color:' + statusColor + '; padding-top:2px;">' + icon + '</div>' +
+    '</div>';
+  }
+
+  // Identification section: show both serial and name, note that either passing = ID OK
+  var identNote = identOk
+    ? '&#10003; Identification confirmed (' + (checks.serial && checks.serial.status === 'PASS' ? 'serial match' : 'name match') + ')'
+    : identWarn ? '⚠ Identification uncertain — neither serial nor name fully matched'
+    : '✗ Identification failed — serial and name both mismatched';
+  lines.push('<div style="font-size:10px; font-weight:600; padding:6px 0 4px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border);">Identification (Serial OR Name)</div>');
+  lines.push(detailRow('Serial Number', c.serial, function(k) {
+    return k.status === 'PASS' ? 'Exact match ✓' : k.status === 'FAIL' ? 'Mismatch — App: ' + (k.app||'—') + ', Report: ' + (k.rpt||'—') : '';
+  }));
+  lines.push(detailRow('Name', c.name, function(k) {
+    return 'Jaccard similarity: ' + (k.score || 0).toFixed(2) + (k.status === 'WARN' ? ' — minor spelling difference' : k.status === 'FAIL' ? ' — possible wrong person' : '');
+  }));
+  lines.push('<div style="font-size:11px; padding:6px 0 8px; color:' + (identOk ? '#1d7a45' : identWarn ? '#8a5c00' : '#b83030') + '; border-bottom:1px solid var(--border);">' + identNote + '</div>');
+  lines.push(detailRow('TWA (8-hr dBA)', c.twa, function(k) {
+    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.5)' : '';
+  }));
+  lines.push(detailRow('Dose (%)', c.dose, function(k) {
+    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + '% (tolerance ±1.0)' : '';
+  }));
+  lines.push(detailRow('Lavg (dBA)', c.lavg, function(k) {
+    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
+  }));
+  lines.push(detailRow('Run Time', c.runTime, function(k) {
+    if (k.status === 'PASS') return 'Match' + (k.deltaMin !== null ? ' (Δ ' + k.deltaMin + ' min, tolerance ±2)' : '');
+    if (k.deltaMin !== null) return 'Δ ' + k.deltaMin + ' min (tolerance ±2) — App calculated from Start/End times';
+    return '';
+  }));
+  lines.push(detailRow('Pre-Cal (dB)', c.preCal, function(k) {
+    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
+  }));
+  lines.push(detailRow('Post-Cal (dB)', c.postCal, function(k) {
+    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
+  }));
+  if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
+    lines.push('<div style="font-size:10px; color:var(--text3); margin:-4px 0 8px; padding-left:2px;">Report stores Cal Drift (' + row._report.calDrift.toFixed(1) + ' dB); Post-Cal derived as Pre-Cal + Drift.</div>');
+  }
+  lines.push(detailRow('Start Time', c.startTime, function(k) {
+    return k.diffMin !== undefined ? 'Δ ' + k.diffMin.toFixed(1) + ' min (tolerance ±1)' : '';
+  }));
+  lines.push(detailRow('Stop Time', c.stopTime, function(k) {
+    return k.diffMin !== undefined ? 'Δ ' + k.diffMin.toFixed(1) + ' min (tolerance ±1)' : '';
+  }));
+  lines.push('<div style="font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 4px;">Dosimeter Setup Parameters</div>');
+  lines.push(detailRow('Exchange Rate (dB)', c.exchange, function(k) {
+    return k.delta !== undefined ? (k.status === 'PASS' ? 'Match (Δ ' + k.delta.toFixed(2) + ')' : 'MISMATCH — setup differs from report') : '';
+  }));
+  lines.push(detailRow('Criterion Level (dB)', c.criterion, function(k) {
+    return k.delta !== undefined ? (k.status === 'PASS' ? 'Match (Δ ' + k.delta.toFixed(2) + ')' : 'MISMATCH — setup differs from report') : '';
+  }));
+  lines.push(detailRow('Frequency Weighting', c.weighting, function(k) {
+    return k.status === 'FAIL' ? 'MISMATCH — weighting differs from report' : '';
+  }));
+  lines.push(detailRow('Detector Response', c.response, function(k) {
+    return k.status === 'FAIL' ? 'MISMATCH — response differs from report' : '';
+  }));
+
+  document.getElementById('verifyDrawerContent').innerHTML = lines.join('');
+  document.getElementById('verifyDrawer').style.display = 'block';
+  document.getElementById('verifyDrawerBackdrop').style.display = 'block';
+}
+
+function verifyCloseDrawer() {
+  document.getElementById('verifyDrawer').style.display = 'none';
+  document.getElementById('verifyDrawerBackdrop').style.display = 'none';
 }
 
 function printRAC() {
