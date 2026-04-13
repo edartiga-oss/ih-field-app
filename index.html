@@ -1442,7 +1442,7 @@ body { padding: 20px 18px; }
   <div style="font-size:13px; color:var(--text2); margin-bottom:18px;">Risk Assessment Codes based on UTL by SEG and number of personnel exposed.</div>
 
   <!-- Filter bar -->
-  <div style="display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap; align-items:flex-start;">
+  <div style="display:flex; gap:20px; margin-bottom:18px; flex-wrap:wrap; align-items:flex-start; padding:14px 16px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);">
 
     <!-- IH filter -->
     <div>
@@ -1460,16 +1460,8 @@ body { padding: 20px 18px; }
       </div>
     </div>
 
-    <!-- Location filter -->
-    <div>
-      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by Location</div>
-      <div id="statsLocationChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-        <button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>
-      </div>
-    </div>
-
     <!-- SEG filter -->
-    <div style="flex:1;">
+    <div style="flex:1; min-width:220px;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by SEG</div>
       <div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
         <div id="racSegChips" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
