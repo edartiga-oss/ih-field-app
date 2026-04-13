@@ -5026,25 +5026,69 @@ function verifyParseDOCX(file, name) {
 // Note: Inclusion Zone section repeats all D1 values — stop at first occurrence.
 function verifyExtractFields(text, filename) {
 
-  // Build a key→value map from tab-delimited lines.
-  // Stop after "Inclusion/Exclusion Information" to avoid duplicates.
+  // Build a key→value map from the report text.
+  // Supports two formats:
+  //   DOCX: tab-delimited  "Label\tValue"
+  //   PDF:  space-separated "Label Value" (label is a known fixed string)
+  //
+  // Detection: if any line contains a tab character → DOCX mode
+  //            otherwise → PDF label-prefix mode
   var kvMap = {};
   var lines = text.split(/\r?\n/);
   var stopParsing = false;
+  var hasTab = lines.some(function(l) { return l.indexOf('\t') > -1; });
+
+  // Known PDF label prefixes — order matters (longer first to avoid prefix conflicts)
+  var PDF_LABELS = [
+    'Calibration Before Time','Calibration Before SPL','Calibration After Time',
+    'Calibration Drift','Dosimeter 1 Setup',
+    'D1 TWA 8Hrs Projected','D1 TWA 8Hrs','D1 Dose Projected','D1 Dose',
+    'D1 LAeq','D1 Lavg','D1 LASmax (Time)','D1 LCpeak (Time)','D1 LZpeak (Time)',
+    'D1 LAFmax (Time)','D1 LAImax (Time)','D1 LASmin (Time)',
+    'D1 LAE','D1 LCeq - LAeq',
+    'Measurement Duration','Run Duration',
+    'Serial Number','Start Time','End Time',
+    'Run Number','Audio Note Recorded','Overload Duration',
+    'UnderRange Duration','Over 140 Duration','Motion Index','Octaves Enabled',
+    'User Text Line 1','Note'
+  ];
+
   lines.forEach(function(line) {
     if (stopParsing) return;
-    if (/Inclusion.*Exclusion/i.test(line) || /^Inclusion Zone/i.test(line.trim())) {
+    var clean = line.replace(/^\s+/, '');
+    if (/^Inclusion\/Exclusion Information/i.test(clean) ||
+        /^Profile Chart/i.test(clean) ||
+        /^Inclusion Zone/i.test(clean)) {
       stopParsing = true;
       return;
     }
-    // Strip leading whitespace/bullets
-    var clean = line.replace(/^\s+/, '');
-    var tabIdx = clean.indexOf('\t');
-    if (tabIdx < 1) return;
-    var key = clean.slice(0, tabIdx).trim().toLowerCase();
-    var val = clean.slice(tabIdx + 1).trim();
-    // Take first occurrence only
-    if (!(key in kvMap)) kvMap[key] = val;
+
+    if (hasTab) {
+      // DOCX mode: split on first tab
+      var tabIdx = clean.indexOf('\t');
+      if (tabIdx < 1) return;
+      var key = clean.slice(0, tabIdx).trim().toLowerCase();
+      var val = clean.slice(tabIdx + 1).trim();
+      if (!(key in kvMap)) kvMap[key] = val;
+    } else {
+      // PDF mode: match known label prefixes
+      for (var li = 0; li < PDF_LABELS.length; li++) {
+        var label = PDF_LABELS[li];
+        if (clean === label) {
+          // Label with no value on same line (e.g. blank Note field)
+          if (!(label.toLowerCase() in kvMap)) kvMap[label.toLowerCase()] = '';
+          break;
+        }
+        if (clean.length > label.length &&
+            clean.slice(0, label.length) === label &&
+            clean.charAt(label.length) === ' ') {
+          var key = label.toLowerCase();
+          var val = clean.slice(label.length + 1).trim();
+          if (!(key in kvMap)) kvMap[key] = val;
+          break;
+        }
+      }
+    }
   });
 
   function get(key) { return kvMap[key.toLowerCase()] || null; }
@@ -5096,7 +5140,7 @@ function verifyExtractFields(text, filename) {
 
   // ── Run time ─────────────────────────────────────────────
   // "Measurement Duration\t09:13:42"
-  var runTime = get('measurement duration') || get('run time') || get('elapsed time') || get('duration');
+  var runTime = get('measurement duration') || get('run duration') || get('run time') || get('elapsed time') || get('duration');
   if (runTime) runTime = runTime.replace(/\s*dB.*$/i,'').trim();
 
   // ── Calibration ──────────────────────────────────────────
