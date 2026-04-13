@@ -4976,23 +4976,42 @@ function verifyParsePDF(file, name) {
     reader.onload = function(e) {
       var data = new Uint8Array(e.target.result);
       pdfjsLib.getDocument({ data: data }).promise.then(function(pdf) {
-        var pages = [];
-        for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
-        var textParts = [];
-        var chain = Promise.resolve();
-        pages.forEach(function(pageNum) {
-          chain = chain.then(function() {
-            return pdf.getPage(pageNum).then(function(page) {
-              return page.getTextContent().then(function(content) {
-                textParts.push(content.items.map(function(i) { return i.str; }).join(' '));
-              });
-            });
+        // Process every page independently.
+        // PDF.js joins content items with spaces → flat string per page, no newlines.
+        // Multi-report PDFs: one Summary page + one Chart page per survey.
+        // We parse every page and keep only those that yield a valid serial number.
+        var pagePromises = [];
+        for (var pi = 1; pi <= pdf.numPages; pi++) {
+          (function(pageNum) {
+            pagePromises.push(
+              pdf.getPage(pageNum).then(function(page) {
+                return page.getTextContent().then(function(content) {
+                  return content.items.map(function(item) { return item.str; }).join(' ');
+                });
+              })
+            );
+          })(pi);
+        }
+        Promise.all(pagePromises).then(function(pageTexts) {
+          var reports = [];
+          var isSingleReport = (pdf.numPages <= 2);
+          pageTexts.forEach(function(pageText, idx) {
+            var fname = isSingleReport ? name : name + ' p' + (idx + 1);
+            var parsed = verifyExtractFields(pageText, fname);
+            // Only keep pages that yielded a serial number (Summary pages)
+            if (parsed.serial) {
+              if (isSingleReport) parsed._filename = name;
+              reports.push(parsed);
+            }
           });
+          if (!reports.length) {
+            reports.push({ _filename: name, _parseError: true });
+          }
+          resolve(reports);
         });
-        chain.then(function() {
-          resolve([verifyExtractFields(textParts.join('\n'), name)]);
-        });
-      }).catch(function() { resolve([{ _filename: name, _parseError: true }]); });
+      }).catch(function(err) {
+        resolve([{ _filename: name, _parseError: true }]);
+      });
     };
     reader.readAsArrayBuffer(file);
   });
@@ -5065,6 +5084,10 @@ function verifyExtractFields(text, filename) {
   var lines = text.split(/\r?\n/);
   var hasTab = text.indexOf('\t') > -1;
   var hasNewline = text.indexOf('\n') > -1;
+  // PDF.js flat mode: no tabs, and either no newlines OR all lines are very long
+  // (long lines = PDF.js joining multiple text items without proper line breaks)
+  var avgLineLen = hasNewline ? (text.length / lines.length) : text.length;
+  var isFlat = !hasTab && (!hasNewline || avgLineLen > 150);
 
   if (hasTab) {
     // ── DOCX mode ──────────────────────────────────────────
@@ -5082,7 +5105,7 @@ function verifyExtractFields(text, filename) {
       if (!(key in kvMap)) kvMap[key] = val;
     });
 
-  } else if (hasNewline) {
+  } else if (hasNewline && !isFlat) {
     // ── PDF newline mode (pdfplumber / native text layer) ──
     var stopParsing = false;
     lines.forEach(function(line) {
@@ -5105,7 +5128,7 @@ function verifyExtractFields(text, filename) {
     });
 
   } else {
-    // ── PDF flat mode (PDF.js joins items with spaces, no newlines) ──
+    // ── PDF flat mode: PDF.js output or long-line newline text ──
     // Truncate at stop words first
     var stopMatch = text.search(/\bProfile Chart\b|\bInclusion\/Exclusion\b|\bInclusion Zone\b/i);
     var flat = stopMatch > -1 ? text.slice(0, stopMatch) : text;
