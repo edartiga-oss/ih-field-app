@@ -4254,9 +4254,9 @@ function renderStats() {
             + statCell('95th/95% UTL',  fmtDb(stats.utl95_95), pelUTL, alUTL)
             + '</div>'
             + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
-              + '<strong>UCL:</strong> 95% upper confidence limit on the geometric mean (Land’s H-statistic). '
-              + '<strong>UTL:</strong> Upper tolerance limit — with 95% confidence, 95% of worker exposures fall below this value (Owen’s K-factor). '
-              + 'Method: Noise Manual 6th Ed. / Mulhausen & Damiano (1998). Lognormal on TWA dBA.'
+              + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
+              + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Owen’s K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
+              + 'Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed.'
             + '</div>'
             + smallNote
             + '</div>';
