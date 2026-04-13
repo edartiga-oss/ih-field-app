@@ -12426,9 +12426,33 @@ function verifyClear() {
 //  NOISE RAC TAB
 // ═══════════════════════════════════════════════════════════
 
-var racSelectedIHs       = null; // null = all
-var racSelectedLocations = null; // null = all
-var racSelectedSEGs      = null; // null = all
+var racSelectedIHs        = null; // null = all
+var racSelectedLocations  = null; // null = all
+var racSelectedSEGs       = null; // null = all
+var racPersonnelOverrides = {};   // seg -> IH-entered personnel count
+
+// Load persisted overrides from localStorage
+(function() {
+  try {
+    var saved = localStorage.getItem('racPersonnelOverrides');
+    if (saved) racPersonnelOverrides = JSON.parse(saved);
+  } catch(e) {}
+})();
+
+function racSaveOverrides() {
+  try { localStorage.setItem('racPersonnelOverrides', JSON.stringify(racPersonnelOverrides)); } catch(e) {}
+}
+
+function racSetPersonnel(seg, val) {
+  var n = parseInt(val, 10);
+  if (!isNaN(n) && n > 0) {
+    racPersonnelOverrides[seg] = n;
+  } else {
+    delete racPersonnelOverrides[seg];
+  }
+  racSaveOverrides();
+  renderRAC();
+}
 
 function racToggleIH(ih) {
   if (!racSelectedIHs) racSelectedIHs = new Set();
@@ -12453,12 +12477,12 @@ function racSelectAllSEGs() { racSelectedSEGs = null; renderRAC(); }
 function racSelectNoSEGs()  { racSelectedSEGs = new Set(); renderRAC(); }
 
 function calcRAC(utl, personnel) {
-  if (utl === null || isNaN(utl)) return null;
-  var lt82  = utl < 82;
-  var lt10  = personnel < 10;
-  if (lt82  && lt10)  return 4;
+  if (utl === null || isNaN(utl) || personnel < 1) return null;
+  var lt82 = utl < 82;
+  var lt10 = personnel < 10;
+  if (lt82  &&  lt10) return 4;
   if (lt82  && !lt10) return 3;
-  if (!lt82 && lt10)  return 3;
+  if (!lt82 &&  lt10) return 3;
   if (!lt82 && !lt10) return 2;
   return null;
 }
@@ -12483,9 +12507,9 @@ function renderRAC() {
   var allLocs = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))].sort();
   var allSEGs = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))].sort();
 
-  if (racSelectedIHs  === null) racSelectedIHs  = new Set(allIHs);
+  if (racSelectedIHs       === null) racSelectedIHs       = new Set(allIHs);
   if (racSelectedLocations === null) racSelectedLocations = new Set(allLocs);
-  if (racSelectedSEGs === null) racSelectedSEGs = new Set(allSEGs);
+  if (racSelectedSEGs      === null) racSelectedSEGs      = new Set(allSEGs);
 
   function chipHtml(label, active, onclick) {
     return '<button onclick="' + onclick + '" style="'
@@ -12540,44 +12564,58 @@ function renderRAC() {
     segGroups[seg].push(s);
   });
 
-  // ── Build header row with SEG names ──
   var segs = Object.keys(segGroups).sort();
 
-  // Summary table at top
+  // ── Summary table rows ──
   var summaryRows = segs.map(function(seg) {
-    var group = segGroups[seg];
-    var twas  = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
-    var stats = lognormalStats(twas);
-    var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
-    var utlNA = !twas.length;
-    var personnel = group.length;
-    var rac   = utlNA ? null : calcRAC(utl, personnel);
+    var group     = segGroups[seg];
+    var twas      = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
+    var stats     = lognormalStats(twas);
+    var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
+    var utlNA     = !twas.length;
+    var surveyCt  = group.length;
+    var personnel = racPersonnelOverrides[seg] || surveyCt;
+    var rac       = utlNA ? null : calcRAC(utl, personnel);
 
     var utlDisplay = utlNA
-      ? '<span style="background:#fff3c4; color:#7a5800; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">Not Applicable<br><span style="font-weight:400;">No samples taken</span></span>'
+      ? '<span style="background:#fff3c4; color:#7a5800; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">Not Applicable — No samples taken</span>'
       : (utl !== null ? utl.toFixed(2) + ' dBA' : '—');
-
     var utlBg = (!utlNA && utl !== null) ? (utl >= 90 ? 'background:#fcebeb;' : utl >= 82 ? 'background:#fff8e6;' : '') : 'background:#fff3c4;';
+
+    var overrideSet = racPersonnelOverrides.hasOwnProperty(seg);
+    var inputStyle  = 'width:60px; padding:4px 6px; font-size:13px; font-weight:600; text-align:center;'
+      + 'border:1.5px solid ' + (overrideSet ? 'var(--teal)' : 'var(--border)') + ';'
+      + 'border-radius:6px; background:' + (overrideSet ? 'rgba(0,184,160,0.08)' : 'var(--surface)') + ';'
+      + 'color:var(--text);';
+    var segKey = seg.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var personnelCell = '<input type="number" min="1" style="' + inputStyle + '"'
+      + ' value="' + personnel + '"'
+      + ' title="Enter total SEG personnel. Surveys sampled: ' + surveyCt + '"'
+      + ' onchange="racSetPersonnel(\'' + segKey + '\', this.value)"'
+      + ' onblur="racSetPersonnel(\'' + segKey + '\', this.value)">'
+      + (overrideSet
+          ? '<div style="font-size:10px; color:var(--teal); margin-top:2px;">IH entered (' + surveyCt + ' sampled)</div>'
+          : '<div style="font-size:10px; color:var(--text3); margin-top:2px;">' + surveyCt + ' sampled — edit to override</div>');
 
     return '<tr style="border-bottom:1px solid var(--border);">'
       + '<td style="padding:10px 14px; font-size:13px; font-weight:600; color:var(--text);">' + esc(seg) + '</td>'
       + '<td style="padding:10px 14px; font-size:13px; text-align:center; ' + utlBg + '">' + utlDisplay + '</td>'
-      + '<td style="padding:10px 14px; font-size:13px; font-weight:600; text-align:center; color:var(--text);">' + personnel + '</td>'
+      + '<td style="padding:10px 14px; text-align:center;">' + personnelCell + '</td>'
       + '<td style="padding:10px 14px; text-align:center;">' + racBadge(rac) + '</td>'
       + '</tr>';
   }).join('');
 
   // ── Per-SEG detail cards ──
   var detailCards = segs.map(function(seg) {
-    var group = segGroups[seg];
-    var twas  = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
-    var stats = lognormalStats(twas);
-    var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
-    var utlNA = !twas.length;
-    var personnel = group.length;
-    var rac   = utlNA ? null : calcRAC(utl, personnel);
+    var group     = segGroups[seg];
+    var twas      = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
+    var stats     = lognormalStats(twas);
+    var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
+    var utlNA     = !twas.length;
+    var surveyCt  = group.length;
+    var personnel = racPersonnelOverrides[seg] || surveyCt;
+    var rac       = utlNA ? null : calcRAC(utl, personnel);
 
-    // Individual survey rows
     var surveyRows = group.slice().sort(function(a,b){
       return (parseFloat(b.results?.twa)||0) - (parseFloat(a.results?.twa)||0);
     }).map(function(s) {
@@ -12602,11 +12640,25 @@ function renderRAC() {
     if (stats && stats.smallSample) {
       statsNote = '<div style="margin-top:8px; padding:7px 10px; background:#fff8e6; border:1px solid #f0a500; border-radius:6px; font-size:11px; color:#7a4f00;">'
         + '&#9651; <strong>Small sample (n=' + stats.n + ', &lt;6):</strong> UTL estimate is imprecise. Collect additional samples to improve reliability.</div>';
-    }
-    if (twas.length === 1) {
+    } else if (twas.length === 1) {
       statsNote = '<div style="margin-top:8px; padding:7px 10px; background:#fff8e6; border:1px solid #f0a500; border-radius:6px; font-size:11px; color:#7a4f00;">'
         + '&#9651; <strong>Single sample (n=1):</strong> TWA used directly as UTL. Lognormal statistics require ≥2 samples.</div>';
     }
+
+    var fmtDb = function(v) { return (v === null || isNaN(v)) ? '—' : v.toFixed(1) + ' dBA'; };
+    var utlBg2  = utlNA ? 'background:#fff3c4;' : (utl !== null && utl >= 90 ? 'background:#fcebeb;' : utl !== null && utl >= 82 ? 'background:#fff8e6;' : 'background:var(--surface);');
+    var utlCol2 = utlNA ? 'color:#7a5800;'      : (utl !== null && utl >= 90 ? 'color:#a32d2d;'      : utl !== null && utl >= 82 ? 'color:#7a4f00;'      : 'color:var(--text);');
+    var utlVal  = utlNA ? 'N/A' : fmtDb(utl);
+    var overrideSet = racPersonnelOverrides.hasOwnProperty(seg);
+
+    var metricCards = [
+      ['Surveys (n)',    twas.length || surveyCt, 'background:var(--surface);', 'color:var(--text);'],
+      ['SEG Personnel',
+        personnel + (overrideSet ? '<div style="font-size:10px;color:var(--teal);margin-top:1px;">IH entered (' + surveyCt + ' sampled)</div>' : '<div style="font-size:10px;color:var(--text3);margin-top:1px;">= surveys sampled</div>'),
+        'background:var(--surface);', 'color:var(--text);'],
+      ['GM',            stats ? fmtDb(stats.gm) : '—', 'background:var(--surface);', 'color:var(--text);'],
+      ['UTL 95/95',     utlVal, utlBg2, utlCol2],
+    ];
 
     return '<div class="card" style="margin-bottom:16px;">'
       + '<div class="card-header" style="font-size:14px; display:flex; justify-content:space-between; align-items:center;">'
@@ -12614,31 +12666,15 @@ function renderRAC() {
       + racBadge(rac)
       + '</div>'
       + '<div class="card-body" style="padding:14px 16px;">'
-
-      // Stats row
       + '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; margin-bottom:12px;">'
-      + (function() {
-          var fmtDb = function(v) { return (v === null || isNaN(v)) ? '—' : v.toFixed(1) + ' dBA'; };
-          var utlBg  = utlNA ? 'background:#fff3c4;' : (utl !== null && utl >= 90 ? 'background:#fcebeb;' : utl !== null && utl >= 82 ? 'background:#fff8e6;' : 'background:var(--surface);');
-          var utlCol = utlNA ? 'color:#7a5800;' : (utl !== null && utl >= 90 ? 'color:#a32d2d;' : utl !== null && utl >= 82 ? 'color:#7a4f00;' : 'color:var(--text);');
-          var utlVal = utlNA ? 'N/A' : fmtDb(utl);
-          var cards = [
-            ['Surveys (n)', twas.length || group.length, 'background:var(--surface);', 'color:var(--text);'],
-            ['SEG Personnel', personnel, 'background:var(--surface);', 'color:var(--text);'],
-            ['GM', stats ? fmtDb(stats.gm) : '—', 'background:var(--surface);', 'color:var(--text);'],
-            ['UTL 95/95', utlVal, utlBg, utlCol],
-          ];
-          return cards.map(function(c) {
-            return '<div style="border-radius:var(--radius); padding:8px 10px; ' + c[2] + '">'
-              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">' + c[0] + '</div>'
-              + '<div style="font-size:16px; font-weight:600; ' + c[3] + '">' + c[1] + '</div>'
-              + '</div>';
-          }).join('');
-        })()
+      + metricCards.map(function(c) {
+          return '<div style="border-radius:var(--radius); padding:8px 10px; ' + c[2] + '">'
+            + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">' + c[0] + '</div>'
+            + '<div style="font-size:16px; font-weight:600; ' + c[3] + '">' + c[1] + '</div>'
+            + '</div>';
+        }).join('')
       + '</div>'
       + statsNote
-
-      // Individual results
       + '<div style="margin-top:12px;">'
       + '<div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Survey Results</div>'
       + '<div style="overflow-x:auto;">'
@@ -12657,21 +12693,23 @@ function renderRAC() {
   }).join('');
 
   resultsEl.innerHTML =
-    // Summary table
     '<div class="card" style="margin-bottom:20px;">'
     + '<div class="card-header" style="font-size:13px; font-weight:700;">Noise RAC Calculations Summary</div>'
+    + '<div style="padding:8px 14px; font-size:11px; color:var(--text3); border-bottom:1px solid var(--border);">'
+    + '&#9432; Enter the total number of personnel in each SEG in the <strong>SEG Personnel</strong> column. '
+    + 'This number drives the RAC calculation. The default is the number of surveys sampled.'
+    + '</div>'
     + '<div class="card-body" style="padding:0;">'
     + '<div style="overflow-x:auto;">'
     + '<table style="width:100%; border-collapse:collapse; min-width:400px;">'
     + '<thead><tr style="background:var(--surface); border-bottom:2px solid var(--border);">'
     + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:left;">SEG Name</th>'
     + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:center;">UTL (dBA)</th>'
-    + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:center;">SEG Personnel</th>'
+    + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:center;">SEG Personnel <span style="font-weight:400; color:var(--teal);">(editable)</span></th>'
     + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:center;">RAC</th>'
     + '</tr></thead>'
     + '<tbody>' + summaryRows + '</tbody>'
     + '</table></div></div></div>'
-    // Detail cards
     + detailCards;
 }
 
