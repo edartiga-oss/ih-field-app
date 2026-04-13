@@ -1397,6 +1397,14 @@ body { padding: 20px 18px; }
       </div>
     </div>
 
+    <!-- Location filter -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by Location</div>
+      <div id="statsLocationChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+        <button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>
+      </div>
+    </div>
+
     <!-- SEG filter -->
     <div style="flex:1;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by SEG</div>
@@ -1449,6 +1457,14 @@ body { padding: 20px 18px; }
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by Location</div>
       <div id="racLocationChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
         <button class="btn btn-outline btn-sm" onclick="racSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>
+      </div>
+    </div>
+
+    <!-- Location filter -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by Location</div>
+      <div id="statsLocationChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+        <button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>
       </div>
     </div>
 
@@ -6529,8 +6545,9 @@ function lognormalStats(twas) {
   };
 }
 
-var statsSelectedSEGs = null; // null = all
-var statsSelectedIHs  = null; // null = all
+var statsSelectedSEGs       = null; // null = all
+var statsSelectedIHs        = null; // null = all
+var statsSelectedLocations  = null; // null = all
 
 function renderStats() {
   const chipsEl   = document.getElementById('statsSegChips');
@@ -6560,6 +6577,24 @@ function renderStats() {
       }).join('');
   }
 
+  // ── All Locations ──
+  const allLocations = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
+  if (statsSelectedLocations === null) statsSelectedLocations = new Set(allLocations);
+
+  const locChipsEl = document.getElementById('statsLocationChips');
+  if (locChipsEl) {
+    locChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>' +
+      allLocations.map(function(loc) {
+        var active = statsSelectedLocations.has(loc);
+        return '<button onclick="statsToggleLocation(\'' + esc(loc) + '\')" style="'
+          + 'padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
+          + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
+          + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
+          + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';'
+          + '">' + esc(loc) + '</button>';
+      }).join('');
+  }
+
   // ── All SEGs ──
   const allSEGs = [...new Set(surveys.map(s => s.employee?.seg || '').filter(Boolean))].sort();
   if (!allSEGs.length) {
@@ -6581,13 +6616,15 @@ function renderStats() {
       + '">' + esc(seg) + '</button>';
   }).join('');
 
-  // ── Filter surveys by both IH and SEG ──
+  // ── Filter surveys by IH, Location, and SEG ──
   const sel = surveys.filter(function(s) {
     var ih  = s.deviceNickname || s.ih?.name || '';
+    var loc = s.employee?.location || '';
     var seg = s.employee?.seg || '';
     var ihOk  = statsSelectedIHs === null || !allIHs.length || statsSelectedIHs.has(ih);
+    var locOk = statsSelectedLocations === null || !allLocations.length || statsSelectedLocations.has(loc);
     var segOk = statsSelectedSEGs.has(seg);
-    return ihOk && segOk;
+    return ihOk && locOk && segOk;
   });
 
   if (!sel.length) {
@@ -8233,6 +8270,14 @@ body { padding: 20px 18px; }
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by IH</div>
       <div id="statsIHChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
         <button class="btn btn-outline btn-sm" onclick="statsSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>
+      </div>
+    </div>
+
+    <!-- Location filter -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by Location</div>
+      <div id="statsLocationChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+        <button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>
       </div>
     </div>
 
@@ -10510,8 +10555,9 @@ function lognormalStats(twas) {
   };
 }
 
-var statsSelectedSEGs = null; // null = all
-var statsSelectedIHs  = null; // null = all
+var statsSelectedSEGs       = null; // null = all
+var statsSelectedIHs        = null; // null = all
+var statsSelectedLocations  = null; // null = all
 
 function renderStats() {
   const chipsEl   = document.getElementById('statsSegChips');
@@ -10541,6 +10587,24 @@ function renderStats() {
       }).join('');
   }
 
+  // ── All Locations ──
+  const allLocations = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
+  if (statsSelectedLocations === null) statsSelectedLocations = new Set(allLocations);
+
+  const locChipsEl = document.getElementById('statsLocationChips');
+  if (locChipsEl) {
+    locChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>' +
+      allLocations.map(function(loc) {
+        var active = statsSelectedLocations.has(loc);
+        return '<button onclick="statsToggleLocation(\'' + esc(loc) + '\')" style="'
+          + 'padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
+          + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
+          + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
+          + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';'
+          + '">' + esc(loc) + '</button>';
+      }).join('');
+  }
+
   // ── All SEGs ──
   const allSEGs = [...new Set(surveys.map(s => s.employee?.seg || '').filter(Boolean))].sort();
   if (!allSEGs.length) {
@@ -10562,13 +10626,15 @@ function renderStats() {
       + '">' + esc(seg) + '</button>';
   }).join('');
 
-  // ── Filter surveys by both IH and SEG ──
+  // ── Filter surveys by IH, Location, and SEG ──
   const sel = surveys.filter(function(s) {
     var ih  = s.deviceNickname || s.ih?.name || '';
+    var loc = s.employee?.location || '';
     var seg = s.employee?.seg || '';
     var ihOk  = statsSelectedIHs === null || !allIHs.length || statsSelectedIHs.has(ih);
+    var locOk = statsSelectedLocations === null || !allLocations.length || statsSelectedLocations.has(loc);
     var segOk = statsSelectedSEGs.has(seg);
-    return ihOk && segOk;
+    return ihOk && locOk && segOk;
   });
 
   if (!sel.length) {
@@ -10865,6 +10931,18 @@ function statsToggleIH(ih) {
   if (!statsSelectedIHs) statsSelectedIHs = new Set();
   if (statsSelectedIHs.has(ih)) statsSelectedIHs.delete(ih);
   else statsSelectedIHs.add(ih);
+  renderStats();
+}
+
+function statsToggleLocation(loc) {
+  if (!statsSelectedLocations) statsSelectedLocations = new Set();
+  if (statsSelectedLocations.has(loc)) statsSelectedLocations.delete(loc);
+  else statsSelectedLocations.add(loc);
+  renderStats();
+}
+
+function statsSelectAllLocations() {
+  statsSelectedLocations = null;
   renderStats();
 }
 
