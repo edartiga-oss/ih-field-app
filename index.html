@@ -5027,18 +5027,19 @@ function verifyParseDOCX(file, name) {
 function verifyExtractFields(text, filename) {
 
   // Build a key→value map from the report text.
-  // Supports two formats:
-  //   DOCX: tab-delimited  "Label\tValue"
-  //   PDF:  space-separated "Label Value" (label is a known fixed string)
+  // Three supported formats:
+  //   DOCX: tab-delimited lines  "Label\tValue"
+  //   PDF (newlines): "Label Value" lines  (pdfplumber / direct text)
+  //   PDF (flat):     one long space-separated string — what PDF.js produces
+  //                   by joining content.items with spaces (no newlines)
   //
-  // Detection: if any line contains a tab character → DOCX mode
-  //            otherwise → PDF label-prefix mode
+  // Detection:
+  //   hasTab  → DOCX mode
+  //   hasNewlines (but no tabs) → PDF newline mode
+  //   no tabs AND no newlines → PDF flat mode (PDF.js output)
   var kvMap = {};
-  var lines = text.split(/\r?\n/);
-  var stopParsing = false;
-  var hasTab = lines.some(function(l) { return l.indexOf('\t') > -1; });
 
-  // Known PDF label prefixes — order matters (longer first to avoid prefix conflicts)
+  // Known labels ordered longest-first to prevent prefix collisions
   var PDF_LABELS = [
     'Calibration Before Time','Calibration Before SPL','Calibration After Time',
     'Calibration Drift','Dosimeter 1 Setup',
@@ -5053,32 +5054,45 @@ function verifyExtractFields(text, filename) {
     'User Text Line 1','Note'
   ];
 
-  lines.forEach(function(line) {
-    if (stopParsing) return;
-    var clean = line.replace(/^\s+/, '');
-    if (/^Inclusion\/Exclusion Information/i.test(clean) ||
-        /^Profile Chart/i.test(clean) ||
-        /^Inclusion Zone/i.test(clean)) {
-      stopParsing = true;
-      return;
-    }
+  // Build lookahead alternation for the flat-string regex
+  // Escapes parentheses in label names for regex use
+  function reEscape(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+  var labelAlt = PDF_LABELS.map(reEscape).join('|');
+  // Also include stop-words in the lookahead
+  var stopAlt = 'Profile Chart|Inclusion.Exclusion Information|Inclusion Zone';
+  var fullAlt = labelAlt + '|' + stopAlt;
 
-    if (hasTab) {
-      // DOCX mode: split on first tab
+  var lines = text.split(/\r?\n/);
+  var hasTab = text.indexOf('\t') > -1;
+  var hasNewline = text.indexOf('\n') > -1;
+
+  if (hasTab) {
+    // ── DOCX mode ──────────────────────────────────────────
+    var stopParsing = false;
+    lines.forEach(function(line) {
+      if (stopParsing) return;
+      var clean = line.replace(/^\s+/, '');
+      if (/Inclusion.*Exclusion/i.test(clean) || /^Profile Chart/i.test(clean)) {
+        stopParsing = true; return;
+      }
       var tabIdx = clean.indexOf('\t');
       if (tabIdx < 1) return;
       var key = clean.slice(0, tabIdx).trim().toLowerCase();
       var val = clean.slice(tabIdx + 1).trim();
       if (!(key in kvMap)) kvMap[key] = val;
-    } else {
-      // PDF mode: match known label prefixes
+    });
+
+  } else if (hasNewline) {
+    // ── PDF newline mode (pdfplumber / native text layer) ──
+    var stopParsing = false;
+    lines.forEach(function(line) {
+      if (stopParsing) return;
+      var clean = line.replace(/^\s+/, '');
+      if (/^Profile Chart/i.test(clean) ||
+          /^Inclusion.Exclusion/i.test(clean) ||
+          /^Inclusion Zone/i.test(clean)) { stopParsing = true; return; }
       for (var li = 0; li < PDF_LABELS.length; li++) {
         var label = PDF_LABELS[li];
-        if (clean === label) {
-          // Label with no value on same line (e.g. blank Note field)
-          if (!(label.toLowerCase() in kvMap)) kvMap[label.toLowerCase()] = '';
-          break;
-        }
         if (clean.length > label.length &&
             clean.slice(0, label.length) === label &&
             clean.charAt(label.length) === ' ') {
@@ -5088,8 +5102,26 @@ function verifyExtractFields(text, filename) {
           break;
         }
       }
-    }
-  });
+    });
+
+  } else {
+    // ── PDF flat mode (PDF.js joins items with spaces, no newlines) ──
+    // Truncate at stop words first
+    var stopMatch = text.search(/\bProfile Chart\b|\bInclusion\/Exclusion\b|\bInclusion Zone\b/i);
+    var flat = stopMatch > -1 ? text.slice(0, stopMatch) : text;
+    // Extract each label's value using lookahead regex
+    PDF_LABELS.forEach(function(label) {
+      var rx = new RegExp(
+        '(?:^|\\s)' + reEscape(label) + '\\s+(.+?)(?=\\s+(?:' + fullAlt + ')|$)',
+        'i'
+      );
+      var m = flat.match(rx);
+      if (m) {
+        var key = label.toLowerCase();
+        if (!(key in kvMap)) kvMap[key] = m[1].trim();
+      }
+    });
+  }
 
   function get(key) { return kvMap[key.toLowerCase()] || null; }
 
