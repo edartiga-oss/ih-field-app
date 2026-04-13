@@ -79,14 +79,22 @@
     <div class="card-head">📐 Expected Statistics Tab Results</div>
     <div class="card-body">
 
+      <div style="background:#fcebeb;border:1.5px solid #e05252;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#a32d2d;">
+        <strong style="display:block;margin-bottom:6px;">⚠ Four errors found in the MATES spreadsheet</strong>
+        <strong>1. UTL — normal vs. lognormal distribution:</strong> Spreadsheet uses <code>Avg + K×STD</code> (arithmetic normal). Noise Manual uses <code>exp(ȳ + K×s)</code> (lognormal). These are different models.<br>
+        <strong>2. UCL — √14 hardcoded instead of √n:</strong> The formula <code>=D30+(1.645*(D31/SQRT(14)))</code> has 14 hardcoded. It should be SQRT(n). This under/overstates the UCL when n≠14.<br>
+        <strong>3. UCL uses z=1.645, not t(n−1, 0.95):</strong> For small n (e.g. n=6), the t-statistic is 2.015 — using 1.645 underestimates uncertainty by ~0.6 dBA.<br>
+        <strong>4. Data split by survey day, not combined by SEG:</strong> Feb 10 (n=10) and Feb 11 (n=6) are calculated separately instead of pooled as a single SEG (n=16 Vehicle Maint.).
+      </div>
+
       <div class="expected">
-        <strong>SEG 1 — Vehicle Maintenance (n=17)</strong>
+        <strong>SEG 1 — Vehicle Maintenance (n=17, Noise Manual method)</strong>
         <table>
           <thead><tr><th>Metric</th><th>Value</th><th>Status</th></tr></thead>
           <tbody>
             <tr><td>Geometric Mean (GM)</td><td>75.9 dBA</td><td><span class="badge badge-green">Below AL</span></td></tr>
             <tr><td>Geometric SD (GSD)</td><td>1.141×</td><td></td></tr>
-            <tr><td>95% UCL on GM</td><td><strong>80.2 dBA</strong></td><td><span class="badge badge-green">Below AL</span></td></tr>
+            <tr><td>95% UCL on AM (Land's H)</td><td><strong>80.2 dBA</strong></td><td><span class="badge badge-green">Below AL</span></td></tr>
             <tr><td>95th/95% UTL</td><td><strong>119.0 dBA</strong></td><td><span class="badge badge-red">≥ PEL</span></td></tr>
             <tr><td>At or Above Action Level</td><td>2 workers (Considine 85.8, Carattini 101.7)</td><td><span class="badge badge-amber">Review</span></td></tr>
           </tbody>
@@ -101,7 +109,7 @@
           <tbody>
             <tr><td>Geometric Mean (GM)</td><td>78.6 dBA</td><td><span class="badge badge-green">Below AL</span></td></tr>
             <tr><td>Geometric SD (GSD)</td><td>1.011×</td><td></td></tr>
-            <tr><td>95% UCL on GM</td><td><strong>80.4 dBA</strong></td><td><span class="badge badge-green">Below AL</span></td></tr>
+            <tr><td>95% UCL on AM (Land's H)</td><td><strong>80.4 dBA</strong></td><td><span class="badge badge-green">Below AL</span></td></tr>
             <tr><td>95th/95% UTL</td><td><strong>117.3 dBA</strong></td><td><span class="badge badge-red">≥ PEL</span></td></tr>
           </tbody>
         </table>
