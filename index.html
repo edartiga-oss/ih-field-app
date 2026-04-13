@@ -1,3 +1,4 @@
+<!-- IH Field App v40 — Built 2026-04-13 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3200,7 +3201,14 @@ function buildPDFDoc(surveysArr) {
 
 function exportSinglePDF(id) {
   try {
-    if (!window.jspdf) { showToast('PDF library not loaded — please reload the page', 'error'); return; }
+    if (!window.jspdf) {
+      // jsPDF is inlined in this page — if it's missing the page is stale
+      // Force a hard reload to bypass any service worker cache
+      if (confirm('PDF library not loaded. This usually means a cached version of the page is being served.\n\nClick OK to reload, or Cancel to dismiss.')) {
+        window.location.reload(true);
+      }
+      return;
+    }
     const s = surveys.find(x => x.id === id);
     if (!s) return;
     const doc = buildPDFDoc([s]);
@@ -3211,7 +3219,14 @@ function exportSinglePDF(id) {
 
 function exportBatchPDF() {
   try {
-    if (!window.jspdf) { showToast('PDF library not loaded — please reload the page', 'error'); return; }
+    if (!window.jspdf) {
+      // jsPDF is inlined in this page — if it's missing the page is stale
+      // Force a hard reload to bypass any service worker cache
+      if (confirm('PDF library not loaded. This usually means a cached version of the page is being served.\n\nClick OK to reload, or Cancel to dismiss.')) {
+        window.location.reload(true);
+      }
+      return;
+    }
     if (!surveys.length) { showToast('No surveys to export', 'error'); return; }
     const doc = buildPDFDoc(surveys);
     doc.save('NoiseDosimetry_Campaign_' + (projectMeta.name || 'Project').replace(/\s+/g,'-') + '.pdf');
@@ -4518,7 +4533,12 @@ function exportFilteredPDF() {
 
 function exportFilteredExcel() {
   try {
-    if (!window.XLSX) { showToast('Excel library not loaded', 'error'); return; }
+    if (!window.XLSX) {
+      if (confirm('Excel library not loaded. This usually means a cached version of the page is being served.\n\nClick OK to reload, or Cancel to dismiss.')) {
+        window.location.reload(true);
+      }
+      return;
+    }
     const res = getFilteredSurveys();
     if (!res) return;
     const wb = XLSX.utils.book_new();
