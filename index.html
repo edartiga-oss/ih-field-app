@@ -5106,24 +5106,68 @@ function verifyExtractFields(text, filename) {
     });
 
   } else if (hasNewline && !isFlat) {
-    // ── PDF newline mode (pdfplumber / native text layer) ──
-    var stopParsing = false;
-    lines.forEach(function(line) {
-      if (stopParsing) return;
-      var clean = line.replace(/^\s+/, '');
-      if (/^Profile Chart/i.test(clean) ||
-          /^Inclusion.Exclusion/i.test(clean) ||
-          /^Inclusion Zone/i.test(clean)) { stopParsing = true; return; }
+    // ── PDF newline mode: PDF.js output with hasEOL newlines ──
+    // The Casella PDF uses a two-column layout. PDF.js sometimes emits the label
+    // and its value on SEPARATE lines because they are separate text columns.
+    // Two split patterns occur:
+    //   Pattern A: label-only line followed by orphan-value line
+    //   Pattern B: orphan-value line followed by label-only line
+    // Fix: pre-process lines to merge these pairs before building the kvMap.
+
+    function startsWithLabel(s) {
       for (var li = 0; li < PDF_LABELS.length; li++) {
-        var label = PDF_LABELS[li];
-        if (clean.length > label.length &&
-            clean.slice(0, label.length) === label &&
-            clean.charAt(label.length) === ' ') {
-          var key = label.toLowerCase();
-          var val = clean.slice(label.length + 1).trim();
-          if (!(key in kvMap)) kvMap[key] = val;
-          break;
+        var lbl = PDF_LABELS[li];
+        if (s === lbl) return lbl;
+        if (s.length > lbl.length && s.slice(0, lbl.length) === lbl && s.charAt(lbl.length) === ' ') return lbl;
+      }
+      return null;
+    }
+
+    // Strip and stop at section dividers
+    var cleanLines = [];
+    for (var ci = 0; ci < lines.length; ci++) {
+      var cl = lines[ci].replace(/^\s+/, '');
+      if (/^Profile Chart/i.test(cl) || /^Inclusion.Exclusion/i.test(cl) || /^Inclusion Zone/i.test(cl)) break;
+      if (cl) cleanLines.push(cl);
+    }
+
+    // Merge split label/value pairs
+    var mergedLines = [];
+    var mi = 0;
+    while (mi < cleanLines.length) {
+      var cur = cleanLines[mi];
+      var curLabel = startsWithLabel(cur);
+      var isLabelOnly = (curLabel !== null && cur === curLabel);
+
+      if (mi + 1 < cleanLines.length) {
+        var nxt = cleanLines[mi + 1];
+        var nxtLabel = startsWithLabel(nxt);
+        var nxtIsLabelOnly = (nxtLabel !== null && nxt === nxtLabel);
+
+        // Pattern A: current = label-only, next = value (no label)
+        if (isLabelOnly && !nxtLabel) {
+          mergedLines.push(cur + ' ' + nxt);
+          mi += 2;
+          continue;
         }
+        // Pattern B: current = value (no label), next = label-only
+        if (!curLabel && nxtIsLabelOnly) {
+          mergedLines.push(nxt + ' ' + cur);
+          mi += 2;
+          continue;
+        }
+      }
+      mergedLines.push(cur);
+      mi++;
+    }
+
+    // Build kvMap from merged lines
+    mergedLines.forEach(function(line) {
+      var lbl = startsWithLabel(line);
+      if (lbl && line !== lbl) {
+        var key = lbl.toLowerCase();
+        var val = line.slice(lbl.length + 1).trim();
+        if (!(key in kvMap)) kvMap[key] = val;
       }
     });
 
