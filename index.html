@@ -6029,7 +6029,7 @@ function verifyOpenDrawer(row) {
 
   // Identification section: show both serial and name, note that either passing = ID OK
   var identNote = identOk
-    ? '&#10003; Identification confirmed (' + (checks.serial && checks.serial.status === 'PASS' ? 'serial match' : 'name match') + ')'
+    ? '&#10003; Identification confirmed (' + (c.serial && c.serial.status === 'PASS' ? 'serial match' : 'name match') + ')'
     : identWarn ? '⚠ Identification uncertain — neither serial nor name fully matched'
     : '✗ Identification failed — serial and name both mismatched';
   lines.push('<div style="font-size:10px; font-weight:600; padding:6px 0 4px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border);">Identification (Serial OR Name)</div>');
