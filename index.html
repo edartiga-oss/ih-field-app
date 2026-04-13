@@ -5014,10 +5014,20 @@ function verifyParsePDF(file, name) {
                     .map(function(item) {
                       var y = item.transform ? item.transform[5] : 0;
                       var x = item.transform ? item.transform[4] : 0;
-                      return { str: item.str, x: x, y: y };
+                      // item.width = rendered width of the text item
+                      // item.height ≈ font size for single-line items
+                      return {
+                        str: item.str,
+                        x: x,
+                        y: y,
+                        w: item.width || 0,
+                        size: item.height || (item.transform ? Math.abs(item.transform[3]) : 10)
+                      };
                     });
                   if (!itemsWithPos.length) return '';
                   // Group into lines with 6pt y-tolerance
+                  // The Casella PDF renders individual character glyphs — labels and values
+                  // sit ~0.4pt apart vertically (two-column layout).
                   var TOL = 6;
                   var lineGroups = [];
                   itemsWithPos.forEach(function(item) {
@@ -5034,10 +5044,22 @@ function verifyParsePDF(file, name) {
                   });
                   // Sort groups top-to-bottom (PDF y increases upward, so descending = top-first)
                   lineGroups.sort(function(a, b) { return b.y - a.y; });
-                  // Within each group sort left-to-right, join
+                  // Within each group: sort left-to-right, then join with smart spacing.
+                  // Insert a space between items when the x-gap exceeds ~30% of font size
+                  // (word boundary detection — handles character-level glyph PDFs).
                   var lines = lineGroups.map(function(g) {
                     g.items.sort(function(a, b) { return a.x - b.x; });
-                    return g.items.map(function(i) { return i.str; }).join('').trim();
+                    if (!g.items.length) return '';
+                    var result = g.items[0].str;
+                    for (var ii = 1; ii < g.items.length; ii++) {
+                      var prev = g.items[ii - 1];
+                      var curr = g.items[ii];
+                      var gap = curr.x - (prev.x + (prev.w || 0));
+                      var threshold = (prev.size || 10) * 0.25;
+                      if (gap > threshold) result += ' ';
+                      result += curr.str;
+                    }
+                    return result.trim();
                   }).filter(Boolean);
                   return lines.join('\n');
                 });
