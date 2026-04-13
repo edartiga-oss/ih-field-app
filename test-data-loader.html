@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IH Field — Test Data Loader</title>
+<style>
+  :root {
+    --navy: #0f2235;
+    --teal: #00b8a0;
+    --green: #3ec97a;
+    --amber: #f0a500;
+    --red: #e05252;
+    --surface: #f5f7fa;
+    --border: #d0d8e4;
+    --text: #1a2940;
+    --text2: #4a5c72;
+    --text3: #8096b0;
+    --mono: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: var(--surface); color: var(--text); min-height: 100vh; }
+
+  .header {
+    background: var(--navy); color: #fff; padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-title { font-size: 16px; font-weight: 600; }
+  .header-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; font-family: var(--mono); }
+  .warning-banner {
+    background: #fff8e6; border-bottom: 2px solid var(--amber);
+    padding: 10px 24px; font-size: 12px; color: #7a4f00;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .main { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+  .section { background: #fff; border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
+  .section-header {
+    background: var(--navy); color: #fff; padding: 10px 16px;
+    font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+  }
+  .section-body { padding: 16px; }
+
+  .test-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .test-card {
+    border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 14px;
+    background: var(--surface);
+  }
+  .test-card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .test-card-desc { font-size: 11px; color: var(--text2); line-height: 1.5; margin-bottom: 10px; }
+  .test-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+  .tag {
+    font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 600;
+  }
+  .tag-green { background: #e1f5ee; color: #085041; }
+  .tag-amber { background: #fff8e6; color: #7a4f00; }
+  .tag-red { background: #fcebeb; color: #a32d2d; }
+  .tag-blue { background: #e6f1fb; color: #0c447c; }
+  .tag-gray { background: #f1efe8; color: #444441; }
+
+  .btn {
+    padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1.5px solid; transition: all 0.15s;
+  }
+  .btn-teal { background: var(--teal); color: var(--navy); border-color: var(--teal); }
+  .btn-teal:hover { opacity: 0.88; }
+  .btn-outline { background: transparent; color: var(--text2); border-color: var(--border); }
+  .btn-outline:hover { background: var(--surface); }
+  .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+  .btn-danger:hover { opacity: 0.88; }
+  .btn-amber { background: var(--amber); color: var(--navy); border-color: var(--amber); }
+  .btn-full { width: 100%; text-align: center; }
+
+  .status-bar {
+    background: var(--navy); color: rgba(255,255,255,0.7);
+    padding: 10px 16px; font-size: 11px; font-family: var(--mono);
+    border-top: 1px solid rgba(255,255,255,0.1); max-height: 180px; overflow-y: auto;
+    display: none;
+  }
+  .status-bar.visible { display: block; }
+  .log-ok { color: var(--teal); }
+  .log-warn { color: var(--amber); }
+  .log-err { color: var(--red); }
+  .log-info { color: rgba(255,255,255,0.5); }
+
+  .storage-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .storage-card { background: var(--surface); border-radius: 8px; padding: 10px 12px; text-align: center; }
+  .storage-card-num { font-size: 22px; font-weight: 600; color: var(--text); }
+  .storage-card-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+  .bulk-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+
+  .progress-bar {
+    height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+    margin-top: 8px; display: none;
+  }
+  .progress-bar.visible { display: block; }
+  .progress-fill { height: 100%; background: var(--teal); border-radius: 2px; transition: width 0.3s; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">IH Field — Test Data Loader</div>
+    <div class="header-sub">Injects test survey records into localStorage for development and QA testing</div>
+  </div>
+</div>
+
+<div class="warning-banner">
+  ⚠ This tool writes directly to your browser's localStorage. Open this file in the same browser you use for the IH Field app at <strong>edartiga-oss.github.io/ih-field-app</strong> — then run the loader on that page by pasting the script into the console, OR use the injection buttons below while on that domain.
+</div>
+
+<div class="main">
+
+  <!-- Storage Status -->
+  <div class="section">
+    <div class="section-header">📊 Current Storage Status</div>
+    <div class="section-body">
+      <div class="storage-info">
+        <div class="storage-card">
+          <div class="storage-card-num" id="surveyCount">—</div>
+          <div class="storage-card-label">Surveys in storage</div>
+        </div>
+        <div class="storage-card">
+          <div class="storage-card-num" id="equipCount">—</div>
+          <div class="storage-card-label">Equipment records</div>
+        </div>
+        <div class="storage-card">
+          <div class="storage-card-num" id="deviceName">—</div>
+          <div class="storage-card-label">Device nickname</div>
+        </div>
+      </div>
+      <div class="bulk-controls">
+        <button class="btn btn-teal" onclick="refreshStatus()">Refresh Status</button>
+        <button class="btn btn-danger" onclick="clearAll()">Clear All Data</button>
+        <button class="btn btn-outline" onclick="exportBackup()">Export Backup JSON</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Individual Test Cases -->
+  <div class="section">
+    <div class="section-header">🧪 Individual Test Cases</div>
+    <div class="section-body">
+      <div class="test-grid" id="testGrid"></div>
+    </div>
+  </div>
+
+  <!-- Bulk Loading -->
+  <div class="section">
+    <div class="section-header">📦 Bulk Test Suites</div>
+    <div class="section-body">
+      <div class="bulk-controls">
+        <button class="btn btn-teal" onclick="loadSuite('full')">Load Full Suite (24 surveys)</button>
+        <button class="btn btn-outline" onclick="loadSuite('seg')">SEG Stats Suite (12 surveys)</button>
+        <button class="btn btn-outline" onclick="loadSuite('qa')">QA Edge Cases (8 surveys)</button>
+        <button class="btn btn-amber" onclick="loadSuite('equipment')">Load Equipment Library</button>
+      </div>
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="section">
+    <div class="section-header">📋 Log</div>
+    <div class="status-bar visible" id="log">
+      <div class="log-info">Ready. Click a test case to inject data.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  STORAGE KEYS (must match the app)
+// ═══════════════════════════════════════════════════
+const STORAGE_KEY = 'ih_noise_surveys_v2';
+const EQUIP_KEY   = 'ih_noise_equipment_v1';
+const DEVICE_KEY  = 'ih_device_nickname_v1';
+const META_KEY    = 'ih_noise_meta_v2';
+
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+function getStorage(key) {
+  try { return JSON.parse(localStorage.getItem(key) || (key === STORAGE_KEY || key === EQUIP_KEY ? '[]' : '{}')); }
+  catch(e) { return key === STORAGE_KEY || key === EQUIP_KEY ? [] : {}; }
+}
+function setStorage(key, val) {
+  localStorage.setItem(key, JSON.stringify(val));
+}
+function genId(prefix) {
+  return (prefix || 'NDS') + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
+}
+function daysAgo(n) {
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+function isoAt(daysAgo, h, m) {
+  const d = new Date(); d.setDate(d.getDate() - (daysAgo||0));
+  d.setHours(h||8); d.setMinutes(m||0); d.setSeconds(0);
+  return d.toISOString().slice(0,16);
+}
+
+function log(msg, type) {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-' + (type||'info');
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function refreshStatus() {
+  const surveys = getStorage(STORAGE_KEY);
+  const equip   = getStorage(EQUIP_KEY);
+  const nick    = localStorage.getItem(DEVICE_KEY) || 'Not set';
+  document.getElementById('surveyCount').textContent = surveys.length;
+  document.getElementById('equipCount').textContent  = equip.length;
+  document.getElementById('deviceName').textContent  = nick.length > 10 ? nick.slice(0,10)+'…' : nick;
+  log('Status refreshed: ' + surveys.length + ' surveys, ' + equip.length + ' equipment, nickname: ' + nick);
+}
+
+function clearAll() {
+  if (!confirm('Clear ALL surveys, equipment, and device nickname from localStorage?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(EQUIP_KEY);
+  localStorage.removeItem(META_KEY);
+  localStorage.removeItem('ih_sync_queue');
+  localStorage.removeItem('ih_delete_queue');
+  localStorage.removeItem('ih_equip_sync_queue');
+  refreshStatus();
+  log('All data cleared', 'warn');
+}
+
+function exportBackup() {
+  const data = { surveys: getStorage(STORAGE_KEY), equipment: getStorage(EQUIP_KEY), meta: getStorage(META_KEY) };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = 'IH_Test_Backup_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click(); URL.revokeObjectURL(url);
+  log('Backup exported', 'ok');
+}
+
+function injectSurvey(s) {
+  const surveys = getStorage(STORAGE_KEY);
+  const idx = surveys.findIndex(x => x.id === s.id);
+  if (idx >= 0) surveys[idx] = s; else surveys.unshift(s);
+  setStorage(STORAGE_KEY, surveys);
+}
+
+function injectEquipment(e) {
+  const equip = getStorage(EQUIP_KEY);
+  const idx = equip.findIndex(x => x.id === e.id);
+  if (idx >= 0) equip[idx] = e; else equip.push(e);
+  setStorage(EQUIP_KEY, equip);
+}
+
+// ═══════════════════════════════════════════════════
+//  SURVEY BUILDER
+// ═══════════════════════════════════════════════════
+function makeSurvey(overrides) {
+  const defaults = {
+    id: genId('NDS'),
+    timestamp: new Date().toISOString(),
+    deviceNickname: 'Test IH',
+    status: 'complete',
+    project: { name: 'Test Project — JBSA', standard: 'OSHA', date: daysAgo(0) },
+    dosimeter: {
+      make: 'Quest', model: 'NoisePro DLX', serial: 'QT-2024-0001',
+      factoryCal: daysAgo(90), calDue: daysAgo(-180),
+      exchange: '5', criterion: '90', weighting: 'A', response: 'Slow'
+    },
+    calibrator: {
+      make: 'Quest', model: 'QC-20', serial: 'QC-2023-0001',
+      lastNistCal: daysAgo(60), nistDue: daysAgo(-305), refLevel: '114.0'
+    },
+    calibration: {
+      preTime: isoAt(0, 7, 55), preReading: '113.9',
+      surveyStart: isoAt(0, 8, 0), surveyEnd: isoAt(0, 16, 0),
+      postTime: isoAt(0, 16, 5), postReading: '114.0'
+    },
+    employee: {
+      name: 'Test Employee', empId: 'EMP-001', company: 'Test Employer',
+      title: 'Mechanic', dept: 'Maintenance', location: 'Building 4 — Bay 2',
+      task: 'Engine repair and overhaul', seg: 'Vehicle Maintenance',
+      process: 'Engine repair / overhaul'
+    },
+    placement: { location: 'Left lapel', micType: '½" free-field', windscreen: 'Yes', obstructions: 'None' },
+    results: {
+      dose: '42.5', lavg: '84.2', peak: '105.3', runTime: '8.0', twa: '82.5', dosReportTWA: '82.5',
+      category: 'Below Action Level (<85 dBA)', hpd: 'Not required',
+      engControls: 'None in place', adminControls: 'None', ppe: 'None required',
+      hour1: 'Engine disassembly — moderate noise', hour2: 'Parts cleaning — low noise',
+      hour3: 'Grinding — elevated noise', hour4: 'Assembly work — moderate noise',
+      notes: 'All QA checks passed. Representative sample.'
+    },
+    qa: {
+      checks: { preBefore: true, postAfter: true, preWithin1hr: true, postWithin1hr: true, calWithin5pct: true, twaMatch: true, calDiff: 0.09 },
+      allPass: true, anyRun: true
+    },
+    ih: { name: 'Eduardo V.', creds: 'CIH', firm: 'Pika Inc', phone: '(832) 555-0100' }
+  };
+  return Object.assign({}, defaults, overrides, {
+    employee:  Object.assign({}, defaults.employee,  (overrides||{}).employee  || {}),
+    results:   Object.assign({}, defaults.results,   (overrides||{}).results   || {}),
+    dosimeter: Object.assign({}, defaults.dosimeter, (overrides||{}).dosimeter || {}),
+    calibrator:Object.assign({}, defaults.calibrator,(overrides||{}).calibrator|| {}),
+    calibration:Object.assign({}, defaults.calibration,(overrides||{}).calibration||{}),
+    qa:        Object.assign({}, defaults.qa,        (overrides||{}).qa        || {}),
+    ih:        Object.assign({}, defaults.ih,        (overrides||{}).ih        || {}),
+    placement: Object.assign({}, defaults.placement, (overrides||{}).placement || {}),
+    project:   Object.assign({}, defaults.project,   (overrides||{}).project   || {}),
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  TEST CASE DEFINITIONS
+// ═══════════════════════════════════════════════════
+const TEST_CASES = [
+  {
+    id: 'tc_below_al',
+    title: 'Below Action Level',
+    desc: 'TWA 82.5 dBA — all QA passing. Clean baseline survey.',
+    tags: [['green','Complete'],['green','All QA Pass'],['blue','Vehicle Maint.']],
+    fn: () => {
+      const s = makeSurvey({ id: genId('TC1'), status:'complete' });
+      injectSurvey(s);
+      log('Injected: Below Action Level survey — TWA 82.5 dBA', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_at_al',
+    title: 'At Action Level (≥85 dBA)',
+    desc: 'TWA 87.2 dBA — at action level, HPD recommended.',
+    tags: [['amber','Action Level'],['green','All QA Pass'],['blue','Production']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC2'), status:'complete',
+        employee: { name: 'Ana Torres', seg: 'Production / Manufacturing', process: 'Grinding / abrasive machining', location: 'Building 2 — Press Floor' },
+        results: { dose: '72.8', lavg: '87.2', peak: '110.4', runTime: '8.0', twa: '87.2', dosReportTWA: '87.2', category: 'At or Above Action Level (≥85 dBA)', hpd: 'Required — at Action Level' }
+      });
+      injectSurvey(s);
+      log('Injected: At Action Level survey — TWA 87.2 dBA', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_at_pel',
+    title: 'At / Above PEL (≥90 dBA)',
+    desc: 'TWA 93.1 dBA — at PEL, HPD required.',
+    tags: [['red','At PEL'],['green','All QA Pass'],['blue','Maintenance']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC3'), status:'complete',
+        employee: { name: 'Marcus Webb', seg: 'Maintenance / Facilities', process: 'Grinding / cutting / drilling', location: 'Building 7 — Machine Shop' },
+        results: { dose: '118.2', lavg: '93.1', peak: '118.7', runTime: '8.0', twa: '93.1', dosReportTWA: '93.1', category: 'At or Above PEL (≥90 dBA)', hpd: 'Required — at PEL' }
+      });
+      injectSurvey(s);
+      log('Injected: At PEL survey — TWA 93.1 dBA', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_significantly_above_pel',
+    title: 'Significantly Above PEL (≥100 dBA)',
+    desc: 'TWA 104.5 dBA — significantly above PEL, engineering controls review needed.',
+    tags: [['red','≥100 dBA'],['green','All QA Pass'],['blue','Construction']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC4'), status:'complete',
+        employee: { name: 'James Ritter', seg: 'Construction', process: 'Jackhammering / demolition', location: 'Site Alpha — Demolition Zone' },
+        results: { dose: '387.4', lavg: '104.5', peak: '131.2', runTime: '8.0', twa: '104.5', dosReportTWA: '104.5', category: 'Significantly Above PEL (≥100 dBA)', hpd: 'Required — at PEL', engControls: 'Isolation barriers installed', ppe: 'Double protection — earmuff + earplug required' }
+      });
+      injectSurvey(s);
+      log('Injected: Significantly above PEL — TWA 104.5 dBA', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_lasmax_115',
+    title: 'LASmax > 115 dBA (SEG Interview)',
+    desc: 'TWA 88.4 dBA, LASmax 118 dBA — triggers SEG interview protocol.',
+    tags: [['amber','LASmax >115'],['amber','Action Level'],['blue','Production']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC5'), status:'complete',
+        employee: { name: 'Carla Reyes', seg: 'Production / Manufacturing', process: 'Press / stamping operation', location: 'Building 1 — Stamping Press' },
+        results: { dose: '80.1', lavg: '88.4', peak: '118.3', runTime: '8.0', twa: '88.4', dosReportTWA: '88.4', category: 'At or Above Action Level (≥85 dBA)', hpd: 'Required — at Action Level', lasmaxInterviewNotes: 'SEG interviewed. Primary impact source: hydraulic press cycle at ~118 dBA. Occurs approximately 120 times per shift. Workers confirmed awareness. No existing controls for impact component.' }
+      });
+      injectSurvey(s);
+      log('Injected: LASmax 118 dBA — SEG interview protocol triggered', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_lasmax_140',
+    title: 'LASmax > 140 dBA (SLM Protocol)',
+    desc: 'LASmax 142 dBA — triggers 140 dBA SLM investigation protocol.',
+    tags: [['red','LASmax >140'],['red','At PEL'],['blue','Military']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC6'), status:'complete',
+        employee: { name: 'Sgt. Rivera', seg: 'Military Operations', process: 'Small arms qualification', location: 'Range 4 — 50m Firing Line' },
+        results: { dose: '195.0', lavg: '95.2', peak: '142.1', runTime: '8.0', twa: '95.2', dosReportTWA: '95.2', category: 'At or Above PEL (≥90 dBA)', hpd: 'Required — at PEL', lasmaxInterviewNotes: 'M16A2 rifle fire on qualification day.', lasmax140CorrectiveNotes: 'SLM confirmed: M16A2 muzzle blast 144 dB peak. Double hearing protection mandatory. Foam insert + tactical muff required for all firing line personnel. Engineering controls: blast shields under evaluation.' }
+      });
+      injectSurvey(s);
+      log('Injected: LASmax 142 dBA — SLM protocol triggered', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_qa_fail_cal_diff',
+    title: 'QA Fail — Cal Difference >5%',
+    desc: 'Pre/post calibration difference 6.3% — fails QA check.',
+    tags: [['red','QA Flag'],['amber','At AL'],['gray','Draft']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC7'), status:'qa-fail',
+        calibration: { preTime: isoAt(0,7,55), preReading: '113.9', surveyStart: isoAt(0,8,0), surveyEnd: isoAt(0,16,0), postTime: isoAt(0,16,5), postReading: '107.7' },
+        employee: { name: 'Devon Park', seg: 'Maintenance / Facilities', location: 'Boiler Room B' },
+        results: { dose: '68.2', lavg: '86.1', peak: '108.2', runTime: '8.0', twa: '85.8', dosReportTWA: '85.8', category: 'At or Above Action Level (≥85 dBA)', hpd: 'Required — at Action Level' },
+        qa: { checks: { preBefore: true, postAfter: true, preWithin1hr: true, postWithin1hr: true, calWithin5pct: false, twaMatch: true, calDiff: 6.32 }, allPass: false, anyRun: true }
+      });
+      injectSurvey(s);
+      log('Injected: QA Fail — cal diff 6.32% (>5% limit)', 'warn');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_qa_fail_post_before_end',
+    title: 'QA Fail — Post-cal Before Survey End',
+    desc: 'Post-calibration timestamp is before survey end — fails QA check.',
+    tags: [['red','QA Flag'],['gray','Draft'],['blue','Warehousing']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC8'), status:'qa-fail',
+        calibration: { preTime: isoAt(0,7,55), preReading: '113.9', surveyStart: isoAt(0,8,0), surveyEnd: isoAt(0,16,0), postTime: isoAt(0,15,30), postReading: '114.0' },
+        employee: { name: 'Kim Santos', seg: 'Warehousing / Shipping', process: 'Forklift operation', location: 'Warehouse C — Loading Dock' },
+        qa: { checks: { preBefore: true, postAfter: false, preWithin1hr: true, postWithin1hr: true, calWithin5pct: true, twaMatch: true, calDiff: 0.09 }, allPass: false, anyRun: true }
+      });
+      injectSurvey(s);
+      log('Injected: QA Fail — post-cal before survey end', 'warn');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_twa_mismatch',
+    title: 'QA Fail — TWA Mismatch',
+    desc: 'Calculated TWA 87.2 dBA vs dosimeter report 89.8 dBA — Δ2.6 dB exceeds 0.5 dB tolerance.',
+    tags: [['red','TWA Mismatch'],['amber','At AL'],['gray','Draft']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC9'), status:'qa-fail',
+        employee: { name: 'Tyler Brooks', seg: 'Production / Manufacturing', process: 'Turning / milling (CNC)', location: 'Building 3 — CNC Bay' },
+        results: { dose: '72.8', lavg: '87.2', peak: '109.1', runTime: '8.0', twa: '87.2', dosReportTWA: '89.8', category: 'At or Above Action Level (≥85 dBA)', hpd: 'Required — at Action Level' },
+        qa: { checks: { preBefore: true, postAfter: true, preWithin1hr: true, postWithin1hr: true, calWithin5pct: true, twaMatch: false, calDiff: 0.09, twaDiff: 2.6 }, allPass: false, anyRun: true }
+      });
+      injectSurvey(s);
+      log('Injected: QA Fail — TWA mismatch Δ2.6 dB', 'warn');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_short_run',
+    title: 'Short Run Time (4.5 hrs)',
+    desc: 'Partial shift sample — 4.5-hour run time, normalized TWA.',
+    tags: [['green','Complete'],['blue','Admin'],['gray','Short Sample']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC10'), status:'complete',
+        employee: { name: 'Linda Chu', seg: 'Administrative', process: 'Office work — general', location: 'Admin Building — Open Office', title: 'Administrative Assistant' },
+        calibration: { preTime: isoAt(0,7,55), preReading: '113.9', surveyStart: isoAt(0,8,0), surveyEnd: isoAt(0,12,30), postTime: isoAt(0,12,35), postReading: '114.0' },
+        results: { dose: '18.2', lavg: '72.4', peak: '88.1', runTime: '4.5', twa: '66.8', dosReportTWA: '66.8', category: 'Below Action Level (<85 dBA)', hpd: 'Not required', notes: 'Partial shift — afternoon portion not sampled due to equipment availability.' }
+      });
+      injectSurvey(s);
+      log('Injected: Short run time 4.5 hrs — TWA normalized', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_aviation',
+    title: 'Aviation — Flight Line',
+    desc: 'Jet aircraft flight line, TWA 97.4 dBA, significant exposure.',
+    tags: [['red','At PEL'],['green','All QA Pass'],['blue','Aviation']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC11'), status:'complete',
+        deviceNickname: 'Maria S.',
+        employee: { name: 'A1C Johnson', seg: 'Aviation / Flight Operations', process: 'Flight line — jet aircraft', location: 'Flightline — Ramp Alpha', title: 'Crew Chief', company: 'JBSA-Lackland' },
+        results: { dose: '247.6', lavg: '97.4', peak: '128.3', runTime: '8.0', twa: '97.4', dosReportTWA: '97.4', category: 'At or Above PEL (≥90 dBA)', hpd: 'Required — at PEL', engControters: 'Aircraft engine testing restricted to designated areas', ppe: 'Double protection required — foam insert + muff' }
+      });
+      injectSurvey(s);
+      log('Injected: Aviation flight line — TWA 97.4 dBA', 'ok');
+      refreshStatus();
+    }
+  },
+  {
+    id: 'tc_draft',
+    title: 'Draft Survey (Incomplete)',
+    desc: 'Survey in draft state — missing post-calibration data.',
+    tags: [['gray','Draft'],['gray','Incomplete'],['blue','Healthcare']],
+    fn: () => {
+      const s = makeSurvey({
+        id: genId('TC12'), status:'draft',
+        employee: { name: 'R.N. Patel', seg: 'Healthcare / Clinical', process: 'Sterile processing / autoclave', location: 'Central Sterile — Processing Room', title: 'Sterile Processing Tech' },
+        calibration: { preTime: isoAt(0,7,55), preReading: '113.9', surveyStart: isoAt(0,8,0), surveyEnd: '', postTime: '', postReading: '' },
+        results: { dose: '', lavg: '', peak: '', runTime: '', twa: '', dosReportTWA: '', category: '', hpd: '' },
+        qa: { checks: {}, allPass: false, anyRun: false }
+      });
+      injectSurvey(s);
+      log('Injected: Draft survey (incomplete data)', 'warn');
+      refreshStatus();
+    }
+  },
+];
+
+// ═══════════════════════════════════════════════════
+//  BULK SUITES
+// ═══════════════════════════════════════════════════
+function generateSEGSuite() {
+  const segs = [
+    { seg:'Vehicle Maintenance', process:'Engine repair / overhaul', twa: 84.2, dose: 56.3, loc:'Motor Pool — Bay 1' },
+    { seg:'Vehicle Maintenance', process:'Brake service', twa: 79.1, dose: 34.2, loc:'Motor Pool — Bay 2' },
+    { seg:'Vehicle Maintenance', process:'Welding / cutting', twa: 88.9, dose: 88.7, loc:'Motor Pool — Welding Bay' },
+    { seg:'Production / Manufacturing', process:'Press / stamping operation', twa: 93.2, dose: 124.8, loc:'Bldg 2 — Press Floor' },
+    { seg:'Production / Manufacturing', process:'Grinding / abrasive machining', twa: 91.4, dose: 110.3, loc:'Bldg 2 — Grinding Area' },
+    { seg:'Production / Manufacturing', process:'Assembly line work', twa: 82.1, dose: 48.2, loc:'Bldg 3 — Assembly' },
+    { seg:'Maintenance / Facilities', process:'Grinding / cutting / drilling', twa: 90.7, dose: 104.2, loc:'Machine Shop' },
+    { seg:'Maintenance / Facilities', process:'HVAC maintenance', twa: 78.3, dose: 29.8, loc:'Mechanical Room' },
+    { seg:'Construction', process:'Jackhammering / demolition', twa: 101.4, dose: 309.7, loc:'Site Alpha' },
+    { seg:'Construction', process:'Compaction / tamping', twa: 95.8, dose: 196.1, loc:'Site Alpha' },
+    { seg:'Administrative', process:'Office work — general', twa: 66.2, dose: 14.8, loc:'Admin Bldg' },
+    { seg:'Aviation / Flight Operations', process:'Flight line — jet aircraft', twa: 97.1, dose: 241.2, loc:'Flightline Ramp' },
+  ];
+  const names = ['Alex M.','Sam K.','Jordan L.','Chris P.','Taylor R.','Morgan W.','Casey B.','Drew H.','Quinn T.','Blake N.','Avery C.','Parker J.'];
+  return segs.map((seg, i) => makeSurvey({
+    id: genId('SEG'),
+    deviceNickname: i < 6 ? 'Eduardo V.' : 'Maria S.',
+    employee: { name: names[i], seg: seg.seg, process: seg.process, location: seg.loc, title: 'Worker', company: 'Test Employer', dept: seg.seg },
+    results: { dose: String(seg.dose), lavg: String(seg.twa), peak: String(seg.twa + 12), runTime: '8.0', twa: String(seg.twa), dosReportTWA: String(seg.twa), category: seg.twa >= 90 ? 'At or Above PEL (≥90 dBA)' : seg.twa >= 85 ? 'At or Above Action Level (≥85 dBA)' : 'Below Action Level (<85 dBA)', hpd: seg.twa >= 85 ? 'Required — at Action Level' : 'Not required' }
+  }));
+}
+
+function generateQASuite() {
+  return [
+    makeSurvey({ id:genId('QA1'), status:'qa-fail', calibration:{ preTime:isoAt(0,7,55), preReading:'113.9', surveyStart:isoAt(0,8,0), surveyEnd:isoAt(0,16,0), postTime:isoAt(0,16,5), postReading:'107.2' }, qa:{ checks:{ preBefore:true, postAfter:true, preWithin1hr:true, postWithin1hr:true, calWithin5pct:false, calDiff:5.9 }, allPass:false, anyRun:true }, employee:{name:'QA Test 1 — Cal Diff 5.9%', seg:'Maintenance / Facilities', location:'Test Site'} }),
+    makeSurvey({ id:genId('QA2'), status:'qa-fail', calibration:{ preTime:isoAt(0,8,5), preReading:'113.9', surveyStart:isoAt(0,8,0), surveyEnd:isoAt(0,16,0), postTime:isoAt(0,16,5), postReading:'114.0' }, qa:{ checks:{ preBefore:false, postAfter:true, preWithin1hr:false, postWithin1hr:true, calWithin5pct:true, calDiff:0.09 }, allPass:false, anyRun:true }, employee:{name:'QA Test 2 — Pre-cal After Start', seg:'Vehicle Maintenance', location:'Test Site'} }),
+    makeSurvey({ id:genId('QA3'), status:'qa-fail', calibration:{ preTime:isoAt(0,6,30), preReading:'113.9', surveyStart:isoAt(0,8,0), surveyEnd:isoAt(0,16,0), postTime:isoAt(0,16,5), postReading:'114.0' }, qa:{ checks:{ preBefore:true, postAfter:true, preWithin1hr:false, postWithin1hr:true, calWithin5pct:true, calDiff:0.09 }, allPass:false, anyRun:true }, employee:{name:'QA Test 3 — Pre-cal 90 min before start', seg:'Production / Manufacturing', location:'Test Site'} }),
+    makeSurvey({ id:genId('QA4'), status:'qa-fail', results:{ dose:'82.5', lavg:'87.2', peak:'110.2', runTime:'8.0', twa:'87.2', dosReportTWA:'89.8', category:'At or Above Action Level (≥85 dBA)', hpd:'Required — at Action Level' }, qa:{ checks:{ preBefore:true, postAfter:true, preWithin1hr:true, postWithin1hr:true, calWithin5pct:true, twaMatch:false, twaDiff:2.6, calDiff:0.09 }, allPass:false, anyRun:true }, employee:{name:'QA Test 4 — TWA Mismatch Δ2.6 dB', seg:'Construction', location:'Test Site'} }),
+    makeSurvey({ id:genId('QA5'), status:'complete', employee:{name:'QA Test 5 — Perfect Survey', seg:'Administrative', location:'Office'}, qa:{ checks:{ preBefore:true, postAfter:true, preWithin1hr:true, postWithin1hr:true, calWithin5pct:true, twaMatch:true, calDiff:0.04 }, allPass:true, anyRun:true } }),
+    makeSurvey({ id:genId('QA6'), status:'qa-fail', calibration:{ preTime:isoAt(0,7,55), preReading:'113.9', surveyStart:isoAt(0,8,0), surveyEnd:isoAt(0,16,0), postTime:isoAt(0,17,10), postReading:'114.0' }, qa:{ checks:{ preBefore:true, postAfter:true, preWithin1hr:true, postWithin1hr:false, postGap:70, calWithin5pct:true, calDiff:0.09 }, allPass:false, anyRun:true }, employee:{name:'QA Test 6 — Post-cal 70 min after end', seg:'Warehousing / Shipping', location:'Test Site'} }),
+    makeSurvey({ id:genId('QA7'), status:'complete', employee:{name:'QA Test 7 — ACGIH 3dB ER', seg:'Maintenance / Facilities', location:'Machine Shop'}, dosimeter:{ make:'Quest', model:'NoisePro', serial:'QT-TEST', factoryCal:daysAgo(90), calDue:daysAgo(-180), exchange:'3', criterion:'85', weighting:'A', response:'Slow' }, results:{ dose:'118.2', lavg:'88.4', peak:'112.1', runTime:'8.0', twa:'88.4', dosReportTWA:'88.4', category:'At or Above Action Level (≥85 dBA)', hpd:'Required — at Action Level' } }),
+    makeSurvey({ id:genId('QA8'), status:'draft', employee:{name:'QA Test 8 — Draft no results', seg:'Healthcare / Clinical', location:'Hospital'}, results:{ dose:'', lavg:'', peak:'', runTime:'', twa:'', dosReportTWA:'' }, qa:{ checks:{}, allPass:false, anyRun:false } }),
+  ];
+}
+
+function generateEquipmentLibrary() {
+  return [
+    { id:'EQ-DOS-001', type:'dosimeter', make:'Quest', model:'NoisePro DLX', serial:'QT-2024-0001', factoryCal: daysAgo(90), calDue: daysAgo(-180), exchange:'5', criterion:'90', weighting:'A', response:'Slow', condition:'Good', checkedInBy:'Eduardo V.', conditionHistory:[{ date:isoAt(30,8,0), condition:'Good', notes:'New unit — initial check-in', by:'Eduardo V.' }], notes:'Field Kit #1' },
+    { id:'EQ-DOS-002', type:'dosimeter', make:'Quest', model:'NoisePro DLX', serial:'QT-2024-0002', factoryCal: daysAgo(95), calDue: daysAgo(-175), exchange:'5', criterion:'90', weighting:'A', response:'Slow', condition:'Good', checkedInBy:'Maria S.', conditionHistory:[{ date:isoAt(25,8,0), condition:'Good', notes:'Pre-campaign check', by:'Maria S.' }], notes:'Field Kit #2' },
+    { id:'EQ-DOS-003', type:'dosimeter', make:'3M', model:'SoundPro SE-400', serial:'SP-2023-0117', factoryCal: daysAgo(400), calDue: daysAgo(-30), exchange:'3', criterion:'85', weighting:'A', response:'Slow', condition:'Fair', checkedInBy:'Eduardo V.', conditionHistory:[{ date:isoAt(400,8,0), condition:'Good', notes:'Initial check-in', by:'Eduardo V.' },{ date:isoAt(15,8,0), condition:'Fair', notes:'Battery door latch slightly worn', by:'Eduardo V.' }], notes:'ACGIH standard unit — Spare' },
+    { id:'EQ-DOS-004', type:'dosimeter', make:'Larson Davis', model:'Spark LxT1', serial:'LD-2022-0089', factoryCal: daysAgo(420), calDue: daysAgo(10), exchange:'5', criterion:'90', weighting:'A', response:'Slow', condition:'Needs service', checkedInBy:'Eduardo V.', conditionHistory:[{ date:isoAt(10,8,0), condition:'Needs service', notes:'Display flickering — send to factory', by:'Eduardo V.' }], notes:'OOS — pending factory service' },
+    { id:'EQ-CAL-001', type:'calibrator', make:'Quest', model:'QC-20', serial:'QC-2023-0001', lastNistCal: daysAgo(60), nistDue: daysAgo(-305), refLevel:'114.0', condition:'Good', checkedInBy:'Eduardo V.', conditionHistory:[{ date:isoAt(60,8,0), condition:'Good', notes:'Post-NIST cal verification — passed', by:'Eduardo V.' }], notes:'Primary calibrator' },
+    { id:'EQ-CAL-002', type:'calibrator', make:'Larson Davis', model:'CAL200', serial:'CAL-2021-0442', lastNistCal: daysAgo(380), nistDue: daysAgo(15), refLevel:'114.0', condition:'Good', checkedInBy:'Maria S.', conditionHistory:[{ date:isoAt(380,8,0), condition:'Good', notes:'Initial check-in', by:'Maria S.' }], notes:'Backup calibrator — NIST cal overdue' },
+  ];
+}
+
+// ═══════════════════════════════════════════════════
+//  SUITE LOADER
+// ═══════════════════════════════════════════════════
+async function loadSuite(name) {
+  const bar  = document.getElementById('progressBar');
+  const fill = document.getElementById('progressFill');
+  bar.classList.add('visible');
+  fill.style.width = '0%';
+
+  let items = [];
+  if (name === 'seg')       items = generateSEGSuite();
+  if (name === 'qa')        items = generateQASuite();
+  if (name === 'full')      items = [...TEST_CASES.map(tc => { const s = makeSurvey({}); tc.fn(); return null; }).filter(Boolean)];
+  if (name === 'equipment') {
+    const equip = generateEquipmentLibrary();
+    equip.forEach(e => injectEquipment(e));
+    fill.style.width = '100%';
+    log('Loaded equipment library: ' + equip.length + ' records', 'ok');
+    refreshStatus();
+    setTimeout(() => bar.classList.remove('visible'), 1500);
+    return;
+  }
+
+  if (name === 'full') {
+    // Run all individual test cases
+    for (let i = 0; i < TEST_CASES.length; i++) {
+      TEST_CASES[i].fn();
+      fill.style.width = ((i+1) / TEST_CASES.length * 100) + '%';
+      await new Promise(r => setTimeout(r, 80));
+    }
+  } else {
+    for (let i = 0; i < items.length; i++) {
+      injectSurvey(items[i]);
+      fill.style.width = ((i+1) / items.length * 100) + '%';
+      log('Injected survey ' + (i+1) + '/' + items.length + ' — ' + (items[i].employee.name || items[i].id), 'ok');
+      await new Promise(r => setTimeout(r, 60));
+    }
+    log('Suite "' + name + '" complete: ' + items.length + ' surveys loaded', 'ok');
+  }
+
+  refreshStatus();
+  setTimeout(() => bar.classList.remove('visible'), 1500);
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER TEST CARDS
+// ═══════════════════════════════════════════════════
+function renderTestCards() {
+  const grid = document.getElementById('testGrid');
+  grid.innerHTML = TEST_CASES.map(tc => `
+    <div class="test-card">
+      <div class="test-card-title">${tc.title}</div>
+      <div class="test-card-desc">${tc.desc}</div>
+      <div class="test-card-tags">
+        ${tc.tags.map(([cls, label]) => `<span class="tag tag-${cls}">${label}</span>`).join('')}
+      </div>
+      <button class="btn btn-teal btn-full" onclick="TEST_CASES.find(t=>t.id==='${tc.id}').fn()">Inject</button>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+renderTestCards();
+refreshStatus();
+</script>
+</body>
+</html>
