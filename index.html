@@ -5011,157 +5011,164 @@ function verifyParseDOCX(file, name) {
 }
 
 // ── Field extraction from raw text ───────────────────────
-// Handles Casella dBadge2 PDF/CSV export format.
-// Field labels vary slightly by firmware; patterns cover common variants.
+// Tuned for Casella dBadge2 DOCX/PDF export format.
+// Tab-delimited label/value pairs, one per line.
+// Example lines (real format):
+//   "Serial Number\t2106079 / Austin Donaghey"
+//   "Start Time\t2/11/2026 6:58:53 AM"
+//   "Measurement Duration\t09:13:42"
+//   "Calibration Before SPL\t114.0 dB"
+//   "Calibration Drift\t0.0 dB"
+//   "Dosimeter 1 Setup\tACGIH (T80, C85, Q3)"
+//   "D1 TWA 8Hrs\t59.0 dB"
+//   "D1 Lavg\t58.4 dB"
+//   "D1 Dose\t0.2 %"
+// Note: Inclusion Zone section repeats all D1 values — stop at first occurrence.
 function verifyExtractFields(text, filename) {
-  function find(patterns) {
-    for (var i = 0; i < patterns.length; i++) {
-      var m = text.match(patterns[i]);
-      if (m) return m[1].trim();
+
+  // Build a key→value map from tab-delimited lines.
+  // Stop after "Inclusion/Exclusion Information" to avoid duplicates.
+  var kvMap = {};
+  var lines = text.split(/\r?\n/);
+  var stopParsing = false;
+  lines.forEach(function(line) {
+    if (stopParsing) return;
+    if (/Inclusion.*Exclusion/i.test(line) || /^Inclusion Zone/i.test(line.trim())) {
+      stopParsing = true;
+      return;
     }
-    return null;
+    // Strip leading whitespace/bullets
+    var clean = line.replace(/^\s+/, '');
+    var tabIdx = clean.indexOf('\t');
+    if (tabIdx < 1) return;
+    var key = clean.slice(0, tabIdx).trim().toLowerCase();
+    var val = clean.slice(tabIdx + 1).trim();
+    // Take first occurrence only
+    if (!(key in kvMap)) kvMap[key] = val;
+  });
+
+  function get(key) { return kvMap[key.toLowerCase()] || null; }
+
+  // ── Serial number + worker name ──────────────────────────
+  // "Serial Number\t2106079 / Austin Donaghey"
+  var serialRaw = get('serial number') || get('serial no') || get('serial');
+  var serial = null, reportName = null;
+  if (serialRaw) {
+    var slashIdx = serialRaw.indexOf(' / ');
+    if (slashIdx > -1) {
+      serial     = serialRaw.slice(0, slashIdx).trim();
+      reportName = serialRaw.slice(slashIdx + 3).trim();
+    } else {
+      serial = serialRaw.trim();
+    }
   }
 
-  // Serial number: "Serial No: 2106131" or "Serial Number 2106131"
-  var serial = find([
-    /[Ss]erial\s*[Nn]o[.:]\s*([A-Za-z0-9\-]+)/,
-    /[Ss]erial\s*[Nn]umber[:\s]+([A-Za-z0-9\-]+)/,
-    /[Ii]nstrument\s*[Ss]erial[:\s]+([A-Za-z0-9\-]+)/,
-    /SN[:\s]+([A-Za-z0-9\-]+)/
-  ]);
-
-  // Worker/operator name: "Operator: Edwin Gomee" or "Worker Name: Gomee, Edwin"
-  var reportName = find([
-    /[Oo]perator[:\s]+([A-Za-z][A-Za-z ,.\-']+?)(?:\s{2,}|\n|$)/,
-    /[Ww]orker\s*[Nn]ame[:\s]+([A-Za-z][A-Za-z ,.\-']+?)(?:\s{2,}|\n|$)/,
-    /[Ss]ubject[:\s]+([A-Za-z][A-Za-z ,.\-']+?)(?:\s{2,}|\n|$)/,
-    /[Ee]mployee[:\s]+([A-Za-z][A-Za-z ,.\-']+?)(?:\s{2,}|\n|$)/
-  ]);
+  // ── Times ────────────────────────────────────────────────
+  // Format: "2/11/2026 6:58:53 AM"
+  var startRaw = get('start time');
+  var stopRaw  = get('end time') || get('stop time');
 
   // Survey date from start time
-  var startRaw = find([
-    /[Ss]tart\s*[Dd]ate[\/\s]*[Tt]ime[:\s]+([\d\/\-: ]+(?:AM|PM|am|pm)?)/,
-    /[Ss]tart[:\s]+([\d\/\-]{6,10}[\s,T][\d:]+(?:\s*(?:AM|PM))?)/,
-    /[Mm]easurement\s+[Ss]tart[:\s]+([\d\/\-: ]+(?:AM|PM)?)/
-  ]);
-
-  var stopRaw = find([
-    /[Ss]top\s*[Dd]ate[\/\s]*[Tt]ime[:\s]+([\d\/\-: ]+(?:AM|PM|am|pm)?)/,
-    /[Ss]top[:\s]+([\d\/\-]{6,10}[\s,T][\d:]+(?:\s*(?:AM|PM))?)/,
-    /[Mm]easurement\s+[Ss]top[:\s]+([\d\/\-: ]+(?:AM|PM)?)/,
-    /[Ee]nd[:\s]+([\d\/\-]{6,10}[\s,T][\d:]+(?:\s*(?:AM|PM))?)/
-  ]);
-
-  // TWA
-  var twa = find([
-    /TWA[^=:\d]*[=:\s]+([\d.]+)\s*dB/i,
-    /8\s*[Hh]our\s*TWA[:\s]+([\d.]+)/i,
-    /Time\s*Weighted\s*Average[:\s]+([\d.]+)/i
-  ]);
-
-  // Dose
-  var dose = find([
-    /[Dd]ose[^=:\d%]*[=:\s]+([\d.]+)\s*%/,
-    /[Dd]ose\s*\(%\)[:\s]+([\d.]+)/,
-    /[Dd]ose[:\s]+([\d.]+)\s*percent/i
-  ]);
-
-  // Lavg / LEQ
-  var lavg = find([
-    /L[Aa]vg[:\s]+([\d.]+)\s*dB/,
-    /LEQ[:\s]+([\d.]+)\s*dB/i,
-    /L[Aa][Vv][Gg][:\s]+([\d.]+)/
-  ]);
-
-  // Run time
-  var runTime = find([
-    /[Rr]un\s*[Tt]ime[:\s]+([\d:hm ]+)/,
-    /[Mm]easurement\s+[Tt]ime[:\s]+([\d:hm ]+)/,
-    /[Ee]lapsed[:\s]+([\d:hm ]+)/
-  ]);
-
-  // Pre-cal
-  var preCal = find([
-    /[Pp]re[\s\-][Cc]al[ibration]*[:\s]+([\d.]+)\s*dB/,
-    /[Cc]alibration\s+[Bb]efore[:\s]+([\d.]+)/
-  ]);
-
-  // Post-cal
-  var postCal = find([
-    /[Pp]ost[\s\-][Cc]al[ibration]*[:\s]+([\d.]+)\s*dB/,
-    /[Cc]alibration\s+[Aa]fter[:\s]+([\d.]+)/
-  ]);
-
-  // Survey date: extract date portion from startRaw
   var surveyDate = null;
   if (startRaw) {
-    var dm = startRaw.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
-    if (dm) surveyDate = dm[1];
-    else { dm = startRaw.match(/(\d{4}[\/\-]\d{2}[\/\-]\d{2})/); if (dm) surveyDate = dm[1]; }
+    var dm = startRaw.match(/^(\d{1,2}\/\d{1,2}\/\d{4})/);
+    if (dm) {
+      // Convert m/d/yyyy → yyyy-mm-dd
+      var parts = dm[1].split('/');
+      surveyDate = parts[2] + '-' + parts[0].padStart(2,'0') + '-' + parts[1].padStart(2,'0');
+    }
   }
 
-  // Exchange rate: "Exchange Rate: 3 dB" or "Q = 3"
-  var exchange = find([
-    /[Ee]xchange\s*[Rr]ate[:\s]+([\d.]+)\s*dB/,
-    /[Ee]xchange\s*[Rr]ate[:\s]+([\d.]+)/,
-    /Q\s*[=:]\s*([\d.]+)/,
-    /[Qq]\s*[Ff]actor[:\s]+([\d.]+)/
-  ]);
+  // ── Run time ─────────────────────────────────────────────
+  // "Measurement Duration\t09:13:42"
+  var runTime = get('measurement duration') || get('run time') || get('elapsed time') || get('duration');
+  if (runTime) runTime = runTime.replace(/\s*dB.*$/i,'').trim();
 
-  // Criterion level: "Criterion Level: 85 dB"
-  var criterion = find([
-    /[Cc]riterion\s*[Ll]evel[:\s]+([\d.]+)\s*dB/,
-    /[Cc]riterion[:\s]+([\d.]+)\s*dB/,
-    /[Cc]riterion[:\s]+([\d.]+)/,
-    /[Ll]c[:\s]+([\d.]+)\s*dB/
-  ]);
+  // ── Calibration ──────────────────────────────────────────
+  // Pre: "Calibration Before SPL\t114.0 dB"
+  var preCalRaw  = get('calibration before spl') || get('pre-calibration') || get('pre calibration');
+  var preCal = preCalRaw ? parseFloat(preCalRaw) : null;
 
-  // Threshold level: "Threshold: 80 dB"
-  var threshold = find([
-    /[Tt]hreshold\s*[Ll]evel[:\s]+([\d.]+)\s*dB/,
-    /[Tt]hreshold[:\s]+([\d.]+)\s*dB/,
-    /[Tt]hreshold[:\s]+([\d.]+)/,
-    /[Ll]t[:\s]+([\d.]+)\s*dB/
-  ]);
+  // Pre time: "Calibration Before Time\t2/11/2026 6:58:42 AM"
+  var preCalTime = get('calibration before time') || get('pre-calibration time');
 
-  // Frequency weighting: "Weighting: A" or "A-weighting"
-  var weighting = find([
-    /[Ff]req[uency]*\s*[Ww]eight[ing]*[:\s]+([ACZacz])/,
-    /[Ww]eight[ing]*[:\s]+([ACZacz])/,
-    /([ACZ])-[Ww]eighting/,
-    /[Ww]eight[:\s]+([ACZacz])/
-  ]);
-  if (weighting) weighting = weighting.toUpperCase();
+  // Post: Casella stores DRIFT, not absolute post-cal SPL
+  // "Calibration Drift\t0.0 dB"  → postCal = preCal + drift
+  var driftRaw   = get('calibration drift') || get('cal drift');
+  var drift      = driftRaw ? parseFloat(driftRaw) : null;
+  var postCal    = (preCal !== null && drift !== null) ? Math.round((preCal + drift) * 10) / 10 : null;
+  var postCalTime = get('calibration after time') || get('post-calibration time');
 
-  // Detector response: "Response: Slow" or "Slow response"
-  var response = find([
-    /[Dd]etector\s*[Rr]esponse[:\s]+(Slow|Fast|slow|fast)/,
-    /[Rr]esponse[:\s]+(Slow|Fast|slow|fast)/,
-    /(Slow|Fast)\s+[Rr]esponse/
-  ]);
-  if (response) response = response.charAt(0).toUpperCase() + response.slice(1).toLowerCase();
+  // ── Results — "D1 " prefixed ─────────────────────────────
+  // "D1 TWA 8Hrs\t59.0 dB"
+  var twaRaw  = get('d1 twa 8hrs') || get('d1 twa 8 hrs') || get('d1 twa') || get('twa 8hrs') || get('twa');
+  var twa     = twaRaw  ? parseFloat(twaRaw)  : null;
+
+  // "D1 Dose\t0.2 %"
+  var doseRaw = get('d1 dose') || get('dose');
+  var dose    = doseRaw ? parseFloat(doseRaw) : null;
+
+  // "D1 Lavg\t58.4 dB"
+  var lavgRaw = get('d1 lavg') || get('d1 laeq') || get('lavg') || get('laeq');
+  var lavg    = lavgRaw ? parseFloat(lavgRaw) : null;
+
+  // LASmax (for LASmax > 115 flag)
+  var lasmaxRaw = get('d1 lasmax (time)') || get('d1 lasmax');
+  var lasmax    = lasmaxRaw ? parseFloat(lasmaxRaw) : null;
+
+  // ── Dosimeter setup ──────────────────────────────────────
+  // "Dosimeter 1 Setup\tACGIH (T80, C85, Q3)"
+  // Standard Casella setup string: T##=threshold, C##=criterion, Q#=exchange
+  var setupRaw = get('dosimeter 1 setup') || get('dosimeter setup') || get('d1 setup');
+  var exchange = null, criterion = null, threshold = null, weighting = null, response = null;
+  if (setupRaw) {
+    var tMatch = setupRaw.match(/T(\d+)/i);
+    var cMatch = setupRaw.match(/C(\d+)/i);
+    var qMatch = setupRaw.match(/Q(\d+)/i);
+    if (tMatch) threshold = parseFloat(tMatch[1]);
+    if (cMatch) criterion = parseFloat(cMatch[1]);
+    if (qMatch) exchange  = parseFloat(qMatch[1]);
+    // ACGIH/NIOSH implies A-weighting Slow; OSHA implies A-weighting Slow as well
+    // Weighting and response are not explicitly in setup string — infer if needed
+    if (/[ACZ]-?weight/i.test(setupRaw)) {
+      var wm = setupRaw.match(/([ACZ])-?weight/i);
+      if (wm) weighting = wm[1].toUpperCase();
+    } else if (/ACGIH|NIOSH|OSHA/i.test(setupRaw)) {
+      weighting = 'A'; // all standard methods use A-weighting
+    }
+    if (/slow/i.test(setupRaw)) response = 'Slow';
+    else if (/fast/i.test(setupRaw)) response = 'Fast';
+    else if (/ACGIH|NIOSH|OSHA/i.test(setupRaw)) response = 'Slow'; // standard default
+  }
 
   return {
-    _filename: filename,
-    _rawText: text,
+    _filename:  filename,
+    _rawText:   text,
+    _kvMap:     kvMap,       // expose for debug mode
     serial:     serial,
     reportName: reportName,
     surveyDate: surveyDate,
     startRaw:   startRaw,
     stopRaw:    stopRaw,
-    twa:        twa   ? parseFloat(twa)   : null,
-    dose:       dose  ? parseFloat(dose)  : null,
-    lavg:       lavg  ? parseFloat(lavg)  : null,
-    runTime:    runTime ? runTime.trim() : null,
-    preCal:     preCal  ? parseFloat(preCal)  : null,
-    postCal:    postCal ? parseFloat(postCal) : null,
-    exchange:   exchange  ? parseFloat(exchange)  : null,
-    criterion:  criterion ? parseFloat(criterion) : null,
-    threshold:  threshold ? parseFloat(threshold) : null,
-    weighting:  weighting || null,
-    response:   response  || null
+    preCalTime: preCalTime,
+    postCalTime: postCalTime,
+    twa:        twa,
+    dose:       dose,
+    lavg:       lavg,
+    lasmax:     lasmax,
+    runTime:    runTime,
+    preCal:     preCal,
+    postCal:    postCal,
+    calDrift:   drift,
+    exchange:   exchange,
+    criterion:  criterion,
+    threshold:  threshold,
+    weighting:  weighting,
+    response:   response
   };
 }
+
+
 
 // ── Match report to survey ────────────────────────────────
 function verifyMatchAndCompare(report) {
@@ -5214,18 +5221,17 @@ function extractSurveyDate(s) {
 
 function normalizeDate(d) {
   if (!d) return '';
-  // Convert mm/dd/yyyy or dd/mm/yyyy to yyyy-mm-dd for comparison
   d = d.trim();
   var m;
-  // Already ISO
-  m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) return d;
-  // mm/dd/yyyy or dd/mm/yyyy
+  // Already ISO yyyy-mm-dd
+  m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  // Casella format: m/d/yyyy or mm/dd/yyyy (may have time appended)
+  m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
+  // ISO with dashes but partial
   m = d.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (m) {
-    // Assume mm/dd/yyyy (US format from Casella)
-    return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
-  }
+  if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
   return d;
 }
 
@@ -5278,8 +5284,24 @@ function verifyCompareFields(survey, report) {
       checks[key] = { app: appDT, rpt: rptRaw, status: 'MISSING' };
       return;
     }
+    // Casella format: "2/11/2026 6:58:53 AM" — convert for reliable Date parsing
+    function parseCasellaTime(s) {
+      if (!s) return NaN;
+      // Try native parse first
+      var t = new Date(s).getTime();
+      if (!isNaN(t)) return t;
+      // m/d/yyyy h:mm:ss AM/PM
+      var m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+      if (!m) return NaN;
+      var mo=parseInt(m[1])-1, dy=parseInt(m[2]), yr=parseInt(m[3]);
+      var hr=parseInt(m[4]), mn=parseInt(m[5]), sc=parseInt(m[6]||0);
+      var ampm = (m[7]||'').toUpperCase();
+      if (ampm === 'PM' && hr < 12) hr += 12;
+      if (ampm === 'AM' && hr === 12) hr = 0;
+      return new Date(yr, mo, dy, hr, mn, sc).getTime();
+    }
     var at = new Date(appDT).getTime();
-    var rt = new Date(rptRaw).getTime();
+    var rt = parseCasellaTime(rptRaw);
     if (isNaN(at) || isNaN(rt)) {
       checks[key] = { app: appDT, rpt: rptRaw, status: 'MISSING' };
       return;
@@ -5535,6 +5557,9 @@ function verifyOpenDrawer(row) {
   lines.push(detailRow('Post-Cal (dB)', c.postCal, function(k) {
     return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
   }));
+  if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
+    lines.push('<div style="font-size:10px; color:var(--text3); margin:-4px 0 8px; padding-left:2px;">Report stores Cal Drift (' + row._report.calDrift.toFixed(1) + ' dB); Post-Cal derived as Pre-Cal + Drift.</div>');
+  }
   lines.push(detailRow('Start Time', c.startTime, function(k) {
     return k.diffMin !== undefined ? 'Δ ' + k.diffMin.toFixed(1) + ' min (tolerance ±1)' : '';
   }));
