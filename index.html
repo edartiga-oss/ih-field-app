@@ -3868,6 +3868,85 @@ function updateInventoryBadge() {
 // ═══════════════════════════════════════════════════════════
 //  STATISTICS
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+//  LOGNORMAL STATISTICS (UCL / UTL) — AIHA IHSTAT approach
+//  UCL:  95% Upper Confidence Limit on the geometric mean
+//  UTL:  95th-percentile / 95% confidence Upper Tolerance Limit
+//  Both use log-transformed TWA values (dBA)
+// ═══════════════════════════════════════════════════════════
+
+// One-sided t-table (95% confidence) for df = n-1, n = 2..30+
+var T95 = {
+  1:6.314, 2:2.920, 3:2.353, 4:2.132, 5:2.015,
+  6:1.943, 7:1.895, 8:1.860, 9:1.833, 10:1.812,
+  11:1.796, 12:1.782, 13:1.771, 14:1.761, 15:1.753,
+  16:1.746, 17:1.740, 18:1.734, 19:1.729, 20:1.725,
+  21:1.721, 22:1.717, 23:1.714, 24:1.711, 25:1.708,
+  29:1.699, 39:1.685, 59:1.671, 119:1.658
+};
+
+// K-factors for one-sided 95th-pct / 95% confidence UTL (Owen's K)
+// Keyed by n (2..30+)
+var K_UTL = {
+  2:37.094, 3:10.553, 4:7.042, 5:5.741,
+  6:5.062, 7:4.641, 8:4.353, 9:4.143, 10:3.981,
+  11:3.852, 12:3.747, 13:3.659, 14:3.585, 15:3.520,
+  16:3.464, 17:3.414, 18:3.370, 19:3.331, 20:3.295,
+  25:3.158, 30:3.064, 40:2.941, 50:2.863, 100:2.684
+};
+
+function tValue95(n) {
+  var df = n - 1;
+  if (df <= 0) return NaN;
+  var keys = Object.keys(T95).map(Number).sort(function(a,b){return a-b;});
+  for (var i = 0; i < keys.length; i++) {
+    if (df <= keys[i]) return T95[keys[i]];
+  }
+  return 1.645; // large n → z
+}
+
+function kUTL(n) {
+  if (n < 2) return NaN;
+  var keys = Object.keys(K_UTL).map(Number).sort(function(a,b){return a-b;});
+  for (var i = 0; i < keys.length; i++) {
+    if (n <= keys[i]) return K_UTL[keys[i]];
+  }
+  // For n > 100: approximate Owen's K
+  return 1.645 + (2.576 / Math.sqrt(n));
+}
+
+function lognormalStats(twas) {
+  // Returns { n, gm, gsd, ucl95, utl95_95, smallSample, logMean, logSD }
+  var n = twas.length;
+  if (n < 2) return null;
+  // Work in log space (natural log of TWA dBA values)
+  var logs = twas.map(function(x) { return Math.log(x); });
+  var logMean = logs.reduce(function(a,b){return a+b;},0) / n;
+  var logVar  = logs.reduce(function(a,b){return a + Math.pow(b-logMean,2);},0) / (n-1);
+  var logSD   = Math.sqrt(logVar);
+  // Geometric mean and GSD
+  var gm  = Math.exp(logMean);
+  var gsd = Math.exp(logSD);
+  // 95% UCL on geometric mean (Land's H-statistic approximation)
+  // UCL = exp(logMean + t(n-1, 0.95) * logSD / sqrt(n))
+  var t   = tValue95(n);
+  var ucl = Math.exp(logMean + t * logSD / Math.sqrt(n));
+  // 95th-percentile / 95% confidence UTL
+  // UTL = exp(logMean + K(n) * logSD)
+  var k   = kUTL(n);
+  var utl = Math.exp(logMean + k * logSD);
+  return {
+    n: n,
+    gm: gm,
+    gsd: gsd,
+    ucl95: ucl,
+    utl95_95: utl,
+    smallSample: n < 6,
+    logMean: logMean,
+    logSD: logSD
+  };
+}
+
 var statsSelectedSEGs = null; // null = all
 var statsSelectedIHs  = null; // null = all
 
@@ -4115,6 +4194,62 @@ function renderStats() {
             + '<div style="font-size:16px; font-weight:600; color:var(--text);">' + m[1] + '</div></div>';
         }).join('')
       + '</div>'
+
+      + (function() {
+          var stats = lognormalStats(gTWAs);
+          if (!stats) {
+            return '<div style="background:var(--surface); border-radius:var(--radius); padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--text3);">Insufficient data for UCL/UTL (need ≥2 TWA values).</div>';
+          }
+          var fmtDb = function(v) { return isNaN(v) ? '—' : v.toFixed(1) + ' dBA'; };
+          var fmtX  = function(v) { return isNaN(v) ? '—' : v.toFixed(2) + 'x'; };
+          var pelUCL = stats.ucl95    >= 90;
+          var pelUTL = stats.utl95_95 >= 90;
+          var alUCL  = !pelUCL && stats.ucl95    >= 85;
+          var alUTL  = !pelUTL && stats.utl95_95 >= 85;
+          function statCell(label, value, isPEL, isAL) {
+            var bg  = isPEL ? 'background:#fcebeb;' : isAL ? 'background:#fff8e6;' : 'background:var(--surface);';
+            var col = isPEL ? 'color:#a32d2d;'      : isAL ? 'color:#7a4f00;'      : 'color:var(--text);';
+            var badge = isPEL
+              ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;margin-left:5px;background:#fcebeb;color:#a32d2d;border:1px solid #f09595;">≥ PEL</span>'
+              : isAL
+              ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;margin-left:5px;background:#fff8e6;color:#7a4f00;border:1px solid #f0a500;">≥ AL</span>'
+              : '';
+            return '<div style="padding:10px 14px; border-radius:8px; ' + bg + '">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">' + label + '</div>'
+              + '<div style="font-size:18px; font-weight:700; ' + col + '">' + value + badge + '</div>'
+              + '</div>';
+          }
+          var smallNote = stats.smallSample
+            ? '<div style="margin-top:8px; padding:7px 10px; background:#fff8e6; border:1px solid #f0a500; border-radius:6px; font-size:11px; color:#7a4f00; display:flex; gap:6px;">'
+              + '<span>&#9651;</span><span><strong>Small sample (n=' + stats.n + ', &lt;6):</strong> UCL and UTL estimates are imprecise with fewer than 6 results. Collect additional samples to improve reliability.</span>'
+              + '</div>'
+            : '';
+          return '<div style="border:1.5px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:16px;">'
+            + '<div style="font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Lognormal Exposure Statistics — 95% Confidence</div>'
+            + '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; margin-bottom:8px;">'
+            + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">n (TWA values)</div>'
+              + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + stats.n + '</div>'
+            + '</div>'
+            + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Geometric Mean</div>'
+              + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtDb(stats.gm) + '</div>'
+            + '</div>'
+            + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Geometric SD</div>'
+              + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtX(stats.gsd) + '</div>'
+            + '</div>'
+            + statCell('95% UCL on GM', fmtDb(stats.ucl95), pelUCL, alUCL)
+            + statCell('95th/95% UTL',  fmtDb(stats.utl95_95), pelUTL, alUTL)
+            + '</div>'
+            + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
+              + '<strong>UCL:</strong> 95% upper confidence limit on the geometric mean (Land’s H-statistic). '
+              + '<strong>UTL:</strong> Upper tolerance limit — with 95% confidence, 95% of worker exposures fall below this value (Owen’s K-factor). '
+              + 'Both assume lognormal distribution of TWA values.'
+            + '</div>'
+            + smallNote
+            + '</div>';
+        })()
 
       // Charts row
       + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">'
