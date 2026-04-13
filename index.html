@@ -1377,18 +1377,42 @@ main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
     <button class="btn btn-outline btn-sm" onclick="renderStats()">Refresh</button>
   </div>
 
-  <!-- SEG selector -->
-  <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
-    <div style="font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Show SEGs:</div>
-    <div id="statsSegChips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-    <button class="btn btn-outline btn-sm" onclick="statsSelectAll()" style="padding:4px 10px; font-size:11px;">All</button>
-    <button class="btn btn-outline btn-sm" onclick="statsSelectNone()" style="padding:4px 10px; font-size:11px;">None</button>
+  <!-- Filter row: IH + SEG selectors -->
+  <div style="display:flex; align-items:flex-start; gap:16px; margin-bottom:14px; flex-wrap:wrap;">
+
+    <!-- IH filter -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by IH</div>
+      <div id="statsIHChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+        <button class="btn btn-outline btn-sm" onclick="statsSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>
+      </div>
+    </div>
+
+    <!-- SEG filter -->
+    <div style="flex:1;">
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by SEG</div>
+      <div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+        <div id="statsSegChips" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+        <button class="btn btn-outline btn-sm" onclick="statsSelectAll()" style="padding:3px 9px; font-size:10px;">All</button>
+        <button class="btn btn-outline btn-sm" onclick="statsSelectNone()" style="padding:3px 9px; font-size:10px;">None</button>
+      </div>
+    </div>
+
+    <!-- Toggle individual results -->
+    <div>
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Display</div>
+      <label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:12px; color:var(--text2); white-space:nowrap;">
+        <input type="checkbox" id="statsShowIndividual" onchange="renderStats()" style="width:15px; height:15px;">
+        Show individual results
+      </label>
+    </div>
+
   </div>
 
   <!-- Summary metric cards -->
   <div id="statsMetrics" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:20px;"></div>
 
-  <!-- Per-SEG stat tables -->
+  <!-- Per-SEG stat tables + individual results -->
   <div id="statsBody"></div>
 
 </div>
@@ -3845,225 +3869,280 @@ function updateInventoryBadge() {
 //  STATISTICS
 // ═══════════════════════════════════════════════════════════
 var statsSelectedSEGs = null; // null = all
+var statsSelectedIHs  = null; // null = all
 
 function renderStats() {
   const chipsEl   = document.getElementById('statsSegChips');
+  const ihChipsEl = document.getElementById('statsIHChips');
   const metricsEl = document.getElementById('statsMetrics');
   const bodyEl    = document.getElementById('statsBody');
+  const showInd   = document.getElementById('statsShowIndividual');
   if (!chipsEl || !metricsEl || !bodyEl) return;
 
-  // Gather all SEGs present in surveys
-  const allSEGs = [...new Set(surveys.map(s => s.employee?.seg || '').filter(Boolean))].sort();
+  const showIndividual = showInd && showInd.checked;
 
+  // ── All IH names ──
+  const allIHs = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
+  if (statsSelectedIHs === null) statsSelectedIHs = new Set(allIHs);
+
+  // ── Render IH chips ──
+  if (ihChipsEl) {
+    ihChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="statsSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>' +
+      allIHs.map(function(ih) {
+        var active = statsSelectedIHs.has(ih);
+        return '<button onclick="statsToggleIH(\'' + esc(ih) + '\')" style="'
+          + 'padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
+          + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
+          + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
+          + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';'
+          + '">' + esc(ih) + '</button>';
+      }).join('');
+  }
+
+  // ── All SEGs ──
+  const allSEGs = [...new Set(surveys.map(s => s.employee?.seg || '').filter(Boolean))].sort();
   if (!allSEGs.length) {
     metricsEl.innerHTML = '';
     bodyEl.innerHTML = '<div class="empty-state"><div class="empty-title">No surveys with SEG data yet</div><div class="empty-sub">Assign a SEG when entering survey data to see statistics here</div></div>';
     chipsEl.innerHTML = '';
     return;
   }
-
-  // Init selection (all on first render)
   if (statsSelectedSEGs === null) statsSelectedSEGs = new Set(allSEGs);
 
-  // Render SEG chips
-  chipsEl.innerHTML = allSEGs.map(seg => {
-    const active = statsSelectedSEGs.has(seg);
-    return `<button onclick="statsToggleSEG('${esc(seg)}')" style="
-      padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;
-      border:1.5px solid ${active ? 'var(--teal)' : 'var(--border)'};
-      background:${active ? 'rgba(0,184,160,0.12)' : 'var(--surface)'};
-      color:${active ? 'var(--teal)' : 'var(--text2)'};
-    ">${esc(seg)}</button>`;
+  // ── Render SEG chips ──
+  chipsEl.innerHTML = allSEGs.map(function(seg) {
+    var active = statsSelectedSEGs.has(seg);
+    return '<button onclick="statsToggleSEG(\'' + esc(seg) + '\')" style="'
+      + 'padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
+      + 'border:1.5px solid ' + (active ? '#00b8a0' : 'var(--border)') + ';'
+      + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
+      + 'color:' + (active ? '#00b8a0' : 'var(--text2)') + ';'
+      + '">' + esc(seg) + '</button>';
   }).join('');
 
-  // Filter surveys to selected SEGs
-  const sel = surveys.filter(s => statsSelectedSEGs.has(s.employee?.seg || ''));
+  // ── Filter surveys by both IH and SEG ──
+  const sel = surveys.filter(function(s) {
+    var ih  = s.deviceNickname || s.ih?.name || '';
+    var seg = s.employee?.seg || '';
+    var ihOk  = statsSelectedIHs === null || !allIHs.length || statsSelectedIHs.has(ih);
+    var segOk = statsSelectedSEGs.has(seg);
+    return ihOk && segOk;
+  });
 
   if (!sel.length) {
-    metricsEl.innerHTML = '<div style="font-size:13px; color:var(--text3); padding:12px 0;">No surveys for selected SEGs.</div>';
+    metricsEl.innerHTML = '<div style="font-size:13px; color:var(--text3); padding:12px 0;">No surveys for selected filters.</div>';
     bodyEl.innerHTML = '';
     return;
   }
 
   // ── Global summary metrics ──
-  const twas    = sel.map(s => parseFloat(s.results?.twa)).filter(n => !isNaN(n));
-  const doses   = sel.map(s => parseFloat(s.results?.dose)).filter(n => !isNaN(n));
-  const atOrAbovePEL  = sel.filter(s => parseFloat(s.results?.twa) >= 90).length;
-  const atOrAboveAL   = sel.filter(s => parseFloat(s.results?.twa) >= 85 && parseFloat(s.results?.twa) < 90).length;
-  const belowAL       = sel.filter(s => parseFloat(s.results?.twa) < 85).length;
-  const qaFails       = sel.filter(s => s.status === 'qa-fail').length;
+  var twas  = sel.map(function(s) { return parseFloat(s.results?.twa); }).filter(function(n) { return !isNaN(n); });
+  var doses = sel.map(function(s) { return parseFloat(s.results?.dose); }).filter(function(n) { return !isNaN(n); });
+  var atOrAbovePEL = sel.filter(function(s) { return parseFloat(s.results?.twa) >= 90; }).length;
+  var atOrAboveAL  = sel.filter(function(s) { var t = parseFloat(s.results?.twa); return t >= 85 && t < 90; }).length;
+  var belowAL      = sel.filter(function(s) { return parseFloat(s.results?.twa) < 85; }).length;
+  var qaFails      = sel.filter(function(s) { return s.status === 'qa-fail'; }).length;
 
-  function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
-  function maxVal(arr) { return arr.length ? Math.max(...arr) : null; }
-  function minVal(arr) { return arr.length ? Math.min(...arr) : null; }
-  function fmt(v,d=1) { return v===null?'—':v.toFixed(d); }
+  function avg(arr) { return arr.length ? arr.reduce(function(a,b){return a+b;},0)/arr.length : null; }
+  function maxVal(arr) { return arr.length ? Math.max.apply(null,arr) : null; }
+  function minVal(arr) { return arr.length ? Math.min.apply(null,arr) : null; }
+  function fmt(v,d) { return v===null?'—':v.toFixed(d===undefined?1:d); }
 
-  const metricCards = [
-    { label: 'Total Surveys', value: sel.length, unit: '' },
-    { label: 'Avg TWA', value: fmt(avg(twas)), unit: 'dBA' },
-    { label: 'Max TWA', value: fmt(maxVal(twas)), unit: 'dBA' },
-    { label: 'Min TWA', value: fmt(minVal(twas)), unit: 'dBA' },
-    { label: 'Avg Dose', value: fmt(avg(doses)), unit: '%' },
-    { label: 'At / Above PEL', value: atOrAbovePEL, unit: '' },
-    { label: 'At / Above AL', value: atOrAboveAL, unit: '' },
-    { label: 'Below AL', value: belowAL, unit: '' },
-    { label: 'QA Flags', value: qaFails, unit: '' },
+  var metricCards = [
+    { label:'Total Surveys', value:sel.length, unit:'' },
+    { label:'Avg TWA', value:fmt(avg(twas)), unit:'dBA' },
+    { label:'Max TWA', value:fmt(maxVal(twas)), unit:'dBA' },
+    { label:'Min TWA', value:fmt(minVal(twas)), unit:'dBA' },
+    { label:'Avg Dose', value:fmt(avg(doses)), unit:'%' },
+    { label:'At / Above PEL', value:atOrAbovePEL, unit:'', alert:atOrAbovePEL>0 },
+    { label:'At / Above AL', value:atOrAboveAL, unit:'' },
+    { label:'Below AL', value:belowAL, unit:'' },
+    { label:'QA Flags', value:qaFails, unit:'', alert:qaFails>0 },
   ];
 
-  metricsEl.innerHTML = metricCards.map(m => {
-    const isAlert = (m.label === 'At / Above PEL' && m.value > 0) || (m.label === 'QA Flags' && m.value > 0);
-    const bg = isAlert ? 'background:#fcebeb;' : '';
-    const col = isAlert ? 'color:#a32d2d;' : 'color:var(--text);';
-    return `<div style="background:var(--surface); border-radius:var(--radius); padding:12px 14px; ${bg}">
-      <div style="font-size:11px; color:var(--text3); margin-bottom:4px;">${m.label}</div>
-      <div style="font-size:22px; font-weight:600; ${col}">${m.value}<span style="font-size:12px; font-weight:400; color:var(--text3); margin-left:3px;">${m.unit}</span></div>
-    </div>`;
+  metricsEl.innerHTML = metricCards.map(function(m) {
+    var bg  = m.alert ? 'background:#fcebeb;' : '';
+    var col = m.alert ? 'color:#a32d2d;' : 'color:var(--text);';
+    return '<div style="background:var(--surface); border-radius:var(--radius); padding:12px 14px; ' + bg + '">'
+      + '<div style="font-size:11px; color:var(--text3); margin-bottom:4px;">' + m.label + '</div>'
+      + '<div style="font-size:22px; font-weight:600; ' + col + '">' + m.value
+      + '<span style="font-size:12px; font-weight:400; color:var(--text3); margin-left:3px;">' + m.unit + '</span></div>'
+      + '</div>';
   }).join('');
 
   // ── Per-SEG breakdown ──
-  const segGroups = {};
-  sel.forEach(s => {
-    const seg = s.employee?.seg || 'Unknown';
+  var segGroups = {};
+  sel.forEach(function(s) {
+    var seg = s.employee?.seg || 'Unknown';
     if (!segGroups[seg]) segGroups[seg] = [];
     segGroups[seg].push(s);
   });
 
-  bodyEl.innerHTML = Object.keys(segGroups).sort().map(seg => {
-    const group = segGroups[seg];
-    const gTWAs  = group.map(s => parseFloat(s.results?.twa)).filter(n => !isNaN(n));
-    const gDoses = group.map(s => parseFloat(s.results?.dose)).filter(n => !isNaN(n));
+  bodyEl.innerHTML = Object.keys(segGroups).sort().map(function(seg) {
+    var group  = segGroups[seg];
+    var gTWAs  = group.map(function(s) { return parseFloat(s.results?.twa); }).filter(function(n){return !isNaN(n);});
+    var gDoses = group.map(function(s) { return parseFloat(s.results?.dose); }).filter(function(n){return !isNaN(n);});
 
     // Category distribution
-    const cats = {};
-    group.forEach(s => {
-      const c = s.results?.category || 'Not recorded';
+    var cats = {};
+    group.forEach(function(s) {
+      var c = s.results?.category || 'Not recorded';
       cats[c] = (cats[c] || 0) + 1;
     });
 
-    // Process breakdown within SEG
-    const procs = {};
-    group.forEach(s => {
-      const p = s.employee?.process || 'Not specified';
+    // Process breakdown
+    var procs = {};
+    group.forEach(function(s) {
+      var p = s.employee?.process || 'Not specified';
       procs[p] = (procs[p] || 0) + 1;
     });
 
     // Location breakdown
-    const locs = {};
-    group.forEach(s => {
-      const l = s.employee?.location || 'Not specified';
+    var locs = {};
+    group.forEach(function(s) {
+      var l = s.employee?.location || 'Not specified';
       locs[l] = (locs[l] || 0) + 1;
     });
 
-    const catRows = Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,n]) => {
-      const pct = (n/group.length*100).toFixed(0);
-      const barColor = c.includes('PEL') ? '#e05252' : c.includes('Action') ? '#f0a500' : '#3ec97a';
-      return `<tr>
-        <td style="padding:6px 10px; font-size:12px; color:var(--text2);">${esc(c)}</td>
-        <td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">${n}</td>
-        <td style="padding:6px 10px; width:120px;">
-          <div style="background:var(--surface2); border-radius:3px; height:6px;">
-            <div style="background:${barColor}; width:${pct}%; height:6px; border-radius:3px;"></div>
-          </div>
-        </td>
-        <td style="padding:6px 10px; font-size:11px; color:var(--text3); text-align:right;">${pct}%</td>
-      </tr>`;
+    var catRows = Object.entries(cats).sort(function(a,b){return b[1]-a[1];}).map(function(entry) {
+      var c = entry[0]; var n = entry[1];
+      var pct = (n/group.length*100).toFixed(0);
+      var barColor = c.includes('PEL') ? '#e05252' : c.includes('Action') ? '#f0a500' : '#3ec97a';
+      return '<tr>'
+        + '<td style="padding:6px 10px; font-size:12px; color:var(--text2);">' + esc(c) + '</td>'
+        + '<td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">' + n + '</td>'
+        + '<td style="padding:6px 10px; width:120px;"><div style="background:var(--surface2); border-radius:3px; height:6px;"><div style="background:' + barColor + '; width:' + pct + '%; height:6px; border-radius:3px;"></div></div></td>'
+        + '<td style="padding:6px 10px; font-size:11px; color:var(--text3); text-align:right;">' + pct + '%</td>'
+        + '</tr>';
     }).join('');
 
-    const procRows = Object.entries(procs).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([p,n]) =>
-      `<tr><td style="padding:4px 10px; font-size:12px; color:var(--text2);">${esc(p)}</td>
-       <td style="padding:4px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">${n}</td></tr>`
-    ).join('');
+    var procRows = Object.entries(procs).sort(function(a,b){return b[1]-a[1];}).slice(0,8).map(function(entry) {
+      return '<tr><td style="padding:4px 10px; font-size:12px; color:var(--text2);">' + esc(entry[0]) + '</td>'
+        + '<td style="padding:4px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">' + entry[1] + '</td></tr>';
+    }).join('');
 
-    const locRows = Object.entries(locs).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([l,n]) =>
-      `<tr><td style="padding:4px 10px; font-size:12px; color:var(--text2);">${esc(l)}</td>
-       <td style="padding:4px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">${n}</td></tr>`
-    ).join('');
+    var locRows = Object.entries(locs).sort(function(a,b){return b[1]-a[1];}).slice(0,6).map(function(entry) {
+      return '<tr><td style="padding:4px 10px; font-size:12px; color:var(--text2);">' + esc(entry[0]) + '</td>'
+        + '<td style="padding:4px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">' + entry[1] + '</td></tr>';
+    }).join('');
 
     // TWA distribution bins
-    const bins = [
+    var bins = [
       { label:'< 80', min:-Infinity, max:80 },
       { label:'80–84', min:80, max:85 },
       { label:'85–89 (AL)', min:85, max:90 },
       { label:'90–99 (PEL)', min:90, max:100 },
       { label:'≥ 100', min:100, max:Infinity },
     ];
-    const binCounts = bins.map(b => gTWAs.filter(v => v >= b.min && v < b.max).length);
-    const maxBin = Math.max(...binCounts, 1);
-    const binBars = bins.map((b,i) => {
-      const pct = (binCounts[i]/maxBin*100).toFixed(0);
-      const color = b.min >= 100 ? '#e05252' : b.min >= 90 ? '#e05252' : b.min >= 85 ? '#f0a500' : '#3ec97a';
-      return `<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-        <div style="font-size:10px; color:var(--text3); width:76px; flex-shrink:0; text-align:right;">${b.label}</div>
-        <div style="flex:1; background:var(--surface2); border-radius:3px; height:14px;">
-          <div style="background:${color}; width:${pct}%; height:14px; border-radius:3px; min-width:${binCounts[i]?2:0}px;"></div>
-        </div>
-        <div style="font-size:11px; font-weight:600; color:var(--text); width:18px; text-align:right;">${binCounts[i]}</div>
-      </div>`;
+    var binCounts = bins.map(function(b) { return gTWAs.filter(function(v){return v>=b.min&&v<b.max;}).length; });
+    var maxBin = Math.max.apply(null, binCounts.concat([1]));
+    var binBars = bins.map(function(b,i) {
+      var pct = (binCounts[i]/maxBin*100).toFixed(0);
+      var color = b.min >= 90 ? '#e05252' : b.min >= 85 ? '#f0a500' : '#3ec97a';
+      return '<div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">'
+        + '<div style="font-size:10px; color:var(--text3); width:76px; flex-shrink:0; text-align:right;">' + b.label + '</div>'
+        + '<div style="flex:1; background:var(--surface2); border-radius:3px; height:14px;">'
+        + '<div style="background:' + color + '; width:' + pct + '%; height:14px; border-radius:3px; min-width:' + (binCounts[i]?2:0) + 'px;"></div></div>'
+        + '<div style="font-size:11px; font-weight:600; color:var(--text); width:18px; text-align:right;">' + binCounts[i] + '</div>'
+        + '</div>';
     }).join('');
 
-    return `<div class="card" style="margin-bottom:18px;">
-      <div class="card-header" style="font-size:14px;">${esc(seg)}
-        <span style="margin-left:8px; font-size:11px; font-weight:400; color:rgba(255,255,255,0.55);">${group.length} survey${group.length!==1?'s':''}</span>
-      </div>
-      <div class="card-body" style="padding:14px 16px;">
+    // ── Individual results table ──
+    var indTable = '';
+    if (showIndividual) {
+      var sorted = group.slice().sort(function(a,b) {
+        var ta = parseFloat(a.results?.twa)||0; var tb = parseFloat(b.results?.twa)||0;
+        return tb - ta; // highest TWA first
+      });
+      var indRows = sorted.map(function(s) {
+        var twa   = parseFloat(s.results?.twa);
+        var dose  = parseFloat(s.results?.dose);
+        var date  = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '—';
+        var ih    = s.deviceNickname || s.ih?.name || '—';
+        var loc   = s.employee?.location || '—';
+        var proc  = s.employee?.process  || '—';
+        var qaOk  = s.qa?.allPass;
+        var status= s.status;
+        var twaColor = isNaN(twa) ? 'var(--text3)' : twa >= 90 ? '#a32d2d' : twa >= 85 ? '#7a4f00' : '#085041';
+        var twaBg    = isNaN(twa) ? '' : twa >= 90 ? 'background:#fcebeb;' : twa >= 85 ? 'background:#fff8e6;' : '';
+        var statusBadge = status === 'complete'
+          ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#e1f5ee;color:#085041;">Pass</span>'
+          : status === 'qa-fail'
+          ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#fcebeb;color:#a32d2d;">QA Flag</span>'
+          : '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#f1efe8;color:#444441;">Draft</span>';
+        return '<tr style="border-bottom:1px solid var(--border);">'
+          + '<td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text);">' + esc(s.employee?.name || '—') + '</td>'
+          + '<td style="padding:6px 10px; font-size:11px; color:var(--teal);">' + esc(ih) + '</td>'
+          + '<td style="padding:6px 10px; font-size:11px; color:var(--text2);">' + date + '</td>'
+          + '<td style="padding:6px 10px; font-size:11px; color:var(--text2); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(loc) + '</td>'
+          + '<td style="padding:6px 10px; font-size:11px; color:var(--text2); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(proc) + '</td>'
+          + '<td style="padding:6px 10px; font-size:12px; font-weight:700; color:' + twaColor + '; ' + twaBg + ' text-align:right;">' + (isNaN(twa)?'—':twa.toFixed(1)) + ' dBA</td>'
+          + '<td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">' + (isNaN(dose)?'—':dose.toFixed(1)) + '%</td>'
+          + '<td style="padding:6px 10px; text-align:center;">' + statusBadge + '</td>'
+          + '</tr>';
+      }).join('');
 
-        <!-- Mini metrics row -->
-        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-bottom:16px;">
-          ${[
-            ['Avg TWA', fmt(avg(gTWAs)) + ' dBA'],
-            ['Max TWA', fmt(maxVal(gTWAs)) + ' dBA'],
-            ['Min TWA', fmt(minVal(gTWAs)) + ' dBA'],
-            ['Avg Dose', fmt(avg(gDoses)) + ' %'],
-          ].map(([l,v])=>`<div style="background:var(--surface); border-radius:var(--radius); padding:8px 10px;">
-            <div style="font-size:10px; color:var(--text3);">${l}</div>
-            <div style="font-size:16px; font-weight:600; color:var(--text);">${v}</div>
-          </div>`).join('')}
-        </div>
+      indTable = '<div style="margin-top:16px;">'
+        + '<div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Individual Results (' + group.length + ' surveys)</div>'
+        + '<div style="overflow-x:auto;">'
+        + '<table style="width:100%; border-collapse:collapse; min-width:600px;">'
+        + '<thead><tr style="background:var(--surface);">'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Employee</th>'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">IH</th>'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Date</th>'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Location</th>'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Process</th>'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">TWA</th>'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">Dose %</th>'
+        + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:center;">QA</th>'
+        + '</tr></thead>'
+        + '<tbody>' + indRows + '</tbody>'
+        + '</table></div></div>';
+    }
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; flex-wrap:wrap;">
+    return '<div class="card" style="margin-bottom:18px;">'
+      + '<div class="card-header" style="font-size:14px;">' + esc(seg)
+      + '<span style="margin-left:8px; font-size:11px; font-weight:400; color:rgba(255,255,255,0.55);">' + group.length + ' survey' + (group.length!==1?'s':'') + '</span>'
+      + '</div>'
+      + '<div class="card-body" style="padding:14px 16px;">'
 
-          <!-- Exposure category table -->
-          <div>
-            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Exposure Categories</div>
-            <table style="width:100%; border-collapse:collapse;">
-              <thead><tr>
-                <th style="font-size:10px; color:var(--text3); font-weight:500; text-align:left; padding:4px 10px;">Category</th>
-                <th style="font-size:10px; color:var(--text3); font-weight:500; text-align:right; padding:4px 10px;">n</th>
-                <th colspan="2" style="font-size:10px; color:var(--text3); font-weight:500; padding:4px 10px;"></th>
-              </tr></thead>
-              <tbody>${catRows || '<tr><td colspan="4" style="font-size:12px;color:var(--text3);padding:8px 10px;">No category data</td></tr>'}</tbody>
-            </table>
-          </div>
+      // Mini metrics
+      + '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; margin-bottom:16px;">'
+      + [['Avg TWA', fmt(avg(gTWAs)) + ' dBA'],['Max TWA', fmt(maxVal(gTWAs)) + ' dBA'],['Min TWA', fmt(minVal(gTWAs)) + ' dBA'],['Avg Dose', fmt(avg(gDoses)) + ' %']]
+        .map(function(m) {
+          return '<div style="background:var(--surface); border-radius:var(--radius); padding:8px 10px;">'
+            + '<div style="font-size:10px; color:var(--text3);">' + m[0] + '</div>'
+            + '<div style="font-size:16px; font-weight:600; color:var(--text);">' + m[1] + '</div></div>';
+        }).join('')
+      + '</div>'
 
-          <!-- TWA distribution histogram -->
-          <div>
-            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">TWA Distribution (dBA)</div>
-            ${gTWAs.length ? binBars : '<div style="font-size:12px;color:var(--text3);">No TWA data</div>'}
-          </div>
+      // Charts row
+      + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">'
 
-        </div>
+      + '<div><div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Exposure Categories</div>'
+      + '<table style="width:100%; border-collapse:collapse;"><thead><tr>'
+      + '<th style="font-size:10px; color:var(--text3); font-weight:500; text-align:left; padding:4px 10px;">Category</th>'
+      + '<th style="font-size:10px; color:var(--text3); font-weight:500; text-align:right; padding:4px 10px;">n</th>'
+      + '<th colspan="2" style="font-size:10px; color:var(--text3); font-weight:500; padding:4px 10px;"></th>'
+      + '</tr></thead><tbody>' + (catRows || '<tr><td colspan="4" style="font-size:12px;color:var(--text3);padding:8px 10px;">No category data</td></tr>') + '</tbody></table></div>'
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px;">
+      + '<div><div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">TWA Distribution (dBA)</div>'
+      + (gTWAs.length ? binBars : '<div style="font-size:12px;color:var(--text3);">No TWA data</div>') + '</div>'
 
-          <!-- Process breakdown -->
-          <div>
-            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Processes</div>
-            <table style="width:100%; border-collapse:collapse;">
-              <tbody>${procRows || '<tr><td colspan="2" style="font-size:12px;color:var(--text3);padding:4px 10px;">None recorded</td></tr>'}</tbody>
-            </table>
-          </div>
+      + '</div>'
 
-          <!-- Location breakdown -->
-          <div>
-            <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Locations</div>
-            <table style="width:100%; border-collapse:collapse;">
-              <tbody>${locRows || '<tr><td colspan="2" style="font-size:12px;color:var(--text3);padding:4px 10px;">None recorded</td></tr>'}</tbody>
-            </table>
-          </div>
+      // Process + Location row
+      + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px;">'
+      + '<div><div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Processes</div>'
+      + '<table style="width:100%; border-collapse:collapse;"><tbody>' + (procRows || '<tr><td colspan="2" style="font-size:12px;color:var(--text3);padding:4px 10px;">None recorded</td></tr>') + '</tbody></table></div>'
+      + '<div><div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Locations</div>'
+      + '<table style="width:100%; border-collapse:collapse;"><tbody>' + (locRows || '<tr><td colspan="2" style="font-size:12px;color:var(--text3);padding:4px 10px;">None recorded</td></tr>') + '</tbody></table></div>'
+      + '</div>'
 
-        </div>
-      </div>
-    </div>`;
+      // Individual results table (conditional)
+      + indTable
+
+      + '</div></div>';
   }).join('');
 }
 
@@ -4074,6 +4153,13 @@ function statsToggleSEG(seg) {
   renderStats();
 }
 
+function statsToggleIH(ih) {
+  if (!statsSelectedIHs) statsSelectedIHs = new Set();
+  if (statsSelectedIHs.has(ih)) statsSelectedIHs.delete(ih);
+  else statsSelectedIHs.add(ih);
+  renderStats();
+}
+
 function statsSelectAll() {
   statsSelectedSEGs = null;
   renderStats();
@@ -4081,6 +4167,11 @@ function statsSelectAll() {
 
 function statsSelectNone() {
   statsSelectedSEGs = new Set();
+  renderStats();
+}
+
+function statsSelectAllIH() {
+  statsSelectedIHs = null;
   renderStats();
 }
 
