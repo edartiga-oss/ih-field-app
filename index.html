@@ -2278,6 +2278,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 </script>
 <script>
+
 // ═══════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════
@@ -3502,2327 +3503,6 @@ function exportSummaryTable() {
 // ═══════════════════════════════════════════════════════════
 //  EXPORT — JSON
 // ═══════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════
-//  IMPORT — LAARNG TEST SURVEYS
-// ═══════════════════════════════════════════════════════════
-var LAARNG_SURVEYS = [
-  {
-    "id": "2395409b",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "David Walker",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Vehicle operations for equipment pickup."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2105855",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-02-05",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:49:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 86.0,
-      "lavg": 85.5,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "f6d5b220",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Jeremiah Jones",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Admin in maintenance area all day."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:50:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 74.9,
-      "lavg": 74.4,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "6a792849",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "James Manley",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "M119A3 Weapon annual service, some hammering and crane use, no power tools."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2105975",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-02-05",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:49:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 79.3,
-      "lavg": 78.8,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "4cf4470f",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "James McNeil",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Admin in maintenane are all day."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:47:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 75.6,
-      "lavg": 75.1,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "87d42bb6",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Philip Deist",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Vehicle operations to pick up equipment."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106118",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "113.9",
-      "calDate": "2026-02-05",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:49:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 90.4,
-      "lavg": 89.9,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "ab0111f4",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Stevan Martin",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Electrical maintenance on MTV, no power tools."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:47:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 70.0,
-      "lavg": 69.5,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "a57e88c7",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Travis Badon",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Humvee hydraulic pump replacement, replacing rubber window seals on front loader, no power tools."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106040",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "113.9",
-      "calDate": "2026-02-05",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:50:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 78.7,
-      "lavg": 78.2,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "c4206c4b",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Travis Longman",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Replacing hydraulic lines on front loader, no power tools."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:47:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 63.9,
-      "lavg": 63.4,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "5ce7f26e",
-    "createdAt": "2026-02-05T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-05",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Wesley Triche",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Cab lift pump replacement, electric drill use.  Moving vehicle after repairs."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106052",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-02-05",
-      "surveyStart": "2026-02-05T07:48:00",
-      "surveyEnd": "2026-02-05T16:47:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 82.3,
-      "lavg": 81.8,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "9c5aa6e9",
-    "createdAt": "2026-02-06T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-06",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "James McNeil",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Admin in maintenane are all day."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-02-06T07:19:00",
-      "surveyEnd": "2026-02-06T15:27:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 76.7,
-      "lavg": 76.6,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "affe3fe4",
-    "createdAt": "2026-02-06T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-06",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Waylon Higgenbotham",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "M119A3 Weapon annual service, some hammering and crane use, no power tools."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106160",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-02-06",
-      "surveyStart": "2026-02-06T07:19:00",
-      "surveyEnd": "2026-02-06T15:27:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 71.5,
-      "lavg": 71.4,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "6c2f2013",
-    "createdAt": "2026-02-06T00:00:00",
-    "project": {
-      "name": "LAARNG - Slidell UTES",
-      "date": "2026-02-06",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Wesley Triche",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Slidell, LA",
-      "task": "Cab lift pump replacement, electric drill use.  Moving vehicle after repairs."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-02-06T06:49:00",
-      "surveyEnd": "2026-02-06T14:57:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 78.9,
-      "lavg": 78.9,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "852fc82f",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Brandon Sevin",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Electronics Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Electrical system checks on UH60, prep for annual training over the weekend\n09:00: Electrical system checks on UH60, prep for annual training over the weekend\n11:00: Electrical system checks on UH60, prep for annual training over the weekend\n12:00: Lunch\n14:00: Electrical system checks on UH60, prep for annual training over the weekend"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106131",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-03-17",
-      "surveyStart": "2026-03-17T06:56:00",
-      "surveyEnd": "2026-03-17T15:56:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 69.1,
-      "lavg": 68.6,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "699832ef",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Christopher Miller",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-17T06:56:00",
-      "surveyEnd": "2026-03-17T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 83.1,
-      "lavg": 82.6,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "a80e6a15",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Norman Gaubert",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Electronics Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Electrical system checks on UH60, prep for annual training over the weekend\n09:00: Electrical system checks on UH60, prep for annual training over the weekend\n11:00: Electrical system checks on UH60, prep for annual training over the weekend\n12:00: Lunch\n14:00: Electrical system checks on UH60, prep for annual training over the weekend"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106083",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "113.9",
-      "calDate": "2026-03-17",
-      "surveyStart": "2026-03-17T06:56:00",
-      "surveyEnd": "2026-03-17T15:50:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 73.0,
-      "lavg": 72.5,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "95fe1691",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Amiri Washington",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Sheet Metal Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Admin duties in the sheet metal room.\n09:00: Admin duties in the sheet metal room.\n11:00: Out in the maintenance bays during maintenance operations\n12:00: Lunch\n14:00: Admin duties in the sheet metal room."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-17T06:56:00",
-      "surveyEnd": "2026-03-17T15:50:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 82.0,
-      "lavg": 81.6,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "cc647230",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Cage Burnette",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n09:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106029",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-03-17",
-      "surveyStart": "2026-03-17T06:56:00",
-      "surveyEnd": "2026-03-17T15:41:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 90.3,
-      "lavg": 89.9,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "36e7a343",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Carlos Odis",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-17T06:56:00",
-      "surveyEnd": "2026-03-17T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 81.8,
-      "lavg": 81.3,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "81287d86",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Derek Dantin",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Electronics Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Electrical system checks on UH60, prep for annual training over the weekend\n09:00: Electrical system checks on UH60, prep for annual training over the weekend\n11:00: Electrical system checks on UH60, prep for annual training over the weekend\n12:00: Lunch\n14:00: Electrical system checks on UH60, prep for annual training over the weekend"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2105987",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-03-17",
-      "surveyStart": "2026-03-17T06:56:00",
-      "surveyEnd": "2026-03-17T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 72.2,
-      "lavg": 71.7,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "067ac9bd",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Kendrel Luster",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n09:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-17T06:57:00",
-      "surveyEnd": "2026-03-17T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 83.7,
-      "lavg": 83.2,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "c2e70b1e",
-    "createdAt": "2026-03-17T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-17",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Roy Guidry",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106055",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114.1",
-      "calDate": "2026-03-17",
-      "surveyStart": "2026-03-17T06:57:00",
-      "surveyEnd": "2026-03-17T15:50:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 76.7,
-      "lavg": 76.2,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "abd9dc7e",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Colin Mayberry",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-18T07:08:00",
-      "surveyEnd": "2026-03-18T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 74.7,
-      "lavg": 74.3,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "a8dd8b1d",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Benjamin Lotz",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106131",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114.1",
-      "postCal": "114",
-      "calDate": "2026-03-18",
-      "surveyStart": "2026-03-18T07:08:00",
-      "surveyEnd": "2026-03-18T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 79.2,
-      "lavg": 78.8,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "769c3b8a",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Christopher Lemane",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-18T07:08:00",
-      "surveyEnd": "2026-03-18T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 77.7,
-      "lavg": 77.2,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "e056a059",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "David Brocato",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-03-18",
-      "surveyStart": "2026-03-18T07:07:00",
-      "surveyEnd": "2026-03-18T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 55.5,
-      "lavg": 55.1,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "6c14fb01",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "James Riley",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n09:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n11:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n12:00: Lunch\n14:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-18T07:08:00",
-      "surveyEnd": "2026-03-18T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 90.7,
-      "lavg": 90.3,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "27f2c4f3",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Kendrel Luster",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106014",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-03-18",
-      "surveyStart": "2026-03-18T07:08:00",
-      "surveyEnd": "2026-03-18T15:56:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 72.1,
-      "lavg": 71.6,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "a1a40603",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Roger Cuevas",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n09:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n11:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays.\n12:00: Lunch\n14:00: Torque checks on UH60 to prep for annual training over the weekend.  No power tools but loud music in the bays."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-03-18T07:07:00",
-      "surveyEnd": "2026-03-18T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 54.2,
-      "lavg": 53.8,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "75f01db8",
-    "createdAt": "2026-03-18T00:00:00",
-    "project": {
-      "name": "LAARNG - Hammond AASF",
-      "date": "2026-03-18",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Sean Mergist",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Aircraft Mechanic",
-      "dept": "AASF",
-      "location": "Hammond, LA",
-      "task": "07:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n09:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n11:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line\n12:00: Lunch\n14:00: Moving UH60s with TUG, UH60 run-ups and operations on the flight line"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106029",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005352",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-03-18",
-      "surveyStart": "2026-03-18T07:08:00",
-      "surveyEnd": "2026-03-18T15:55:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 94.6,
-      "lavg": 94.2,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "512e0fe7",
-    "createdAt": "2026-01-20T00:00:00",
-    "project": {
-      "name": "LAARNG - Fort Johnson CSMS-W",
-      "date": "2026-01-20",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Fredrick Wells",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "Fort Johnson - CSMS",
-      "location": "Fort Johnson, LA",
-      "task": "LMTV Engine operation (Idling)"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2105855",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-01-20",
-      "surveyStart": "2026-01-20T07:33:00",
-      "surveyEnd": "2026-01-20T16:39:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 77.4,
-      "lavg": 76.8,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "fda741ea",
-    "createdAt": "2026-01-20T00:00:00",
-    "project": {
-      "name": "LAARNG - Fort Johnson CSMS-W",
-      "date": "2026-01-20",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Randolph Collins",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "Fort Johnson - CSMS",
-      "location": "Fort Johnson, LA",
-      "task": "Using hammer to loosen part during hydraulic pump replacement"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-01-20T07:33:00",
-      "surveyEnd": "2026-01-20T16:38:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 73.1,
-      "lavg": 72.5,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "8398628d",
-    "createdAt": "2026-01-20T00:00:00",
-    "project": {
-      "name": "LAARNG - Fort Johnson CSMS-W",
-      "date": "2026-01-20",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Shane Johnson",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "Fort Johnson - CSMS",
-      "location": "Fort Johnson, LA",
-      "task": "Vehicle Operation"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106068",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "113.9",
-      "calDate": "2026-01-20",
-      "surveyStart": "2026-01-20T07:33:00",
-      "surveyEnd": "2026-01-20T16:38:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 78.2,
-      "lavg": 77.6,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "eb451175",
-    "createdAt": "2026-01-20T00:00:00",
-    "project": {
-      "name": "LAARNG - Fort Johnson CSMS-W",
-      "date": "2026-01-20",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Joshua Dill",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "Fort Johnson - CSMS",
-      "location": "Fort Johnson, LA",
-      "task": "Electric impact use to replace brake pump.  Cabin lift and hydraulic pump operation."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-01-20T07:32:00",
-      "surveyEnd": "2026-01-20T16:39:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 75.9,
-      "lavg": 75.3,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "17aa6b05",
-    "createdAt": "2026-01-21T00:00:00",
-    "project": {
-      "name": "LAARNG - Fort Johnson CSMS-W",
-      "date": "2026-01-21",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "James Robertson",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "Fort Johnson - CSMS",
-      "location": "Fort Johnson, LA",
-      "task": "Vehicle Operation to pick up parts."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106049",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-01-21",
-      "surveyStart": "2026-01-21T07:32:00",
-      "surveyEnd": "2026-01-21T16:37:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 77.8,
-      "lavg": 77.2,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "d2f55ed5",
-    "createdAt": "2026-01-21T00:00:00",
-    "project": {
-      "name": "LAARNG - Fort Johnson CSMS-W",
-      "date": "2026-01-21",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Shane Johnson",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "Fort Johnson - CSMS",
-      "location": "Fort Johnson, LA",
-      "task": "Vehicle Operation and admin duties."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-01-21T07:30:00",
-      "surveyEnd": "2026-01-21T16:38:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 74.1,
-      "lavg": 73.5,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "0d858081",
-    "createdAt": "2026-01-22T00:00:00",
-    "project": {
-      "name": "LAARNG - Fort Johnson CSMS-W",
-      "date": "2026-01-22",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Fredrick Wells",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "Fort Johnson - CSMS",
-      "location": "Fort Johnson, LA",
-      "task": "Finishing LMTV wheel bearing service, some hammering/impact use."
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106040",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-01-22",
-      "surveyStart": "2026-01-22T07:39:00",
-      "surveyEnd": "2026-01-22T16:45:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 77.6,
-      "lavg": 77.0,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "a0b0d920",
-    "createdAt": "2026-01-29T00:00:00",
-    "project": {
-      "name": "LAARNG - Camp Minden UTES",
-      "date": "2026-01-29",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Michael Murphy",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Camp Minden, LA",
-      "task": "Mostly admin some vehicle operations"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106126",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-01-29",
-      "surveyStart": "2026-01-29T08:26:00",
-      "surveyEnd": "2026-01-29T17:28:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 75.5,
-      "lavg": 75.0,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "f44abfe7",
-    "createdAt": "2026-01-29T00:00:00",
-    "project": {
-      "name": "LAARNG - Camp Minden UTES",
-      "date": "2026-01-29",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Michael Copes",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Camp Minden, LA",
-      "task": "Mostly admin some vehicle operations"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-01-29T08:27:00",
-      "surveyEnd": "2026-01-29T17:30:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 76.6,
-      "lavg": 76.0,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "886599db",
-    "createdAt": "2026-01-29T00:00:00",
-    "project": {
-      "name": "LAARNG - Camp Minden UTES",
-      "date": "2026-01-29",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Brian Robertson",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Camp Minden, LA",
-      "task": "Mostly admin some vehicle operations"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2105855",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-01-29",
-      "surveyStart": "2026-01-29T08:27:00",
-      "surveyEnd": "2026-01-29T17:31:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 75.3,
-      "lavg": 74.7,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "a3c068d8",
-    "createdAt": "2026-01-29T00:00:00",
-    "project": {
-      "name": "LAARNG - Camp Minden UTES",
-      "date": "2026-01-29",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Michael Kramer",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Camp Minden, LA",
-      "task": "Mostly admin some vehicle operations"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-01-29T08:27:00",
-      "surveyEnd": "2026-01-29T17:28:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 74.9,
-      "lavg": 74.4,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "f1493216",
-    "createdAt": "2026-01-29T00:00:00",
-    "project": {
-      "name": "LAARNG - Camp Minden UTES",
-      "date": "2026-01-29",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Daniel Casas",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Camp Minden, LA",
-      "task": "Vehicle operations and washing vehicles following disaster relief efforts with the snow storm"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2105975",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-01-29",
-      "surveyStart": "2026-01-29T08:27:00",
-      "surveyEnd": "2026-01-29T17:29:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 79.7,
-      "lavg": 79.2,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "8beb1ecb",
-    "createdAt": "2026-01-29T00:00:00",
-    "project": {
-      "name": "LAARNG - Camp Minden UTES",
-      "date": "2026-01-29",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Kelpatrick Fields",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Camp Minden, LA",
-      "task": "Vehicle operations and washing vehicles following disaster relief efforts with the snow storm"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "",
-      "surveyStart": "2026-01-29T08:27:00",
-      "surveyEnd": "2026-01-29T17:28:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 80.8,
-      "lavg": 80.3,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  },
-  {
-    "id": "d0570803",
-    "createdAt": "2026-01-29T00:00:00",
-    "project": {
-      "name": "LAARNG - Camp Minden UTES",
-      "date": "2026-01-29",
-      "standard": "ACGIH",
-      "client": "Louisiana Army National Guard"
-    },
-    "employee": {
-      "name": "Phylisia Jackson",
-      "empId": "",
-      "company": "LAARNG",
-      "title": "Vehicle Mechanic",
-      "dept": "UTES",
-      "location": "Camp Minden, LA",
-      "task": "Administrative duties only"
-    },
-    "dosimeter": {
-      "make": "Casella",
-      "model": "dBadge2",
-      "serial": "2106118",
-      "exchange": "3",
-      "criterion": "85",
-      "weighting": "A",
-      "response": "Slow",
-      "factoryCal": "2025-05-22"
-    },
-    "calibrator": {
-      "make": "Casella",
-      "model": "CEL-120/2",
-      "serial": "2005232",
-      "nistDue": "",
-      "refLevel": "114"
-    },
-    "calibration": {
-      "preCal": "114",
-      "postCal": "114",
-      "calDate": "2026-01-29",
-      "surveyStart": "2026-01-29T10:24:00",
-      "surveyEnd": "2026-01-29T19:27:00"
-    },
-    "placement": {
-      "location": "Left lapel"
-    },
-    "results": {
-      "twa": 69.4,
-      "lavg": 68.9,
-      "dose": null
-    },
-    "notes": "IH: Cory Teloar",
-    "status": "complete"
-  }
-];
-
-function importLAARNGSurveys() {
-  try {
-    var added = 0;
-    var skipped = 0;
-    var existingIds = surveys.map(function(s) { return s.id; });
-    var existingKeys = surveys.map(function(s) {
-      return (s.employee && s.employee.name ? s.employee.name : '') + '|' + 
-             (s.project && s.project.date ? s.project.date : '') + '|' +
-             (s.dosimeter && s.dosimeter.serial ? s.dosimeter.serial : '');
-    });
-
-    LAARNG_SURVEYS.forEach(function(s) {
-      // Skip if same ID already exists
-      if (existingIds.indexOf(s.id) !== -1) { skipped++; return; }
-      // Skip if same name+date+serial already exists
-      var key = (s.employee && s.employee.name ? s.employee.name : '') + '|' +
-                (s.project && s.project.date ? s.project.date : '') + '|' +
-                (s.dosimeter && s.dosimeter.serial ? s.dosimeter.serial : '');
-      if (existingKeys.indexOf(key) !== -1) { skipped++; return; }
-      surveys.push(s);
-      existingIds.push(s.id);
-      existingKeys.push(key);
-      added++;
-    });
-
-    saveSurveys();
-    renderSurveyList();
-    renderExportList();
-    showToast('Imported ' + added + ' LAARNG surveys' + (skipped ? ' (' + skipped + ' already existed)' : ''), 'success');
-  } catch(e) {
-    showToast('Import failed: ' + e.message, 'error');
-    console.error(e);
-  }
-}
-
 function exportJSON() {
   const blob = new Blob([JSON.stringify({ meta: projectMeta, surveys }, null, 2)], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
@@ -6592,7 +4272,6 @@ function renderStats() {
   // ── All Locations ──
   const allLocations = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
   if (statsSelectedLocations === null) statsSelectedLocations = new Set(allLocations);
-
   const locChipsEl = document.getElementById('statsLocationChips');
   if (locChipsEl) {
     locChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>' +
@@ -6884,9 +4563,9 @@ function renderStats() {
             + statCell('95th/95% UTL',  fmtDb(stats.utl95_95), pelUTL, alUTL)
             + '</div>'
             + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
-              + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
-              + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Owen\'s K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
-              + '<strong>GSD</strong> = geometric standard deviation: multiplicative spread of exposures around the GM. <span style="color:#00b8a0;font-size:11px;">&#9679;</span> &lt;1.5× Homogeneous SEG <span style="color:#e08800;font-size:11px;">&#9679;</span> 1.5–2.0× Moderate spread <span style="color:#e05252;font-size:11px;">&#9679;</span> &gt;2.0× Consider splitting SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed.'
+              + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
+              + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Owen’s K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
+              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed.'
             + '</div>'
             + smallNote
             + '</div>';
@@ -6922,12 +4601,6 @@ function renderStats() {
   }).join('');
 }
 
-
-// ═══════════════════════════════════════════════════════════
-//  NOISE RAC TAB
-// ═══════════════════════════════════════════════════════════
-
-
 function statsToggleSEG(seg) {
   if (!statsSelectedSEGs) statsSelectedSEGs = new Set();
   if (statsSelectedSEGs.has(seg)) statsSelectedSEGs.delete(seg);
@@ -6939,13 +4612,6 @@ function statsToggleIH(ih) {
   if (!statsSelectedIHs) statsSelectedIHs = new Set();
   if (statsSelectedIHs.has(ih)) statsSelectedIHs.delete(ih);
   else statsSelectedIHs.add(ih);
-  renderStats();
-}
-
-function statsToggleLocation(loc) {
-  if (!statsSelectedLocations) statsSelectedLocations = new Set();
-  if (statsSelectedLocations.has(loc)) statsSelectedLocations.delete(loc);
-  else statsSelectedLocations.add(loc);
   renderStats();
 }
 
@@ -6964,258 +4630,442 @@ function statsSelectAllIH() {
   renderStats();
 }
 
+function statsToggleLocation(loc) {
+  if (!statsSelectedLocations) statsSelectedLocations = new Set();
+  if (statsSelectedLocations.has(loc)) statsSelectedLocations.delete(loc);
+  else statsSelectedLocations.add(loc);
+  renderStats();
+}
+
 function statsSelectAllLocations() {
   statsSelectedLocations = null;
   renderStats();
 }
 
-var racSelectedIHs        = null;
-var racSelectedLocations  = null;
-var racSelectedSEGs       = null;
-var racPersonnelOverrides = {};
-
-(function() {
-  try {
-    var saved = localStorage.getItem('racPersonnelOverrides');
-    if (saved) racPersonnelOverrides = JSON.parse(saved);
-  } catch(e) {}
-})();
-
-function racSaveOverrides() {
-  try { localStorage.setItem('racPersonnelOverrides', JSON.stringify(racPersonnelOverrides)); } catch(e) {}
-}
-
-function racSetPersonnel(seg, val) {
-  var n = parseInt(val, 10);
-  if (!isNaN(n) && n > 0) { racPersonnelOverrides[seg] = n; }
-  else { delete racPersonnelOverrides[seg]; }
-  racSaveOverrides();
-  renderRAC();
-}
-
-function racToggleIH(ih) {
-  if (!racSelectedIHs) racSelectedIHs = new Set();
-  if (racSelectedIHs.has(ih)) racSelectedIHs.delete(ih); else racSelectedIHs.add(ih);
-  renderRAC();
-}
-function racSelectAllIH() { racSelectedIHs = null; renderRAC(); }
-
-function racToggleLocation(loc) {
-  if (!racSelectedLocations) racSelectedLocations = new Set();
-  if (racSelectedLocations.has(loc)) racSelectedLocations.delete(loc); else racSelectedLocations.add(loc);
-  renderRAC();
-}
-function racSelectAllLocations() { racSelectedLocations = null; renderRAC(); }
-
-function racToggleSEG(seg) {
-  if (!racSelectedSEGs) racSelectedSEGs = new Set();
-  if (racSelectedSEGs.has(seg)) racSelectedSEGs.delete(seg); else racSelectedSEGs.add(seg);
-  renderRAC();
-}
-function racSelectAllSEGs() { racSelectedSEGs = null; renderRAC(); }
-function racSelectNoSEGs()  { racSelectedSEGs = new Set(); renderRAC(); }
-
-function calcRAC(utl, personnel) {
-  if (utl === null || isNaN(utl) || personnel < 1) return null;
-  var lt82 = utl < 82, lt10 = personnel < 10;
-  if (lt82 &&  lt10) return 4;
-  if (lt82 && !lt10) return 3;
-  if (!lt82 &&  lt10) return 3;
-  return 2;
-}
-
-function racBadge(rac) {
-  if (rac === null) return '<span style="color:var(--text3); font-size:12px;">—</span>';
-  var bg  = rac === 2 ? '#fcebeb' : rac === 3 ? '#fff8e6' : '#e1f5ee';
-  var col = rac === 2 ? '#a32d2d' : rac === 3 ? '#7a4f00' : '#085041';
-  var label = rac === 2 ? 'RAC 2 — High' : rac === 3 ? 'RAC 3 — Medium' : 'RAC 4 — Low';
-  return '<span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; background:' + bg + '; color:' + col + ';">' + label + '</span>';
-}
-
-function renderRAC() {
-  var ihChipsEl  = document.getElementById('racIHChips');
-  var locChipsEl = document.getElementById('racLocationChips');
-  var segChipsEl = document.getElementById('racSegChips');
-  var resultsEl  = document.getElementById('racResults');
-  if (!resultsEl) return;
-
-  var allIHs  = [...new Set(surveys.map(function(s){ return s.deviceNickname || s.ih?.name || ''; }).filter(Boolean))].sort();
-  var allLocs = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))].sort();
-  var allSEGs = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))].sort();
-
-  if (racSelectedIHs       === null) racSelectedIHs       = new Set(allIHs);
-  if (racSelectedLocations === null) racSelectedLocations = new Set(allLocs);
-  if (racSelectedSEGs      === null) racSelectedSEGs      = new Set(allSEGs);
-
-  function chipHtml(label, active, onclick) {
-    return '<button onclick="' + onclick + '" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
-      + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
-      + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
-      + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';">' + esc(label) + '</button>';
-  }
-
-  if (ihChipsEl) {
-    ihChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="racSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>'
-      + allIHs.map(function(ih) { return chipHtml(ih, racSelectedIHs.has(ih), "racToggleIH('" + esc(ih) + "')"); }).join('');
-  }
-  if (locChipsEl) {
-    locChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="racSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>'
-      + allLocs.map(function(loc) { return chipHtml(loc, racSelectedLocations.has(loc), "racToggleLocation('" + esc(loc) + "')"); }).join('');
-  }
-  if (segChipsEl) {
-    segChipsEl.innerHTML = allSEGs.map(function(seg) { return chipHtml(seg, racSelectedSEGs.has(seg), "racToggleSEG('" + esc(seg) + "')"); }).join('');
-  }
-
-  var sel = surveys.filter(function(s) {
-    var ih  = s.deviceNickname || s.ih?.name || '';
-    var loc = s.employee?.location || '';
-    var seg = s.employee?.seg || '';
-    var ihOk  = !allIHs.length  || racSelectedIHs.has(ih);
-    var locOk = !allLocs.length || racSelectedLocations.has(loc);
-    var segOk = racSelectedSEGs === null || racSelectedSEGs.has(seg);
-    return ihOk && locOk && segOk;
+// ═══════════════════════════════════════════════════════════
+//  DELETE FROM GOOGLE SHEETS
+// ═══════════════════════════════════════════════════════════
+function deleteFromSheets(surveyId) {
+  if (!SHEETS_URL || !navigator.onLine) return;
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ _action: 'delete', id: surveyId })
+  }).catch(function() {
+    // Queue deletion for when back online
+    try {
+      var q = JSON.parse(localStorage.getItem('ih_delete_queue') || '[]');
+      if (!q.includes(surveyId)) q.push(surveyId);
+      localStorage.setItem('ih_delete_queue', JSON.stringify(q));
+    } catch(e) {}
   });
+}
 
-  if (!sel.length || !allSEGs.length) {
-    resultsEl.innerHTML = '<div class="empty-state"><div class="empty-title">No surveys match the selected filters</div><div class="empty-sub">Adjust filters or add survey data with SEG assignments</div></div>';
+function flushDeleteQueue() {
+  if (!navigator.onLine) return;
+  try {
+    var q = JSON.parse(localStorage.getItem('ih_delete_queue') || '[]');
+    if (!q.length) return;
+    q.forEach(function(id) { deleteFromSheets(id); });
+    localStorage.removeItem('ih_delete_queue');
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILTERED BATCH EXPORT (single IH)
+// ═══════════════════════════════════════════════════════════
+function getFilteredSurveys() {
+  const sel = document.getElementById('exportIHFilter');
+  const name = sel ? sel.value : '';
+  if (!name) { showToast('Please select a field IH first', 'error'); return null; }
+  const filtered = surveys.filter(s => (s.deviceNickname || s.ih?.name || '') === name);
+  if (!filtered.length) { showToast('No surveys found for ' + name, 'error'); return null; }
+  return { surveys: filtered, name: name };
+}
+
+function exportFilteredPDF() {
+  try {
+    if (!window.jspdf) { showToast('PDF library not loaded', 'error'); return; }
+    const res = getFilteredSurveys();
+    if (!res) return;
+    const doc = buildPDFDoc(res.surveys);
+    doc.save('NoiseDosimetry_' + res.name.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+    showToast('PDF exported — ' + res.surveys.length + ' surveys for ' + res.name, 'success');
+  } catch(e) { showToast('PDF export failed: ' + e.message, 'error'); }
+}
+
+function exportFilteredExcel() {
+  try {
+    if (!window.XLSX) {
+      if (confirm('Excel library not loaded. This usually means a cached version of the page is being served.\n\nClick OK to reload, or Cancel to dismiss.')) {
+        window.location.reload(true);
+      }
+      return;
+    }
+    const res = getFilteredSurveys();
+    if (!res) return;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(buildExcelData(res.surveys));
+    XLSX.utils.book_append_sheet(wb, ws, res.name.substring(0, 31));
+    XLSX.writeFile(wb, 'NoiseDosimetry_' + res.name.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+    showToast('Excel exported — ' + res.surveys.length + ' surveys for ' + res.name, 'success');
+  } catch(e) { showToast('Excel export failed: ' + e.message, 'error'); }
+}
+
+function exportFilteredSummary() {
+  try {
+    const res = getFilteredSurveys();
+    if (!res) return;
+    const headers = ['Employee Name','Title','Employer','Date','Dosimeter S/N','Weighting','Response','Run Time (hr)','Dose (%)','TWA (dBA)','QA','Category'];
+    const rows = res.surveys.map(s => [
+      s.employee?.name || '', s.employee?.title || '', s.employee?.company || '',
+      s.calibration?.surveyStart?.split('T')[0] || '', s.dosimeter?.serial || '',
+      s.dosimeter?.weighting ? s.dosimeter.weighting + '-weighting' : '',
+      s.dosimeter?.response || '', s.results?.runTime || '',
+      s.results?.dose || '', s.results?.twa || '',
+      s.qa?.allPass ? 'Pass' : 'Flag', s.results?.category || '',
+    ]);
+    const tsv = [headers, ...rows].map(function(r){ return r.join('\t'); }).join('\n');
+    navigator.clipboard.writeText(tsv).then(function() {
+      showToast('Summary for ' + res.name + ' copied to clipboard', 'success');
+    }).catch(function() {
+      const blob = new Blob([tsv], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = 'Summary_' + res.name.replace(/\s+/g,'-') + '.txt'; a.click();
+      URL.revokeObjectURL(url);
+    });
+  } catch(e) { showToast('Export failed: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DEVICE NICKNAME
+// ═══════════════════════════════════════════════════════════
+function loadDeviceNickname() {
+  deviceNickname = localStorage.getItem(DEVICE_KEY) || '';
+  updateNicknameChip();
+  // Show setup modal on first launch if no nickname set
+  if (!deviceNickname) {
+    setTimeout(function() {
+      document.getElementById('nicknameModal').classList.add('open');
+      document.getElementById('nicknameInput').focus();
+    }, 800);
+  }
+}
+
+function updateNicknameChip() {
+  const chip = document.getElementById('nicknameChip');
+  if (!chip) return;
+  chip.textContent = deviceNickname || 'Set name';
+  chip.style.color = deviceNickname ? '#00b8a0' : 'rgba(255,255,255,0.5)';
+  chip.style.borderColor = deviceNickname ? 'rgba(0,184,160,0.4)' : 'rgba(255,255,255,0.2)';
+}
+
+function openNicknameModal() {
+  document.getElementById('nicknameInput').value = deviceNickname || '';
+  document.getElementById('nicknameModalTitle').textContent = deviceNickname ? 'Change your name' : 'What is your name?';
+  document.getElementById('nicknameModal').classList.add('open');
+  setTimeout(function() { document.getElementById('nicknameInput').focus(); }, 100);
+}
+
+function closeNicknameModal() {
+  closeModal('nicknameModal');
+}
+
+function saveNickname() {
+  const val = document.getElementById('nicknameInput').value.trim();
+  if (!val) { showToast('Please enter your name', 'error'); return; }
+  deviceNickname = val;
+  localStorage.setItem(DEVICE_KEY, val);
+  updateNicknameChip();
+  closeModal('nicknameModal');
+  showToast('Name saved — surveys will be tagged as: ' + val, 'success');
+  renderSurveyList();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════════════════════
+function setSyncStatus(state) {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  if (!dot || !label) return;
+  const states = {
+    idle:    { color: '#8096b0', text: 'Sheets' },
+    syncing: { color: '#f0a500', text: 'Syncing...' },
+    pulling: { color: '#f0a500', text: 'Loading...' },
+    ok:      { color: '#3ec97a', text: 'Synced' },
+    offline: { color: '#8096b0', text: 'Offline' },
+    error:   { color: '#e05252', text: 'Sync error' },
+  };
+  const s = states[state] || states.idle;
+  dot.style.background = s.color;
+  label.textContent = s.text;
+  if (state === 'ok') setTimeout(() => setSyncStatus('idle'), 4000);
+}
+
+function pullFromSheets() {
+  if (!SHEETS_URL || !navigator.onLine) return;
+  setSyncStatus('pulling');
+  fetch(SHEETS_URL + '?t=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) { setSyncStatus('error'); return; }
+
+      // ── Pull surveys ──
+      let newCount = 0, updCount = 0;
+      (data.surveys || []).forEach(remote => {
+        const idx = surveys.findIndex(s => s.id === remote.id);
+        if (idx < 0) {
+          surveys.unshift(remote);
+          newCount++;
+        } else {
+          const localTime    = new Date(surveys[idx].timestamp || 0).getTime();
+          const remoteTime   = new Date(remote.timestamp || 0).getTime();
+          const localDevice  = surveys[idx].deviceNickname || '';
+          const remoteDevice = remote.deviceNickname || '';
+          const timeDiff     = Math.abs(remoteTime - localTime);
+          const differentDevice = localDevice && remoteDevice && localDevice !== remoteDevice;
+          if (differentDevice && timeDiff < 86400000 && timeDiff > 5000) {
+            const winner = remoteTime > localTime ? remote : surveys[idx];
+            winner.conflictFlag = true;
+            surveys[idx] = winner;
+            updCount++;
+          } else if (remoteTime > localTime) {
+            remote.conflictFlag = false;
+            surveys[idx] = remote;
+            updCount++;
+          }
+        }
+      });
+      if (newCount > 0 || updCount > 0) {
+        saveToStorage();
+        renderSurveyList();
+        renderExportList();
+        showToast('Surveys: ' + newCount + ' new, ' + updCount + ' updated', 'success');
+      }
+
+      // ── Pull equipment ──
+      let eqNew = 0, eqUpd = 0;
+      (data.equipment || []).forEach(remote => {
+        const idx = equipment.findIndex(e => e.id === remote.id);
+        if (idx < 0) {
+          equipment.push(remote);
+          eqNew++;
+        } else {
+          const localTime  = new Date(equipment[idx].updatedAt || equipment[idx].checkedInAt || 0).getTime();
+          const remoteTime = new Date(remote.updatedAt || remote.checkedInAt || 0).getTime();
+          if (remoteTime > localTime) {
+            // Merge condition history — keep all unique entries from both
+            const merged = [...(equipment[idx].conditionHistory || []), ...(remote.conditionHistory || [])];
+            const seen = new Set();
+            remote.conditionHistory = merged.filter(h => {
+              const key = h.date + h.condition;
+              if (seen.has(key)) return false;
+              seen.add(key); return true;
+            });
+            equipment[idx] = remote;
+            eqUpd++;
+          }
+        }
+      });
+      if (eqNew > 0 || eqUpd > 0) {
+        saveEquipmentToStorage();
+        renderEquipmentLists();
+        refreshEquipmentPickers();
+        if (eqNew > 0 || eqUpd > 0) showToast('Equipment: ' + eqNew + ' new, ' + eqUpd + ' updated', 'success');
+      }
+
+      setSyncStatus('ok');
+    })
+    .catch(() => setSyncStatus('error'));
+}
+
+function syncToSheets(surveyData) {
+  if (!SHEETS_URL || !navigator.onLine) {
+    if (!navigator.onLine) setSyncStatus('offline');
+    queueSync(surveyData);
     return;
   }
-
-  var segGroups = {};
-  sel.forEach(function(s) {
-    var seg = s.employee?.seg || 'Unknown';
-    if (!segGroups[seg]) segGroups[seg] = [];
-    segGroups[seg].push(s);
+  setSyncStatus('syncing');
+  const payload = Object.assign({}, surveyData, {
+    deviceInfo: navigator.userAgent.substring(0, 80)
   });
-  var segs = Object.keys(segGroups).sort();
-
-  var summaryRows = segs.map(function(seg) {
-    var group     = segGroups[seg];
-    var twas      = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
-    var stats     = lognormalStats(twas);
-    var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
-    var utlNA     = !twas.length;
-    var surveyCt  = group.length;
-    var personnel = racPersonnelOverrides[seg] || surveyCt;
-    var rac       = utlNA ? null : calcRAC(utl, personnel);
-    var utlDisplay = utlNA ? '<span style="background:#fff3c4; color:#7a5800; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">Not Applicable — No samples taken</span>'
-                           : (utl !== null ? utl.toFixed(2) + ' dBA' : '—');
-    var utlBg = (!utlNA && utl !== null) ? (utl >= 90 ? 'background:#fcebeb;' : utl >= 82 ? 'background:#fff8e6;' : '') : 'background:#fff3c4;';
-    var overrideSet = racPersonnelOverrides.hasOwnProperty(seg);
-    var segKey = seg.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    var inputStyle = 'width:60px; padding:4px 6px; font-size:13px; font-weight:600; text-align:center;'
-      + 'border:1.5px solid ' + (overrideSet ? 'var(--teal)' : 'var(--border)') + ';'
-      + 'border-radius:6px; background:' + (overrideSet ? 'rgba(0,184,160,0.08)' : 'var(--surface)') + '; color:var(--text);';
-    var personnelCell = '<input type="number" min="1" style="' + inputStyle + '" value="' + personnel + '"'
-      + ' title="Enter total SEG personnel. Surveys sampled: ' + surveyCt + '"'
-      + ' onchange="racSetPersonnel(\'' + segKey + '\', this.value)"'
-      + ' onblur="racSetPersonnel(\'' + segKey + '\', this.value)">'
-      + (overrideSet ? '<div style="font-size:10px; color:var(--teal); margin-top:2px;">IH entered (' + surveyCt + ' sampled)</div>'
-                     : '<div style="font-size:10px; color:var(--text3); margin-top:2px;">' + surveyCt + ' sampled — edit to override</div>');
-    return '<tr style="border-bottom:1px solid var(--border);">'
-      + '<td style="padding:10px 14px; font-size:13px; font-weight:600; color:var(--text);">' + esc(seg) + '</td>'
-      + '<td style="padding:10px 14px; font-size:13px; text-align:center; ' + utlBg + '">' + utlDisplay + '</td>'
-      + '<td style="padding:10px 14px; text-align:center;">' + personnelCell + '</td>'
-      + '<td style="padding:10px 14px; text-align:center;">' + racBadge(rac) + '</td>'
-      + '</tr>';
-  }).join('');
-
-  var detailCards = segs.map(function(seg) {
-    var group     = segGroups[seg];
-    var twas      = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
-    var stats     = lognormalStats(twas);
-    var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
-    var utlNA     = !twas.length;
-    var surveyCt  = group.length;
-    var personnel = racPersonnelOverrides[seg] || surveyCt;
-    var rac       = utlNA ? null : calcRAC(utl, personnel);
-    var fmtDb     = function(v) { return (v === null || isNaN(v)) ? '—' : v.toFixed(1) + ' dBA'; };
-    var utlBg2    = utlNA ? 'background:#fff3c4;' : (utl !== null && utl >= 90 ? 'background:#fcebeb;' : utl !== null && utl >= 82 ? 'background:#fff8e6;' : 'background:var(--surface);');
-    var utlCol2   = utlNA ? 'color:#7a5800;'      : (utl !== null && utl >= 90 ? 'color:#a32d2d;'      : utl !== null && utl >= 82 ? 'color:#7a4f00;'      : 'color:var(--text);');
-    var utlVal    = utlNA ? 'N/A' : fmtDb(utl);
-    var uclVal    = (!stats || isNaN(stats.ucl95)) ? '—' : fmtDb(stats.ucl95);
-    var uclBg     = (!stats || isNaN(stats.ucl95)) ? 'background:var(--surface);' : stats.ucl95 >= 90 ? 'background:#fcebeb;' : stats.ucl95 >= 82 ? 'background:#fff8e6;' : 'background:var(--surface);';
-    var uclCol    = (!stats || isNaN(stats.ucl95)) ? 'color:var(--text);' : stats.ucl95 >= 90 ? 'color:#a32d2d;' : stats.ucl95 >= 82 ? 'color:#7a4f00;' : 'color:var(--text);';
-    var overrideSet = racPersonnelOverrides.hasOwnProperty(seg);
-
-    var statsNote = '';
-    if (stats && stats.smallSample) {
-      statsNote = '<div style="margin-top:8px; padding:7px 10px; background:#fff8e6; border:1px solid #f0a500; border-radius:6px; font-size:11px; color:#7a4f00;">&#9651; <strong>Small sample (n=' + stats.n + ', &lt;6):</strong> UTL estimate is imprecise.</div>';
-    } else if (twas.length === 1) {
-      statsNote = '<div style="margin-top:8px; padding:7px 10px; background:#fff8e6; border:1px solid #f0a500; border-radius:6px; font-size:11px; color:#7a4f00;">&#9651; <strong>Single sample (n=1):</strong> TWA used directly as UTL.</div>';
-    }
-
-    var surveyRows = group.slice().sort(function(a,b){ return (parseFloat(b.results?.twa)||0) - (parseFloat(a.results?.twa)||0); }).map(function(s) {
-      var twa  = parseFloat(s.results?.twa);
-      var dose = parseFloat(s.results?.dose);
-      var date = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '—';
-      var ih   = s.deviceNickname || s.ih?.name || '—';
-      var loc  = s.employee?.location || '—';
-      var twaColor = isNaN(twa) ? 'var(--text3)' : twa >= 90 ? '#a32d2d' : twa >= 85 ? '#7a4f00' : '#085041';
-      var twaBg    = isNaN(twa) ? '' : twa >= 90 ? 'background:#fcebeb;' : twa >= 85 ? 'background:#fff8e6;' : '';
-      return '<tr style="border-bottom:1px solid var(--border);">'
-        + '<td style="padding:6px 10px; font-size:12px; color:var(--text);">' + esc(s.employee?.name || '—') + '</td>'
-        + '<td style="padding:6px 10px; font-size:11px; color:var(--teal);">' + esc(ih) + '</td>'
-        + '<td style="padding:6px 10px; font-size:11px; color:var(--text2);">' + date + '</td>'
-        + '<td style="padding:6px 10px; font-size:11px; color:var(--text2);">' + esc(loc) + '</td>'
-        + '<td style="padding:6px 10px; font-size:12px; font-weight:700; text-align:right; color:' + twaColor + '; ' + twaBg + '">' + (isNaN(twa) ? '—' : twa.toFixed(1) + ' dBA') + '</td>'
-        + '<td style="padding:6px 10px; font-size:12px; text-align:right; color:var(--text);">' + (isNaN(dose) ? '—' : dose.toFixed(1) + '%') + '</td>'
-        + '</tr>';
-    }).join('');
-
-    var metricCards = [
-      ['Surveys (n)', twas.length || surveyCt, 'background:var(--surface);', 'color:var(--text);'],
-      ['SEG Personnel',
-        personnel + (overrideSet ? '<div style="font-size:10px;color:var(--teal);margin-top:1px;">IH entered (' + surveyCt + ' sampled)</div>' : '<div style="font-size:10px;color:var(--text3);margin-top:1px;">= surveys sampled</div>'),
-        'background:var(--surface);', 'color:var(--text);'],
-      ['GM',       stats ? fmtDb(stats.gm) : '—', 'background:var(--surface);', 'color:var(--text);'],
-      ['UCL 95%',  uclVal, uclBg, uclCol],
-      ['UTL 95/95', utlVal, utlBg2, utlCol2],
-    ];
-
-    return '<div class="card" style="margin-bottom:16px;">'
-      + '<div class="card-header" style="font-size:14px; display:flex; justify-content:space-between; align-items:center;">'
-      + '<span>' + esc(seg) + '<span style="margin-left:8px; font-size:11px; font-weight:400; color:rgba(255,255,255,0.55);">' + personnel + ' personnel</span></span>'
-      + racBadge(rac) + '</div>'
-      + '<div class="card-body" style="padding:14px 16px;">'
-      + '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; margin-bottom:12px;">'
-      + metricCards.map(function(c) {
-          return '<div style="border-radius:var(--radius); padding:8px 10px; ' + c[2] + '">'
-            + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">' + c[0] + '</div>'
-            + '<div style="font-size:16px; font-weight:600; ' + c[3] + '">' + c[1] + '</div></div>';
-        }).join('')
-      + '</div>'
-      + statsNote
-      + '<div style="margin-top:12px;">'
-      + '<div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Survey Results</div>'
-      + '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; min-width:500px;">'
-      + '<thead><tr style="background:var(--surface);">'
-      + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Employee</th>'
-      + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">IH</th>'
-      + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Date</th>'
-      + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Location</th>'
-      + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">TWA</th>'
-      + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">Dose %</th>'
-      + '</tr></thead><tbody>' + surveyRows + '</tbody></table></div></div>'
-      + '</div></div>';
-  }).join('');
-
-  resultsEl.innerHTML =
-    '<div class="card" style="margin-bottom:20px;">'
-    + '<div class="card-header" style="font-size:13px; font-weight:700;">Noise RAC Calculations Summary</div>'
-    + '<div style="padding:8px 14px; font-size:11px; color:var(--text3); border-bottom:1px solid var(--border);">&#9432; Enter the total number of personnel in each SEG in the <strong>SEG Personnel</strong> column. The default is the number of surveys sampled.</div>'
-    + '<div class="card-body" style="padding:0;"><div style="overflow-x:auto;">'
-    + '<table style="width:100%; border-collapse:collapse; min-width:400px;">'
-    + '<thead><tr style="background:var(--surface); border-bottom:2px solid var(--border);">'
-    + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:left;">SEG Name</th>'
-    + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:center;">UTL (dBA)</th>'
-    + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:center;">SEG Personnel <span style="font-weight:400; color:var(--teal);">(editable)</span></th>'
-    + '<th style="padding:10px 14px; font-size:11px; font-weight:600; color:var(--text3); text-align:center;">RAC</th>'
-    + '</tr></thead><tbody>' + summaryRows + '</tbody>'
-    + '</table></div></div></div>'
-    + detailCards;
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(() => {
+    setSyncStatus('ok');
+    removePendingSync(surveyData.id);
+  }).catch(() => {
+    setSyncStatus('error');
+    queueSync(surveyData);
+  });
 }
 
+function syncAllToSheets() {
+  if (!surveys.length) { showToast('No surveys to sync', 'error'); return; }
+  if (!navigator.onLine) { showToast('No internet — sync when online', 'error'); return; }
+  let count = 0;
+  setSyncStatus('syncing');
+  const queue = [...surveys];
+  function next() {
+    if (!queue.length) {
+      setSyncStatus('ok');
+      showToast('All ' + count + ' surveys synced to Google Sheets', 'success');
+      localStorage.removeItem('ih_sync_queue');
+      return;
+    }
+    const s = queue.shift();
+    const payload = Object.assign({}, s, { deviceInfo: navigator.userAgent.substring(0, 80) });
+    fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(() => { count++; setTimeout(next, 300); })
+      .catch(() => { setTimeout(next, 300); });
+  }
+  next();
+}
+
+function queueSync(surveyData) {
+  try {
+    let q = JSON.parse(localStorage.getItem('ih_sync_queue') || '[]');
+    const idx = q.findIndex(s => s.id === surveyData.id);
+    if (idx >= 0) q[idx] = surveyData; else q.push(surveyData);
+    localStorage.setItem('ih_sync_queue', JSON.stringify(q));
+  } catch(e) {}
+}
+
+function removePendingSync(id) {
+  try {
+    let q = JSON.parse(localStorage.getItem('ih_sync_queue') || '[]');
+    localStorage.setItem('ih_sync_queue', JSON.stringify(q.filter(s => s.id !== id)));
+  } catch(e) {}
+}
+
+function flushSyncQueue() {
+  if (!navigator.onLine) return;
+  try {
+    const q = JSON.parse(localStorage.getItem('ih_sync_queue') || '[]');
+    if (!q.length) return;
+    q.forEach(s => syncToSheets(s));
+  } catch(e) {}
+}
+
+window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); flushDeleteQueue(); flushEquipQueue(); pullFromSheets(); });
+
+// ═══════════════════════════════════════════════════════════
+//  EQUIPMENT SYNC
+// ═══════════════════════════════════════════════════════════
+function syncEquipToSheets(item) {
+  if (!SHEETS_URL || !item) return;
+  const payload = Object.assign({}, item, { _type: 'equipment', updatedAt: new Date().toISOString() });
+  if (!navigator.onLine) { queueEquipSync(item); return; }
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(() => {
+    removeEquipPendingSync(item.id);
+  }).catch(() => { queueEquipSync(item); });
+}
+
+function deleteEquipFromSheets(id) {
+  if (!SHEETS_URL) return;
+  const payload = { _action: 'delete', _type: 'equipment', id: id };
+  if (!navigator.onLine) {
+    try {
+      var q = JSON.parse(localStorage.getItem('ih_equip_delete_queue') || '[]');
+      if (!q.includes(id)) q.push(id);
+      localStorage.setItem('ih_equip_delete_queue', JSON.stringify(q));
+    } catch(e) {}
+    return;
+  }
+  fetch(SHEETS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {
+    try {
+      var q = JSON.parse(localStorage.getItem('ih_equip_delete_queue') || '[]');
+      if (!q.includes(id)) q.push(id);
+      localStorage.setItem('ih_equip_delete_queue', JSON.stringify(q));
+    } catch(e) {}
+  });
+}
+
+function queueEquipSync(item) {
+  try {
+    var q = JSON.parse(localStorage.getItem('ih_equip_sync_queue') || '[]');
+    var idx = q.findIndex(function(e) { return e.id === item.id; });
+    if (idx >= 0) q[idx] = item; else q.push(item);
+    localStorage.setItem('ih_equip_sync_queue', JSON.stringify(q));
+  } catch(e) {}
+}
+
+function removeEquipPendingSync(id) {
+  try {
+    var q = JSON.parse(localStorage.getItem('ih_equip_sync_queue') || '[]');
+    localStorage.setItem('ih_equip_sync_queue', JSON.stringify(q.filter(function(e) { return e.id !== id; })));
+  } catch(e) {}
+}
+
+function flushEquipQueue() {
+  if (!navigator.onLine) return;
+  try {
+    var sq = JSON.parse(localStorage.getItem('ih_equip_sync_queue') || '[]');
+    sq.forEach(function(item) { syncEquipToSheets(item); });
+    var dq = JSON.parse(localStorage.getItem('ih_equip_delete_queue') || '[]');
+    dq.forEach(function(id) { deleteEquipFromSheets(id); });
+    if (dq.length) localStorage.removeItem('ih_equip_delete_queue');
+  } catch(e) {}
+}
+
+function syncAllEquipToSheets() {
+  if (!equipment.length) { showToast('No equipment to sync', 'error'); return; }
+  if (!navigator.onLine) { showToast('No internet — sync when online', 'error'); return; }
+  var count = 0;
+  var queue = equipment.slice();
+  setSyncStatus('syncing');
+  function next() {
+    if (!queue.length) {
+      setSyncStatus('ok');
+      showToast('All ' + count + ' equipment records synced', 'success');
+      return;
+    }
+    var item = queue.shift();
+    var payload = Object.assign({}, item, { _type: 'equipment', updatedAt: new Date().toISOString() });
+    fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function() { count++; setTimeout(next, 300); })
+      .catch(function() { setTimeout(next, 300); });
+  }
+  next();
+}
+window.addEventListener('offline', () => setSyncStatus('offline'));
+
+
+
+// ═══════════════════════════════════════════════════════════
+//  VERIFY TAB — Instrument Report QA Engine
+//  Supports: Casella dBadge2 PDF, CSV, DOCX, or ZIP batch
+//  Match key: serial number + survey date
+//  Comparison fields: name (fuzzy), TWA, dose, Lavg, run time,
+//                     pre/post cal readings, start/stop times
+// ═══════════════════════════════════════════════════════════
+
+// ── CDN loaders (lazy, first-use only) ───────────────────
+var _jszipLoaded = false, _pdfjsLoaded = false, _mammothLoaded = false;
 
 function loadScript(url, cb) {
   var s = document.createElement('script');
@@ -7239,8 +5089,6 @@ function ensureMammoth(cb) {
   if (typeof mammoth !== 'undefined') return cb();
   loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', cb);
 }
-
-// ── Drop / file intake ────────────────────────────────────
 
 // ── Drop / file intake ────────────────────────────────────
 function verifyHandleDrop(event) {
@@ -8245,18 +6093,318 @@ function verifyCloseDrawer() {
   document.getElementById('verifyDrawerBackdrop').style.display = 'none';
 }
 
+// ── Survey card "Verify" button ───────────────────────────
+// Called from survey card; opens file picker then runs single-survey comparison
+function verifySingleSurvey(surveyId) {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf,.csv,.docx';
+  input.onchange = function() {
+    if (!input.files || !input.files.length) return;
+    showView('verify');
+    setTimeout(function() { verifyHandleFiles(input.files); }, 100);
+  };
+  input.click();
+}
+
+// ── Export CSV ────────────────────────────────────────────
+function verifyExportCSV() {
+  var rows = verifyCurrentRows;
+  if (!rows.length) return;
+  var headers = ['File','Serial','Date','App Name','Report Name','Name Match',
+                 'TWA App','TWA Rpt','TWA Δ','TWA Status',
+                 'Dose App','Dose Rpt','Dose Δ','Dose Status',
+                 'Lavg App','Lavg Rpt','Lavg Δ','Lavg Status',
+                 'RunTime App','RunTime Rpt','RunTime Status',
+                 'PreCal App','PreCal Rpt','PreCal Δ','PreCal Status',
+                 'PostCal App','PostCal Rpt','PostCal Δ','PostCal Status',
+                 'Start App','Start Rpt','Start Δ (min)','Start Status',
+                 'Stop App','Stop Rpt','Stop Δ (min)','Stop Status',
+                 'Overall',
+                 'Exchange App','Exchange Rpt','Exchange Status',
+                 'Criterion App','Criterion Rpt','Criterion Status',
+                 'Weighting App','Weighting Rpt','Weighting Status',
+                 'Response App','Response Rpt','Response Status'];
+
+  function v(x) { return x !== undefined && x !== null ? String(x) : ''; }
+  function cvals(c) {
+    if (!c) return ['','','',''];
+    return [v(c.app), v(c.rpt), v(c.delta !== undefined ? c.delta.toFixed(3) : (c.diffMin !== undefined ? c.diffMin.toFixed(1) : '')), v(c.status)];
+  }
+
+  var csvRows = [headers.join(',')];
+  rows.forEach(function(row) {
+    var c = row.checks || {};
+    var fields = [
+      row._filename || '', row.serial || '', row.date || '',
+      row.appName || '', (c.name ? c.name.rpt : '') || '',
+      c.name ? c.name.status + ' (' + (c.name.score||0).toFixed(2) + ')' : ''
+    ];
+    ['twa','dose','lavg'].forEach(function(k) { fields = fields.concat(cvals(c[k])); });
+    var rt = c.runTime || {};
+    fields = fields.concat([v(rt.app), v(rt.rpt), v(rt.status)]);
+    ['preCal','postCal','startTime','stopTime'].forEach(function(k) { fields = fields.concat(cvals(c[k])); });
+    fields.push(row.overall || '');
+    ['exchange','criterion','weighting','response'].forEach(function(k) {
+      var ck = c[k] || {};
+      fields = fields.concat([v(ck.app), v(ck.rpt), v(ck.status)]);
+    });
+    csvRows.push(fields.map(function(f) {
+      return '"' + String(f).replace(/"/g, '""') + '"';
+    }).join(','));
+  });
+
+  var blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'verify_results_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// ── Utility ───────────────────────────────────────────────
+function verifySetStatus(msg) {
+  var el = document.getElementById('verifyStatus');
+  if (!el) return;
+  if (msg) { el.style.display = 'block'; el.textContent = msg; }
+  else      { el.style.display = 'none';  el.textContent = ''; }
+}
+
+function verifyClear() {
+  verifyCurrentRows = [];
+  document.getElementById('verifyResults').style.display = 'none';
+  document.getElementById('verifyStatus').style.display  = 'none';
+  document.getElementById('verifyTableBody').innerHTML   = '';
+  document.getElementById('verifySummary').innerHTML     = '';
+  document.getElementById('verifyFileInput').value       = '';
+}
+
+
+
+
+
+// ═══════════════════════════════════════════════════════════
+//  NOISE RAC TAB
+// ═══════════════════════════════════════════════════════════
+
+var racSelectedIHs        = null;
+var racSelectedLocations  = null;
+var racSelectedSEGs       = null;
+var racPersonnelOverrides = {};
+
+(function() {
+  try {
+    var saved = localStorage.getItem('racPersonnelOverrides');
+    if (saved) racPersonnelOverrides = JSON.parse(saved);
+  } catch(e) {}
+})();
+
+function racSaveOverrides() {
+  try { localStorage.setItem('racPersonnelOverrides', JSON.stringify(racPersonnelOverrides)); } catch(e) {}
+}
+function racSetPersonnel(seg, val) {
+  var n = parseInt(val, 10);
+  if (!isNaN(n) && n > 0) racPersonnelOverrides[seg] = n;
+  else delete racPersonnelOverrides[seg];
+  racSaveOverrides(); renderRAC();
+}
+function racToggleIH(ih) {
+  if (!racSelectedIHs) racSelectedIHs = new Set();
+  if (racSelectedIHs.has(ih)) racSelectedIHs.delete(ih); else racSelectedIHs.add(ih);
+  renderRAC();
+}
+function racSelectAllIH() { racSelectedIHs = null; renderRAC(); }
+function racToggleLocation(loc) {
+  if (!racSelectedLocations) racSelectedLocations = new Set();
+  if (racSelectedLocations.has(loc)) racSelectedLocations.delete(loc); else racSelectedLocations.add(loc);
+  renderRAC();
+}
+function racSelectAllLocations() { racSelectedLocations = null; renderRAC(); }
+function racToggleSEG(seg) {
+  if (!racSelectedSEGs) racSelectedSEGs = new Set();
+  if (racSelectedSEGs.has(seg)) racSelectedSEGs.delete(seg); else racSelectedSEGs.add(seg);
+  renderRAC();
+}
+function racSelectAllSEGs() { racSelectedSEGs = null; renderRAC(); }
+function racSelectNoSEGs()  { racSelectedSEGs = new Set(); renderRAC(); }
+
+function calcRAC(utl, personnel) {
+  if (utl === null || isNaN(utl) || personnel < 1) return null;
+  var lt82 = utl < 82, lt10 = personnel < 10;
+  if (lt82 &&  lt10) return 4;
+  if (lt82 && !lt10) return 3;
+  if (!lt82 &&  lt10) return 3;
+  return 2;
+}
+
+function racBadge(rac) {
+  if (rac === null) return '<span style="color:var(--text3); font-size:12px;">—</span>';
+  var bg  = rac === 2 ? '#fcebeb' : rac === 3 ? '#fff8e6' : '#e1f5ee';
+  var col = rac === 2 ? '#a32d2d' : rac === 3 ? '#7a4f00' : '#085041';
+  var label = rac === 2 ? 'RAC 2 — High' : rac === 3 ? 'RAC 3 — Medium' : 'RAC 4 — Low';
+  return '<span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; background:' + bg + '; color:' + col + ';">' + label + '</span>';
+}
+
+function renderRAC() {
+  var ihChipsEl  = document.getElementById('racIHChips');
+  var locChipsEl = document.getElementById('racLocationChips');
+  var segChipsEl = document.getElementById('racSegChips');
+  var resultsEl  = document.getElementById('racResults');
+  if (!resultsEl) return;
+
+  var allIHs  = [...new Set(surveys.map(function(s){ return s.deviceNickname || s.ih?.name || ''; }).filter(Boolean))].sort();
+  var allLocs = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))].sort();
+  var allSEGs = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))].sort();
+
+  if (racSelectedIHs       === null) racSelectedIHs       = new Set(allIHs);
+  if (racSelectedLocations === null) racSelectedLocations = new Set(allLocs);
+  if (racSelectedSEGs      === null) racSelectedSEGs      = new Set(allSEGs);
+
+  function chipHtml(label, active, onclick) {
+    return '<button onclick="' + onclick + '" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
+      + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
+      + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
+      + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';">' + esc(label) + '</button>';
+  }
+
+  if (ihChipsEl)  ihChipsEl.innerHTML  = '<button class="btn btn-outline btn-sm" onclick="racSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>' + allIHs.map(function(ih) { return chipHtml(ih, racSelectedIHs.has(ih), "racToggleIH('" + esc(ih) + "')"); }).join('');
+  if (locChipsEl) locChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="racSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>' + allLocs.map(function(loc) { return chipHtml(loc, racSelectedLocations.has(loc), "racToggleLocation('" + esc(loc) + "')"); }).join('');
+  if (segChipsEl) segChipsEl.innerHTML = allSEGs.map(function(seg) { return chipHtml(seg, racSelectedSEGs.has(seg), "racToggleSEG('" + esc(seg) + "')"); }).join('');
+
+  var sel = surveys.filter(function(s) {
+    var ih  = s.deviceNickname || s.ih?.name || '';
+    var loc = s.employee?.location || '';
+    var seg = s.employee?.seg || '';
+    return (!allIHs.length || racSelectedIHs.has(ih))
+        && (!allLocs.length || racSelectedLocations.has(loc))
+        && (racSelectedSEGs === null || racSelectedSEGs.has(seg));
+  });
+
+  if (!sel.length || !allSEGs.length) {
+    resultsEl.innerHTML = '<div class="empty-state"><div class="empty-title">No surveys match the selected filters</div><div class="empty-sub">Adjust filters or add survey data with SEG assignments</div></div>';
+    return;
+  }
+
+  var segGroups = {};
+  sel.forEach(function(s) {
+    var seg = s.employee?.seg || 'Unknown';
+    if (!segGroups[seg]) segGroups[seg] = [];
+    segGroups[seg].push(s);
+  });
+  var segs = Object.keys(segGroups).sort();
+
+  var summaryRows = segs.map(function(seg) {
+    var group = segGroups[seg];
+    var twas  = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
+    var stats = lognormalStats(twas);
+    var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
+    var utlNA = !twas.length;
+    var surveyCt  = group.length;
+    var personnel = racPersonnelOverrides[seg] || surveyCt;
+    var rac = utlNA ? null : calcRAC(utl, personnel);
+    var utlDisplay = utlNA
+      ? '<span style="background:#fff3c4;color:#7a5800;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">Not Applicable — No samples taken</span>'
+      : (utl !== null ? utl.toFixed(2) + ' dBA' : '—');
+    var utlBg = (!utlNA && utl !== null) ? (utl >= 90 ? 'background:#fcebeb;' : utl >= 82 ? 'background:#fff8e6;' : '') : 'background:#fff3c4;';
+    var overrideSet = racPersonnelOverrides.hasOwnProperty(seg);
+    var segKey = seg.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var inputStyle = 'width:60px;padding:4px 6px;font-size:13px;font-weight:600;text-align:center;'
+      + 'border:1.5px solid ' + (overrideSet ? 'var(--teal)' : 'var(--border)') + ';'
+      + 'border-radius:6px;background:' + (overrideSet ? 'rgba(0,184,160,0.08)' : 'var(--surface)') + ';color:var(--text);';
+    var personnelCell = '<input type="number" min="1" style="' + inputStyle + '" value="' + personnel + '"'
+      + ' onchange="racSetPersonnel(\'' + segKey + '\',this.value)" onblur="racSetPersonnel(\'' + segKey + '\',this.value)">'
+      + (overrideSet ? '<div style="font-size:10px;color:var(--teal);margin-top:2px;">IH entered (' + surveyCt + ' sampled)</div>'
+                     : '<div style="font-size:10px;color:var(--text3);margin-top:2px;">' + surveyCt + ' sampled — edit to override</div>');
+    return '<tr style="border-bottom:1px solid var(--border);">'
+      + '<td style="padding:10px 14px;font-size:13px;font-weight:600;color:var(--text);">' + esc(seg) + '</td>'
+      + '<td style="padding:10px 14px;font-size:13px;text-align:center;' + utlBg + '">' + utlDisplay + '</td>'
+      + '<td style="padding:10px 14px;text-align:center;">' + personnelCell + '</td>'
+      + '<td style="padding:10px 14px;text-align:center;">' + racBadge(rac) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var detailCards = segs.map(function(seg) {
+    var group = segGroups[seg];
+    var twas  = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
+    var stats = lognormalStats(twas);
+    var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
+    var utlNA = !twas.length;
+    var surveyCt  = group.length;
+    var personnel = racPersonnelOverrides[seg] || surveyCt;
+    var rac = utlNA ? null : calcRAC(utl, personnel);
+    var fmtDb = function(v) { return (v === null || isNaN(v)) ? '—' : v.toFixed(1) + ' dBA'; };
+    var utlBg2  = utlNA ? 'background:#fff3c4;' : (utl !== null && utl >= 90 ? 'background:#fcebeb;' : utl !== null && utl >= 82 ? 'background:#fff8e6;' : 'background:var(--surface);');
+    var utlCol2 = utlNA ? 'color:#7a5800;'       : (utl !== null && utl >= 90 ? 'color:#a32d2d;'      : utl !== null && utl >= 82 ? 'color:#7a4f00;'      : 'color:var(--text);');
+    var uclBg   = (!stats || isNaN(stats.ucl95)) ? 'background:var(--surface);' : stats.ucl95 >= 90 ? 'background:#fcebeb;' : stats.ucl95 >= 82 ? 'background:#fff8e6;' : 'background:var(--surface);';
+    var uclCol  = (!stats || isNaN(stats.ucl95)) ? 'color:var(--text);'         : stats.ucl95 >= 90 ? 'color:#a32d2d;'      : stats.ucl95 >= 82 ? 'color:#7a4f00;'      : 'color:var(--text);';
+    var overrideSet = racPersonnelOverrides.hasOwnProperty(seg);
+    var statsNote = stats && stats.smallSample
+      ? '<div style="margin-top:8px;padding:7px 10px;background:#fff8e6;border:1px solid #f0a500;border-radius:6px;font-size:11px;color:#7a4f00;">&#9651; <strong>Small sample (n=' + stats.n + ', &lt;6):</strong> UTL estimate is imprecise.</div>'
+      : twas.length === 1
+      ? '<div style="margin-top:8px;padding:7px 10px;background:#fff8e6;border:1px solid #f0a500;border-radius:6px;font-size:11px;color:#7a4f00;">&#9651; <strong>Single sample (n=1):</strong> TWA used directly as UTL.</div>'
+      : '';
+    var surveyRows = group.slice().sort(function(a,b){ return (parseFloat(b.results?.twa)||0)-(parseFloat(a.results?.twa)||0); }).map(function(s) {
+      var twa  = parseFloat(s.results?.twa);
+      var dose = parseFloat(s.results?.dose);
+      var date = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '—';
+      var twaC = isNaN(twa) ? 'var(--text3)' : twa >= 90 ? '#a32d2d' : twa >= 85 ? '#7a4f00' : '#085041';
+      var twaBg= isNaN(twa) ? '' : twa >= 90 ? 'background:#fcebeb;' : twa >= 85 ? 'background:#fff8e6;' : '';
+      return '<tr style="border-bottom:1px solid var(--border);">'
+        + '<td style="padding:6px 10px;font-size:12px;color:var(--text);">' + esc(s.employee?.name||'—') + '</td>'
+        + '<td style="padding:6px 10px;font-size:11px;color:var(--teal);">' + esc(s.deviceNickname||s.ih?.name||'—') + '</td>'
+        + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);">' + date + '</td>'
+        + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);">' + esc(s.employee?.location||'—') + '</td>'
+        + '<td style="padding:6px 10px;font-size:12px;font-weight:700;text-align:right;color:'+twaC+';'+twaBg+'">' + (isNaN(twa)?'—':twa.toFixed(1)+' dBA') + '</td>'
+        + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--text);">' + (isNaN(dose)?'—':dose.toFixed(1)+'%') + '</td>'
+        + '</tr>';
+    }).join('');
+    var metricCards = [
+      ['Surveys (n)', twas.length||surveyCt, 'background:var(--surface);', 'color:var(--text);'],
+      ['SEG Personnel', personnel + (overrideSet ? '<div style="font-size:10px;color:var(--teal);margin-top:1px;">IH entered ('+surveyCt+' sampled)</div>' : '<div style="font-size:10px;color:var(--text3);margin-top:1px;">= surveys sampled</div>'), 'background:var(--surface);', 'color:var(--text);'],
+      ['GM',        stats ? fmtDb(stats.gm) : '—',    'background:var(--surface);', 'color:var(--text);'],
+      ['UCL 95%',   (!stats||isNaN(stats.ucl95)) ? '—' : fmtDb(stats.ucl95), uclBg, uclCol],
+      ['UTL 95/95', utlNA ? 'N/A' : fmtDb(utl),       utlBg2, utlCol2],
+    ];
+    return '<div class="card" style="margin-bottom:16px;">'
+      + '<div class="card-header" style="font-size:14px;display:flex;justify-content:space-between;align-items:center;">'
+      + '<span>' + esc(seg) + '<span style="margin-left:8px;font-size:11px;font-weight:400;color:rgba(255,255,255,0.55);">' + personnel + ' personnel</span></span>'
+      + racBadge(rac) + '</div>'
+      + '<div class="card-body" style="padding:14px 16px;">'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px;">'
+      + metricCards.map(function(c){ return '<div style="border-radius:var(--radius);padding:8px 10px;'+c[2]+'"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">'+c[0]+'</div><div style="font-size:16px;font-weight:600;'+c[3]+'">'+c[1]+'</div></div>'; }).join('')
+      + '</div>' + statsNote
+      + '<div style="margin-top:12px;"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Survey Results</div>'
+      + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:500px;">'
+      + '<thead><tr style="background:var(--surface);">'
+      + ['Employee','IH','Date','Location','TWA','Dose %'].map(function(h,i){ return '<th style="padding:6px 10px;font-size:10px;font-weight:600;color:var(--text3);text-align:'+(i>=4?'right':'left')+';">'+h+'</th>'; }).join('')
+      + '</tr></thead><tbody>' + surveyRows + '</tbody></table></div></div></div></div>';
+  }).join('');
+
+  resultsEl.innerHTML =
+    '<div class="card" style="margin-bottom:20px;">'
+    + '<div class="card-header" style="font-size:13px;font-weight:700;">Noise RAC Calculations Summary</div>'
+    + '<div style="padding:8px 14px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);">&#9432; Enter the total number of personnel in each SEG in the <strong>SEG Personnel</strong> column. The default is the number of surveys sampled.</div>'
+    + '<div class="card-body" style="padding:0;"><div style="overflow-x:auto;">'
+    + '<table style="width:100%;border-collapse:collapse;min-width:400px;">'
+    + '<thead><tr style="background:var(--surface);border-bottom:2px solid var(--border);">'
+    + '<th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-align:left;">SEG Name</th>'
+    + '<th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-align:center;">UTL (dBA)</th>'
+    + '<th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-align:center;">SEG Personnel <span style="font-weight:400;color:var(--teal);">(editable)</span></th>'
+    + '<th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-align:center;">RAC</th>'
+    + '</tr></thead><tbody>' + summaryRows + '</tbody>'
+    + '</table></div></div></div>'
+    + detailCards;
+}
+
 function printRAC() {
-  // Temporarily force RAC view active for print
   var views = document.querySelectorAll('.view');
-  var tabs  = document.querySelectorAll('.nav-tab');
   var prevActive = document.querySelector('.view.active');
   views.forEach(function(v) { v.classList.remove('active'); });
   document.getElementById('view-rac').classList.add('active');
   window.print();
-  // Restore previous state
   views.forEach(function(v) { v.classList.remove('active'); });
   if (prevActive) prevActive.classList.add('active');
 }
+
 </script>
 </head>
 <body>
