@@ -1740,7 +1740,15 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       <div style="font-size:18px; font-weight:600; color:var(--text);">SEG Statistics</div>
       <div style="font-size:12px; color:var(--text3); margin-top:2px;">Noise exposure summary by Similarly Exposed Group</div>
     </div>
-    <button class="btn btn-outline btn-sm" onclick="renderStats()">Refresh</button>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">Standard:</div>
+      <div style="display:flex; gap:5px; flex-wrap:wrap;">
+        <button onclick="statsSetStandard('ACGIH')"    id="statsStdChip_ACGIH"    style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--teal); background:rgba(0,184,160,0.12); color:var(--teal);">ACGIH/NIOSH</button>
+        <button onclick="statsSetStandard('OSHA_HC')"  id="statsStdChip_OSHA_HC"  style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">OSHA HC</button>
+        <button onclick="statsSetStandard('OSHA_PEL')" id="statsStdChip_OSHA_PEL" style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">OSHA PEL</button>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="renderStats()">Refresh</button>
+    </div>
   </div>
 
   <!-- Filter row: IH + SEG selectors -->
@@ -2041,6 +2049,16 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
         Compare dosimeter report files against data entered by the IH.
         Accepts Casella dBadge2 PDF, CSV, or DOCX — single file or a ZIP for batch.
       </div>
+    </div>
+
+    <!-- Standard selector -->
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">Verify Against:</div>
+      <button onclick="verifySetStandard('APP')"      id="verifyStdChip_APP"      style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--teal); background:rgba(0,184,160,0.12); color:var(--teal);">App Setup</button>
+      <button onclick="verifySetStandard('ACGIH')"    id="verifyStdChip_ACGIH"    style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">ACGIH/NIOSH</button>
+      <button onclick="verifySetStandard('OSHA_HC')"  id="verifyStdChip_OSHA_HC"  style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">OSHA HC</button>
+      <button onclick="verifySetStandard('OSHA_PEL')" id="verifyStdChip_OSHA_PEL" style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">OSHA PEL</button>
+      <span id="verifyStdNote" style="font-size:11px; color:var(--text3); margin-left:2px;">Comparing report setup to App-recorded values</span>
     </div>
 
     <!-- Drop zone -->
@@ -4655,6 +4673,30 @@ function lognormalStats(twas) {
 var statsSelectedSEGs       = null; // null = all
 var statsSelectedIHs        = null; // null = all
 var statsSelectedLocations  = null; // null = all
+var statsStandard           = 'ACGIH'; // 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL'
+
+// Standard definitions for Stats tab
+//  ACGIH/NIOSH : PEL=85 dBA, AL=80, Q=3, C=85
+//  OSHA HC     : PEL=85 dBA, AL=80, Q=5, C=85  (Hearing Conservation Amendment)
+//  OSHA PEL    : PEL=90 dBA, AL=85, Q=5, C=90
+var STATS_STANDARDS = {
+  ACGIH:    { label:'ACGIH/NIOSH', pel:85, al:80, exchange:3, criterion:85 },
+  OSHA_HC:  { label:'OSHA HC',     pel:85, al:80, exchange:5, criterion:85 },
+  OSHA_PEL: { label:'OSHA PEL',    pel:90, al:85, exchange:5, criterion:90 }
+};
+
+function statsSetStandard(std) {
+  statsStandard = std;
+  ['ACGIH','OSHA_HC','OSHA_PEL'].forEach(function(s) {
+    var el = document.getElementById('statsStdChip_' + s);
+    if (!el) return;
+    var active = (s === std);
+    el.style.borderColor = active ? 'var(--teal)' : 'var(--border)';
+    el.style.background  = active ? 'rgba(0,184,160,0.12)' : 'var(--surface)';
+    el.style.color       = active ? 'var(--teal)' : 'var(--text2)';
+  });
+  renderStats();
+}
 
 function renderStats() {
   const chipsEl   = document.getElementById('statsSegChips');
@@ -4742,9 +4784,11 @@ function renderStats() {
   // ── Global summary metrics ──
   var twas  = sel.map(function(s) { return parseFloat(s.results?.twa); }).filter(function(n) { return !isNaN(n); });
   var doses = sel.map(function(s) { return parseFloat(s.results?.dose); }).filter(function(n) { return !isNaN(n); });
-  var atOrAbovePEL = sel.filter(function(s) { return parseFloat(s.results?.twa) >= 90; }).length;
-  var atOrAboveAL  = sel.filter(function(s) { var t = parseFloat(s.results?.twa); return t >= 85 && t < 90; }).length;
-  var belowAL      = sel.filter(function(s) { return parseFloat(s.results?.twa) < 85; }).length;
+  var _std = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
+  var _PEL = _std.pel, _AL = _std.al;
+  var atOrAbovePEL = sel.filter(function(s) { return parseFloat(s.results?.twa) >= _PEL; }).length;
+  var atOrAboveAL  = sel.filter(function(s) { var t = parseFloat(s.results?.twa); return t >= _AL && t < _PEL; }).length;
+  var belowAL      = sel.filter(function(s) { return parseFloat(s.results?.twa) < _AL; }).length;
   var qaFails      = sel.filter(function(s) { return s.status === 'qa-fail'; }).length;
 
   function avg(arr) { return arr.length ? arr.reduce(function(a,b){return a+b;},0)/arr.length : null; }
@@ -4758,9 +4802,9 @@ function renderStats() {
     { label:'Max TWA', value:fmt(maxVal(twas)), unit:'dBA' },
     { label:'Min TWA', value:fmt(minVal(twas)), unit:'dBA' },
     { label:'Avg Dose', value:fmt(avg(doses)), unit:'%' },
-    { label:'At / Above PEL', value:atOrAbovePEL, unit:'', alert:atOrAbovePEL>0 },
-    { label:'At / Above AL', value:atOrAboveAL, unit:'' },
-    { label:'Below AL', value:belowAL, unit:'' },
+    { label:'≥ PEL (' + _PEL + ' dBA)', value:atOrAbovePEL, unit:'', alert:atOrAbovePEL>0 },
+    { label:'≥ AL (' + _AL + ' dBA)',   value:atOrAboveAL,  unit:'' },
+    { label:'< AL (' + _AL + ' dBA)',   value:belowAL,      unit:'' },
     { label:'QA Flags', value:qaFails, unit:'', alert:qaFails>0 },
   ];
 
@@ -4867,8 +4911,8 @@ function renderStats() {
         var proc  = s.employee?.process  || '—';
         var qaOk  = s.qa?.allPass;
         var status= s.status;
-        var twaColor = isNaN(twa) ? 'var(--text3)' : twa >= 90 ? '#a32d2d' : twa >= 85 ? '#7a4f00' : '#085041';
-        var twaBg    = isNaN(twa) ? '' : twa >= 90 ? 'background:#fcebeb;' : twa >= 85 ? 'background:#fff8e6;' : '';
+        var twaColor = isNaN(twa) ? 'var(--text3)' : twa >= _segPEL ? '#a32d2d' : twa >= _segAL ? '#7a4f00' : '#085041';
+        var twaBg    = isNaN(twa) ? '' : twa >= _segPEL ? 'background:#fcebeb;' : twa >= _segAL ? 'background:#fff8e6;' : '';
         var statusBadge = status === 'complete'
           ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#e1f5ee;color:#085041;">Pass</span>'
           : status === 'qa-fail'
@@ -4927,10 +4971,12 @@ function renderStats() {
           }
           var fmtDb = function(v) { return isNaN(v) ? '—' : v.toFixed(1) + ' dBA'; };
           var fmtX  = function(v) { return isNaN(v) ? '—' : v.toFixed(2) + 'x'; };
-          var pelUCL = stats.ucl95    >= 90;
-          var pelUTL = stats.utl95_95 >= 90;
-          var alUCL  = !pelUCL && stats.ucl95    >= 85;
-          var alUTL  = !pelUTL && stats.utl95_95 >= 85;
+          var _segStd = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
+          var _segPEL = _segStd.pel, _segAL = _segStd.al;
+          var pelUCL = stats.ucl95    >= _segPEL;
+          var pelUTL = stats.utl95_95 >= _segPEL;
+          var alUCL  = !pelUCL && stats.ucl95    >= _segAL;
+          var alUTL  = !pelUTL && stats.utl95_95 >= _segAL;
           function statCell(label, value, isPEL, isAL) {
             var bg  = isPEL ? 'background:#fcebeb;' : isAL ? 'background:#fff8e6;' : 'background:var(--surface);';
             var col = isPEL ? 'color:#a32d2d;'      : isAL ? 'color:#7a4f00;'      : 'color:var(--text);';
@@ -4980,7 +5026,7 @@ function renderStats() {
             + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
               + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
               + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Owen’s K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
-              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed.'
+              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed. | Standard: <strong>' + _segStd.label + '</strong> (PEL ' + _segPEL + ' dBA, AL ' + _segAL + ' dBA)'
             + '</div>'
             + smallNote
             + '</div>';
@@ -6236,10 +6282,20 @@ function verifyCompareFields(survey, report) {
     }
   }
 
-  setupCheck(dos.exchange,   report.exchange,   'exchange');
-  setupCheck(dos.criterion,  report.criterion,  'criterion');
-  setupCheck(dos.weighting,  report.weighting,  'weighting');
-  setupCheck(dos.response,   report.response,   'response');
+  // Use selected standard's expected values, or fall back to App-recorded dosimeter values
+  var _vstd = VERIFY_STANDARDS[verifyStandard] || VERIFY_STANDARDS.APP;
+  var expExchange  = (_vstd.exchange  !== null) ? _vstd.exchange  : dos.exchange;
+  var expCriterion = (_vstd.criterion !== null) ? _vstd.criterion : dos.criterion;
+  var expWeighting = (verifyStandard !== 'APP') ? 'A'    : dos.weighting;
+  var expResponse  = (verifyStandard !== 'APP') ? 'Slow' : dos.response;
+
+  setupCheck(expExchange,  report.exchange,   'exchange');
+  setupCheck(expCriterion, report.criterion,  'criterion');
+  setupCheck(expWeighting, report.weighting,  'weighting');
+  setupCheck(expResponse,  report.response,   'response');
+
+  // Tag which standard was used (shown in detail drawer)
+  checks._standardLabel = _vstd.label;
 
   // Overall — identification passes if EITHER serial OR name matches
   var hasHardFail = ['twa','dose','lavg','preCal','postCal','runTime','startTime','stopTime',
@@ -6410,6 +6466,37 @@ function verifyRenderResults(rows) {
 
 var verifyCurrentRows = [];
 
+// ── Verify standard toggle ────────────────────────────────
+var verifyStandard = 'APP'; // 'APP' | 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL'
+var VERIFY_STANDARDS = {
+  APP:      { label:'App Setup',    exchange:null, criterion:null, note:'Comparing report setup to App-recorded values' },
+  ACGIH:    { label:'ACGIH/NIOSH',  exchange:3,    criterion:85,   note:'Q3 \u00b7 C85 \u00b7 A-weighting \u00b7 Slow \u2014 ACGIH/NIOSH standard' },
+  OSHA_HC:  { label:'OSHA HC',      exchange:5,    criterion:85,   note:'Q5 \u00b7 C85 \u00b7 A-weighting \u00b7 Slow \u2014 OSHA Hearing Conservation' },
+  OSHA_PEL: { label:'OSHA PEL',     exchange:5,    criterion:90,   note:'Q5 \u00b7 C90 \u00b7 A-weighting \u00b7 Slow \u2014 OSHA PEL' }
+};
+
+function verifySetStandard(std) {
+  verifyStandard = std;
+  ['APP','ACGIH','OSHA_HC','OSHA_PEL'].forEach(function(s) {
+    var el = document.getElementById('verifyStdChip_' + s);
+    if (!el) return;
+    var active = (s === std);
+    el.style.borderColor = active ? 'var(--teal)' : 'var(--border)';
+    el.style.background  = active ? 'rgba(0,184,160,0.12)' : 'var(--surface)';
+    el.style.color       = active ? 'var(--teal)' : 'var(--text2)';
+  });
+  var note = document.getElementById('verifyStdNote');
+  if (note) note.textContent = VERIFY_STANDARDS[std].note;
+  // Re-run comparison on already-loaded results
+  if (verifyCurrentRows.length) {
+    var reprocessed = verifyCurrentRows.map(function(row) {
+      if (!row._survey || !row._report) return row;
+      return verifyMatchAndCompare(row._report, row._survey);
+    });
+    verifyRenderResults(reprocessed);
+  }
+}
+
 // ── Drawer (single survey detail) ────────────────────────
 function verifyOpenDrawer(row) {
   var c = row.checks || {};
@@ -6484,7 +6571,7 @@ function verifyOpenDrawer(row) {
   lines.push(detailRow('Stop Time', c.stopTime, function(k) {
     return k.diffMin !== undefined ? 'Δ ' + k.diffMin.toFixed(1) + ' min (tolerance ±1)' : '';
   }));
-  lines.push('<div style="font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 4px;">Dosimeter Setup Parameters</div>');
+  lines.push('<div style="font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 4px;">Dosimeter Setup Parameters <span style="font-weight:400; text-transform:none; letter-spacing:0;">— ' + (c._standardLabel || 'App Setup') + '</span></div>');
   lines.push(detailRow('Exchange Rate (dB)', c.exchange, function(k) {
     return k.delta !== undefined ? (k.status === 'PASS' ? 'Match (Δ ' + k.delta.toFixed(2) + ')' : 'MISMATCH — setup differs from report') : '';
   }));
