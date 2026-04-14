@@ -653,17 +653,11 @@ function handleFileList(files) {
   const fi = document.getElementById('fileInfo');
   fi.style.display = 'block';
 
-  const hasZip = files.some(f => f.name.toLowerCase().endsWith('.zip'));
-
-  if (hasZip) {
-    // Need JSZip; lazy-load then process
-    setStatus(`📦 Loading JSZip to unpack archive…`);
-    ensureJSZip()
-      .then(() => processFileList(files))
-      .catch(err => setStatus(`❌ Could not load JSZip: ${err.message}`));
-  } else {
-    processFileList(files);
-  }
+  // JSZip is needed for both zip extraction AND checkbox reading from xlsx ctrlProps
+  setStatus(`⏳ Loading…`);
+  ensureJSZip()
+    .then(() => processFileList(files))
+    .catch(err => setStatus(`❌ Could not load JSZip: ${err.message}`));
 }
 
 // Expands zips then accumulates all rows from every spreadsheet found
@@ -693,7 +687,7 @@ async function processFileList(files) {
 
         for (const { path: innerPath, entry, iext } of innerFiles) {
           const blob = await entry.async('arraybuffer');
-          const { rows, sheetName, nativeFormat } = readSpreadsheetBuffer(blob, iext);
+          const { rows, sheetName, nativeFormat } = await readSpreadsheetBuffer(blob, iext);
           if (rows.length) {
             allRows = allRows.concat(rows);
             sheetNames.push(sheetName);
@@ -710,7 +704,7 @@ async function processFileList(files) {
       setStatus(`📄 Reading <strong>${file.name}</strong>…`);
       try {
         const buf = await file.arrayBuffer();
-        const { rows, sheetName } = readSpreadsheetBuffer(buf, ext);
+        const { rows, sheetName } = await readSpreadsheetBuffer(buf, ext);
         if (rows.length) {
           allRows = allRows.concat(rows);
           sheetNames.push(sheetName);
@@ -753,57 +747,208 @@ async function processFileList(files) {
   document.getElementById('exportRow').style.display = 'flex';
 }
 
-function readSpreadsheetBuffer(buf, ext) {
-  // For the native ND-sheet format we need raw:true values (Excel serial numbers)
+// ══════════════════════════════════════════════════════════════════
+//  CHECKBOX EXTRACTION — uses JSZip (already loaded) to read ctrlProp XML
+// ══════════════════════════════════════════════════════════════════
+
+// Reads ALL ctrlProp files from the xlsx zip, sorted numerically.
+// Also reads VML anchor positions per sheet to sort checkboxes into visual order.
+// Returns a Map: sheetXmlName → [16 booleans in visual reading order]
+async function extractSheetCheckboxes(buf) {
+  const result = new Map();
+  if (typeof JSZip === 'undefined') return result;
+
+  const zip = await JSZip.loadAsync(buf);
+
+  // 1. Read workbook rels to map rId → sheet file
+  const wbRelsText = await zip.files['xl/_rels/workbook.xml.rels'].async('text');
+  const ridToSheet = {};
+  for (const m of wbRelsText.matchAll(/Id="(rId\d+)"[^>]+Target="worksheets\/(sheet\d+\.xml)"/g)) {
+    ridToSheet[m[1]] = m[2];
+  }
+
+  // 2. Read workbook.xml to get sheet list with state and rId
+  const wbText = await zip.files['xl/workbook.xml'].async('text');
+  const SKIP = new Set(['RAC for Noise', 'Equipment', "TWA's", 'RAC']);
+  // Decode XML entities in sheet names so they match SheetJS's decoded wb.SheetNames
+  const decodeXml = s => s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+  const sheetEntries = [...wbText.matchAll(/<sheet\s[^>]*name="([^"]+)"[^>]*(?:state="([^"]+)")?[^>]*r:id="([^"]+)"/g)]
+    .map(m => ({ name: decodeXml(m[1]), state: m[2] || 'visible', rid: m[3] }));
+
+  // 3. For each visible ND sheet, extract checkbox states in visual order
+  for (const { name, state, rid } of sheetEntries) {
+    if (state !== 'visible') continue;
+    if (SKIP.has(name)) continue;
+    if (!/ND\s*\d/i.test(name)) continue;
+
+    const sheetFile = ridToSheet[rid];
+    if (!sheetFile) continue;
+
+    try {
+      const sheetText  = await zip.files[`xl/worksheets/${sheetFile}`].async('text');
+      const relsText   = await zip.files[`xl/worksheets/_rels/${sheetFile}.rels`].async('text');
+
+      // Map rId → ctrlProp file path
+      const ridToCp = {};
+      for (const m of relsText.matchAll(/Id="(rId\d+)"[^>]+Target="[^"]*ctrlProps\/(ctrlProp\d+\.xml)"/g)) {
+        ridToCp[m[1]] = `xl/ctrlProps/${m[2]}`;
+      }
+
+      // Read checked state per rId
+      const cpChecked = {};
+      for (const [rid2, cpPath] of Object.entries(ridToCp)) {
+        const cpText = await zip.files[cpPath].async('text');
+        cpChecked[rid2] = /checked="Checked"/i.test(cpText);
+      }
+
+      // Extract controls from sheet XML: (shapeId, rId, name) in list order
+      const controls = [...sheetText.matchAll(/<control\s+shapeId="(\d+)"\s+r:id="(\w+)"\s+name="([^"]+)"/g)]
+        .map(m => ({ shapeId: m[1], rid: m[2], name: m[3] }));
+
+      // Read VML for anchor positions
+      const vmlRidMatch = relsText.match(/Id="([^"]+)"[^>]+Target="[^"]*vmlDrawing[^"]*"/);
+      const vmlRid = vmlRidMatch ? vmlRidMatch[1] : null;
+      let vmlFile = null;
+      if (vmlRid) {
+        for (const m of relsText.matchAll(/Id="([^"]+)"[^>]+Target="[^"]*?(vmlDrawing\d+\.vml)"/g)) {
+          if (m[1] === vmlRid) { vmlFile = `xl/drawings/${m[2]}`; break; }
+        }
+      }
+      // Fallback: find any vmlDrawing reference
+      if (!vmlFile) {
+        const anyVml = relsText.match(/Target="[^"]*?(vmlDrawing\d+\.vml)"/);
+        if (anyVml) vmlFile = `xl/drawings/${anyVml[1]}`;
+      }
+
+      const anchors = {};
+      if (vmlFile && zip.files[vmlFile]) {
+        const vmlText = await zip.files[vmlFile].async('text');
+        for (const sm of vmlText.matchAll(/<v:shape\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/v:shape>/g)) {
+          const anchorM = sm[2].match(/<x:Anchor>([^<]+)<\/x:Anchor>/);
+          if (anchorM) {
+            const vals = anchorM[1].split(',').map(v => parseInt(v.trim(), 10));
+            anchors[sm[1]] = { row: vals[2], col: vals[0] }; // 0-indexed
+          }
+        }
+      }
+
+      // Build sorted left/right checkbox arrays
+      const leftBoxes = [], rightBoxes = [];
+      for (const ctrl of controls) {
+        const sid = `_x0000_s${ctrl.shapeId}`;
+        const anchor = anchors[sid] || { row: 99, col: 99 };
+        const checked = cpChecked[ctrl.rid] || false;
+        if (anchor.col < 4) leftBoxes.push({ row: anchor.row, col: anchor.col, checked });
+        else rightBoxes.push({ row: anchor.row, col: anchor.col - 4, checked });
+      }
+
+      // Sort by row ASC, col ASC (preserves insertion order for same row+col)
+      leftBoxes.sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col);
+      rightBoxes.sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col);
+
+      // Take first 8 of each side
+      const states = [
+        ...leftBoxes.slice(0, 8).map(b => b.checked),
+        ...rightBoxes.slice(0, 8).map(b => b.checked),
+      ];
+      // Pad to 16 if fewer checkboxes found
+      while (states.length < 16) states.push(false);
+
+      result.set(name, states);
+    } catch(e) {
+      console.warn(`Checkbox extraction failed for sheet "${name}":`, e.message);
+    }
+  }
+  return result;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PLACEMENT DERIVATION from checkbox states
+// ══════════════════════════════════════════════════════════════════
+function derivePlacement(sheetCBs, side) {
+  // sheetCBs: 16 booleans sorted by visual position (row ASC, col ASC)
+  // Layout: [0]=WindYes [1]=WindNo [2]=Area [3]=Collar [4]=LShoulder [5]=RShoulder [6]=Ambient [7]=Operator
+  // LEFT = indices 0-7, RIGHT = indices 8-15
+  if (!sheetCBs || sheetCBs.length < 16) return null;
+
+  const base      = side === 'left' ? 0 : 8;
+  const windYes   = sheetCBs[base + 0];
+  const area      = sheetCBs[base + 2];
+  const collar    = sheetCBs[base + 3];
+  const lShoulder = sheetCBs[base + 4];
+  const rShoulder = sheetCBs[base + 5];
+  const ambient   = sheetCBs[base + 6];
+  const operator  = sheetCBs[base + 7];
+
+  let location = '';
+  if      (collar && lShoulder) location = 'Left shoulder (collar area)';
+  else if (collar && rShoulder) location = 'Right shoulder (collar area)';
+  else if (collar)              location = 'Collar area';
+  else if (lShoulder)           location = 'Left shoulder';
+  else if (rShoulder)           location = 'Right shoulder';
+  else if (area)                location = 'Chest/lapel area';
+
+  const windscreen = windYes ? 'Yes' : 'No';
+  const micType    = windYes ? 'Omnidirectional, windscreen installed' : 'Omnidirectional';
+  const noteParts  = [];
+  if (operator) noteParts.push('Operator position');
+  if (ambient)  noteParts.push('Ambient conditions');
+
+  return { location, micType, windscreen, obstructions: 'None noted', notes: noteParts.join('; ') };
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  READ SPREADSHEET BUFFER (async — needs JSZip for checkbox reading)
+// ══════════════════════════════════════════════════════════════════
+async function readSpreadsheetBuffer(buf, ext) {
+  // cellDates:false keeps dates/times as Excel serial numbers
   // so fmtDateRaw / fmtTimeRaw can parse them correctly.
-  // cellDates:true would convert them to JS Date objects which our helpers don't handle.
   const wb = XLSX.read(buf, { type: 'array', cellDates: false });
 
-  // ── Auto-detect format ──────────────────────────────────
-  // Native format: multiple sheets named "ND x & y", each with vertical KV rows.
-  // Flat format:   single sheet of horizontal rows with column headers.
   const ndSheets = wb.SheetNames.filter(n => /ND\s*\d/i.test(n));
   const SKIP = new Set(['RAC for Noise', 'Equipment', "TWA's", 'RAC']);
 
   if (ndSheets.length > 0) {
     // ── NATIVE "ND x & y" vertical format ─────────────────
     const surveys = [];
-    let sheetLabel = `${ndSheets.length} ND sheet(s)`;
+    const sheetLabel = `${ndSheets.length} ND sheet(s)`;
+    const wbSheets = wb.Workbook && wb.Workbook.Sheets ? wb.Workbook.Sheets : [];
+
+    // Extract checkbox states for all visible sheets using JSZip
+    let cbBySheet = new Map();
+    try {
+      await ensureJSZip();
+      cbBySheet = await extractSheetCheckboxes(buf);
+    } catch(e) {
+      console.warn('Could not extract checkboxes:', e.message);
+    }
 
     for (const sname of wb.SheetNames) {
       if (SKIP.has(sname)) continue;
-
-      // ── Skip hidden / veryHidden sheets ──────────────────
-      // SheetJS stores sheet visibility in wb.Workbook.Sheets[] array (index-matched to SheetNames)
       const sheetIdx = wb.SheetNames.indexOf(sname);
-      const wbSheets = wb.Workbook && wb.Workbook.Sheets ? wb.Workbook.Sheets : [];
       const sheetMeta = wbSheets[sheetIdx];
-      // Hidden: 0 or undefined = visible, 1 = hidden, 2 = veryHidden
       if (sheetMeta && sheetMeta.Hidden) continue;
 
       const ws2 = wb.Sheets[sname];
-      const aoa  = XLSX.utils.sheet_to_json(ws2, { header: 1, defval: null, raw: false, dateNF: 'yyyy-mm-dd' });
+      const aoa     = XLSX.utils.sheet_to_json(ws2, { header: 1, defval: null, raw: false, dateNF: 'yyyy-mm-dd' });
       const aoa_raw = XLSX.utils.sheet_to_json(ws2, { header: 1, defval: null, raw: true });
 
-      // ── Minimum-data guard ────────────────────────────────
-      // Reject sheets where both Personnel Name cells are empty or #N/A
-      // (template placeholder sheets with no real survey data)
-      const empL = aoa[3] ? (aoa[3][1] || '') : '';   // row 4, col B
-      const empR = aoa[3] ? (aoa[3][5] || '') : '';   // row 4, col F
+      const empL = aoa[3] ? (aoa[3][1] || '') : '';
+      const empR = aoa[3] ? (aoa[3][5] || '') : '';
       const isBlank = v => !v || ['#N/A','#REF!','#NUM!','','0'].includes(v.toString().trim());
       if (isBlank(empL) && isBlank(empR)) continue;
 
-      // Extract IH name from row where col E (idx 4) === 'IH'
       let ihName = '';
       for (const row of aoa) {
         if (row[4] === 'IH' || (typeof row[4] === 'string' && row[4].trim() === 'IH')) {
-          ihName = (row[5] || '').toString().trim();
-          break;
+          ihName = (row[5] || '').toString().trim(); break;
         }
       }
 
-      const left  = parseNativeSide(aoa, aoa_raw, sname, 0, 1, ihName);
-      const right = parseNativeSide(aoa, aoa_raw, sname, 4, 5, ihName);
+      const sheetCBs = cbBySheet.get(sname) || null;
+
+      const left  = parseNativeSide(aoa, aoa_raw, sname, 0, 1, ihName, sheetCBs, 'left');
+      const right = parseNativeSide(aoa, aoa_raw, sname, 4, 5, ihName, sheetCBs, 'right');
       if (left)  surveys.push(left);
       if (right) surveys.push(right);
     }
@@ -826,7 +971,7 @@ const _ND_SECTIONS = new Set(['Dosimeter','Calibration','Pre Cal','Post Cal','Su
 const _ND_SKIP_LABELS = new Set(['Noise Dosimetry','Noise Dosimetry Day 1','Noise Dosimetry Day 2',
   'Windscreen Used','Sample Position','Exposure Origin']);
 
-function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
+function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, sheetCBs, side) {
   const kv = {};  // section.label → raw value
   let section = '';
 
@@ -1020,7 +1165,10 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
       surveyStart: startDT,
       surveyEnd: stopDT,
     },
-    placement: { location: 'Left lapel' },
+    placement: (() => {
+      const p = derivePlacement(sheetCBs, side);
+      return p || { location: '', micType: '', windscreen: '', obstructions: '', notes: '' };
+    })(),
     results: {
       lavg,
       twa,
