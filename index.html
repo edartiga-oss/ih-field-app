@@ -1299,7 +1299,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
         </div>
         <div class="field">
           <label>Lavg / LEQ (dB)</label>
-          <input type="number" id="resLavg" placeholder="e.g., 84.2" step="0.1" oninput="autosave()">
+          <input type="number" id="resLavg" placeholder="e.g., 84.2" step="0.1" oninput="syncStandardResults(); autosave()">
         </div>
         <div class="field">
           <label>LASmax (dBA)</label>
@@ -1365,6 +1365,48 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
           </div>
         </div>
+      </div>
+
+      <div class="section-spacer"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <div class="section-label" style="margin-bottom:0;">Multi-standard results <span style="font-size:10px; font-weight:400; color:var(--text3); text-transform:none; letter-spacing:0;">(from dosimeter report — D1 / D2 / D3)</span></div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="forceSyncStandardResults()" style="font-size:11px; padding:4px 10px;">↻ Sync from measured values</button>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px 14px; margin-bottom:4px;">
+
+        <div class="field">
+          <label style="color:var(--teal); font-weight:600;">ACGIH/NIOSH Dose %</label>
+          <input type="number" id="resAcgihDose" placeholder="e.g., 223.5" step="0.1" oninput="autosave()">
+          <div class="hint">D1 — Q3, C85, T80 · auto-calc from Lavg</div>
+        </div>
+        <div class="field">
+          <label style="color:var(--teal); font-weight:600;">ACGIH/NIOSH Lavg (dBA)</label>
+          <input type="number" id="resAcgihLavg" placeholder="e.g., 88.5" step="0.1" oninput="autosave()">
+          <div class="hint">D1 Lavg · same as measured Lavg</div>
+        </div>
+
+        <div class="field">
+          <label style="color:#6b7fcf; font-weight:600;">OSHA HC Dose %</label>
+          <input type="number" id="resOshaHcDose" placeholder="e.g., 48.6" step="0.1" oninput="autosave()">
+          <div class="hint">D2 — Q5, C85, T80 · auto-calc from Lavg</div>
+        </div>
+        <div class="field">
+          <label style="color:#6b7fcf; font-weight:600;">OSHA HC Lavg (dBA)</label>
+          <input type="number" id="resOshaHcLavg" placeholder="e.g., 84.7" step="0.1" oninput="autosave()">
+          <div class="hint">D2 Lavg · same as measured Lavg</div>
+        </div>
+
+        <div class="field">
+          <label style="color:#c07040; font-weight:600;">OSHA PEL Dose %</label>
+          <input type="number" id="resOshaPelDose" placeholder="e.g., 27.1" step="0.1" oninput="autosave()">
+          <div class="hint">D3 — Q5, C90, T90 · auto-calc from Lavg</div>
+        </div>
+        <div class="field">
+          <label style="color:#c07040; font-weight:600;">OSHA PEL Lavg (dBA)</label>
+          <input type="number" id="resOshaPelLavg" placeholder="e.g., 80.5" step="0.1" oninput="autosave()">
+          <div class="hint">D3 Lavg · same as measured Lavg</div>
+        </div>
+
       </div>
 
       <div class="section-spacer"></div>
@@ -2819,6 +2861,7 @@ function clearFormFields() {
     'empName','empId','empCompany','empTitle','empDept','empLocation','empTask','empSegOther','empProcessOther',
     'dosPlacement','micType','windscreen','obstructions','placementNotes',
     'resDose','resLavg','resPeak','resRunTime','resTWA','resDosReportTWA','resCategory','resHPD',
+    'resAcgihDose','resAcgihLavg','resOshaHcDose','resOshaHcLavg','resOshaPelDose','resOshaPelLavg',
     'lasmaxInterviewNotes','lasmax140CorrectiveNotes','lasmax140InvestigationNotes',
     'resEngControls','resAdminControls','resPPE',
     'resHour1','resHour2','resHour3','resHour4','resHour5','resHour6','resHour7','resHour8','resHour9','resHour10',
@@ -2886,6 +2929,9 @@ function getFormData() {
     results: {
       dose: g('resDose'), lavg: g('resLavg'), peak: g('resPeak'),
       runTime: g('resRunTime'), twa: g('resTWA'), dosReportTWA: g('resDosReportTWA'),
+      acgihDose: g('resAcgihDose'), acgihLavg: g('resAcgihLavg'),
+      oshaHcDose: g('resOshaHcDose'), oshaHcLavg: g('resOshaHcLavg'),
+      oshaPelDose: g('resOshaPelDose'), oshaPelLavg: g('resOshaPelLavg'),
       category: g('resCategory'), hpd: g('resHPD'), notes: g('resNotes'),
       lasmaxInterviewNotes: g('lasmaxInterviewNotes'),
       lasmax140CorrectiveNotes: g('lasmax140CorrectiveNotes'),
@@ -2939,6 +2985,9 @@ function populateForm(s) {
   sv('windscreen', s.placement?.windscreen); sv('obstructions', s.placement?.obstructions); sv('placementNotes', s.placement?.notes);
   sv('resDose', s.results?.dose); sv('resLavg', s.results?.lavg); sv('resPeak', s.results?.peak);
   sv('resRunTime', s.results?.runTime); sv('resTWA', s.results?.twa); sv('resDosReportTWA', s.results?.dosReportTWA);
+  sv('resAcgihDose', s.results?.acgihDose); sv('resAcgihLavg', s.results?.acgihLavg);
+  sv('resOshaHcDose', s.results?.oshaHcDose); sv('resOshaHcLavg', s.results?.oshaHcLavg);
+  sv('resOshaPelDose', s.results?.oshaPelDose); sv('resOshaPelLavg', s.results?.oshaPelLavg);
   sv('resCategory', s.results?.category); sv('resHPD', s.results?.hpd); sv('resNotes', s.results?.notes);
   sv('lasmaxInterviewNotes', s.results?.lasmaxInterviewNotes);
   sv('lasmax140CorrectiveNotes', s.results?.lasmax140CorrectiveNotes);
@@ -3300,6 +3349,46 @@ function getQAResult() {
   return { checks, allPass, anyRun };
 }
 
+function checkTWAMatch() {
+  const calcTWA   = parseFloat(document.getElementById('resTWA').value);
+  const reportTWA = parseFloat(document.getElementById('resDosReportTWA').value);
+  const hintEl    = document.getElementById('twaMismatchHint');
+  if (!hintEl) return;
+
+  if (isNaN(calcTWA) || isNaN(reportTWA)) {
+    hintEl.textContent = '';
+    hintEl.style.color = '';
+    const qa6 = document.getElementById('qa6');
+    const qa6v = document.getElementById('qa6val');
+    if (qa6)  { qa6.textContent = 'Pending'; qa6.className = 'qa-status qa-pending'; }
+    if (qa6v) { qa6v.textContent = '—'; }
+    return;
+  }
+
+  const diff = Math.abs(calcTWA - reportTWA);
+  const pass = diff <= 0.5;
+
+  if (pass) {
+    hintEl.textContent = '\u2713 Matches calculated TWA within 0.5 dB (\u03b4' + diff.toFixed(2) + ' dB)';
+    hintEl.style.color = 'var(--green)';
+  } else {
+    hintEl.textContent = '\u26a0 Mismatch! \u03b4' + diff.toFixed(2) + ' dB \u2014 calculated ' + calcTWA.toFixed(1) + ' dB vs report ' + reportTWA.toFixed(1) + ' dB';
+    hintEl.style.color = 'var(--red)';
+  }
+
+  const qa6 = document.getElementById('qa6');
+  const qa6v = document.getElementById('qa6val');
+  if (qa6) {
+    qa6.textContent = pass ? 'Pass' : 'FAIL';
+    qa6.className = pass ? 'qa-status qa-pass' : 'qa-status qa-fail';
+  }
+  if (qa6v) {
+    qa6v.textContent = pass
+      ? '\u03b4' + diff.toFixed(2) + ' dB \u2014 within tolerance'
+      : '\u03b4' + diff.toFixed(2) + ' dB \u2014 exceeds 0.5 dB!';
+  }
+}
+
 function runQA() {
   const preT = document.getElementById('preCalTime').value;
   const postT = document.getElementById('postCalTime').value;
@@ -3390,52 +3479,125 @@ function calcResults() {
     // TWA = criterion + (exchange/log10(2)) * log10(dose/100 * 8/runTime)
     const twa = criterion + (exchange / Math.log10(2)) * Math.log10((dose / 100) * (8 / runTime));
     document.getElementById('resTWA').value = twa.toFixed(1);
-    document.getElementById('twaHint').textContent = 'Normalized to 8-hr · Criterion ' + criterion + ' dB · ' + exchange + ' dB ER';
+    document.getElementById('twaHint').textContent = 'Normalized to 8-hr · Criterion ' + criterion +
+      ' dB · ' + exchange + ' dB ER';
   }
   checkTWAMatch();
+  syncStandardResults();
 }
 
-function checkTWAMatch() {
-  const calcTWA   = parseFloat(document.getElementById('resTWA').value);
-  const reportTWA = parseFloat(document.getElementById('resDosReportTWA').value);
-  const hintEl    = document.getElementById('twaMismatchHint');
-  if (!hintEl) return;
+// ── Cross-standard Dose%/Lavg calculator ─────────────────────────────────────
+// Lavg is exchange-rate-independent (it's just the time-averaged SPL).
+// Dose% depends on exchange rate and criterion:
+//   Dose% = 100 × (RunTime/8) × 10^((Lavg − Criterion) / (Exchange / log10(2)))
+// So given Lavg + RunTime from the measured values, all three standard
+// slots can be calculated regardless of which standard the dosimeter was set to.
+//
+// Standard parameters:
+//   ACGIH/NIOSH : Exchange=3, Criterion=85
+//   OSHA HC     : Exchange=5, Criterion=85
+//   OSHA PEL    : Exchange=5, Criterion=90
 
-  if (isNaN(calcTWA) || isNaN(reportTWA)) {
-    hintEl.textContent = '';
-    hintEl.style.color = '';
-    // Clear QA6 display
-    const qa6 = document.getElementById('qa6');
-    const qa6v = document.getElementById('qa6val');
-    if (qa6)  { qa6.textContent = 'Pending'; qa6.className = 'qa-status qa-pending'; }
-    if (qa6v) { qa6v.textContent = '—'; }
+var STD_PARAMS = {
+  ACGIH:    { exchange: 3, criterion: 85, doseId: 'resAcgihDose',   lavgId: 'resAcgihLavg'   },
+  OSHA_HC:  { exchange: 5, criterion: 85, doseId: 'resOshaHcDose',  lavgId: 'resOshaHcLavg'  },
+  OSHA_PEL: { exchange: 5, criterion: 90, doseId: 'resOshaPelDose', lavgId: 'resOshaPelLavg' }
+};
+
+function calcDoseFromLavg(lavg, runTime, exchange, criterion) {
+  // Dose% = 100 × (T/8) × 10^((Lavg − C) / (Q / log10(2)))
+  if (isNaN(lavg) || isNaN(runTime) || runTime <= 0) return null;
+  var dose = 100 * (runTime / 8) * Math.pow(10, (lavg - criterion) / (exchange / Math.log10(2)));
+  return Math.round(dose * 10) / 10;
+}
+
+function syncStandardResults(forceOverwrite) {
+  var exchange  = parseFloat(document.getElementById('dosExchange').value);
+  var criterion = parseFloat(document.getElementById('dosCriterion').value);
+  var doseRaw   = document.getElementById('resDose').value;
+  var lavgRaw   = document.getElementById('resLavg').value;
+  var runTimeRaw = document.getElementById('resRunTime').value;
+
+  var lavg    = parseFloat(lavgRaw);
+  var runTime = parseFloat(runTimeRaw);
+  var dose    = parseFloat(doseRaw);
+
+  // Identify which standard the dosimeter is set to
+  var activeSlot = null;
+  if (exchange === 3 && criterion === 85) activeSlot = 'ACGIH';
+  else if (exchange === 5 && criterion === 85) activeSlot = 'OSHA_HC';
+  else if (exchange === 5 && criterion === 90) activeSlot = 'OSHA_PEL';
+
+  var anyPopulated = false;
+
+  Object.keys(STD_PARAMS).forEach(function(slot) {
+    var p = STD_PARAMS[slot];
+    var doseEl = document.getElementById(p.doseId);
+    var lavgEl = document.getElementById(p.lavgId);
+    if (!doseEl || !lavgEl) return;
+
+    if (slot === activeSlot) {
+      // This is the dosimeter's native standard — copy directly from measured values
+      if (doseRaw && (forceOverwrite || !doseEl.value)) {
+        doseEl.value = dose.toFixed(1);
+        anyPopulated = true;
+      }
+      if (lavgRaw && (forceOverwrite || !lavgEl.value)) {
+        lavgEl.value = lavg.toFixed(1);
+        anyPopulated = true;
+      }
+    } else {
+      // Cross-calculate for other standards using Lavg (standard-independent)
+      // Lavg: copy directly — it's the same physical quantity regardless of standard
+      if (!isNaN(lavg) && (forceOverwrite || !lavgEl.value)) {
+        lavgEl.value = lavg.toFixed(1);
+        anyPopulated = true;
+      }
+      // Dose: re-calculate using this standard's exchange rate and criterion
+      if (!isNaN(lavg) && !isNaN(runTime) && runTime > 0 && (forceOverwrite || !doseEl.value)) {
+        var calcDose = calcDoseFromLavg(lavg, runTime, p.exchange, p.criterion);
+        if (calcDose !== null) {
+          doseEl.value = calcDose.toFixed(1);
+          anyPopulated = true;
+        }
+      }
+    }
+  });
+
+  if (anyPopulated) autosave();
+}
+
+// Force-sync: overwrites all per-standard fields and shows a summary toast
+function forceSyncStandardResults() {
+  var lavgRaw    = document.getElementById('resLavg').value;
+  var runTimeRaw = document.getElementById('resRunTime').value;
+  var lavg       = parseFloat(lavgRaw);
+  var runTime    = parseFloat(runTimeRaw);
+
+  if (isNaN(lavg)) {
+    showToast('Enter Lavg first — it is needed to calculate all standard doses', 'warn');
+    return;
+  }
+  if (isNaN(runTime) || runTime <= 0) {
+    showToast('Enter Run Time to calculate cross-standard Dose% values', 'warn');
     return;
   }
 
-  const diff = Math.abs(calcTWA - reportTWA);
-  const pass = diff <= 0.5;
+  syncStandardResults(true); // forceOverwrite = true
 
-  if (pass) {
-    hintEl.textContent = '✓ Matches calculated TWA within 0.5 dB (Δ' + diff.toFixed(2) + ' dB)';
-    hintEl.style.color = 'var(--green)';
-  } else {
-    hintEl.textContent = '⚠ Mismatch! Δ' + diff.toFixed(2) + ' dB — calculated ' + calcTWA.toFixed(1) + ' dB vs report ' + reportTWA.toFixed(1) + ' dB';
-    hintEl.style.color = 'var(--red)';
-  }
+  var exchange  = parseFloat(document.getElementById('dosExchange').value);
+  var criterion = parseFloat(document.getElementById('dosCriterion').value);
+  var activeSlot = null;
+  if (exchange === 3 && criterion === 85) activeSlot = 'ACGIH/NIOSH';
+  else if (exchange === 5 && criterion === 85) activeSlot = 'OSHA HC';
+  else if (exchange === 5 && criterion === 90) activeSlot = 'OSHA PEL';
 
-  // Live-update QA6 row
-  const qa6 = document.getElementById('qa6');
-  const qa6v = document.getElementById('qa6val');
-  if (qa6) {
-    qa6.textContent = pass ? 'Pass' : 'FAIL';
-    qa6.className = pass ? 'qa-status qa-pass' : 'qa-status qa-fail';
-  }
-  if (qa6v) {
-    qa6v.textContent = pass
-      ? 'Δ' + diff.toFixed(2) + ' dB — within tolerance'
-      : 'Δ' + diff.toFixed(2) + ' dB — exceeds 0.5 dB!';
-  }
+  var msg = activeSlot
+    ? 'All standards synced (native: ' + activeSlot + ', others cross-calculated from Lavg)'
+    : 'All standards calculated from Lavg + Run Time';
+  showToast(msg, 'success');
 }
+
 
 // ═══════════════════════════════════════════════════════════
 //  LASmax IMPACT / IMPULSE CHECK
@@ -6305,9 +6467,23 @@ function verifyCompareFields(survey, report) {
     }
   }
 
+  // Select the app-side dose/lavg for the active standard
+  var _appDose = (function() {
+    if (verifyStandard === 'ACGIH'    && res.acgihDose)   return res.acgihDose;
+    if (verifyStandard === 'OSHA_HC'  && res.oshaHcDose)  return res.oshaHcDose;
+    if (verifyStandard === 'OSHA_PEL' && res.oshaPelDose) return res.oshaPelDose;
+    return res.dose; // fallback to primary dose field
+  })();
+  var _appLavg = (function() {
+    if (verifyStandard === 'ACGIH'    && res.acgihLavg)   return res.acgihLavg;
+    if (verifyStandard === 'OSHA_HC'  && res.oshaHcLavg)  return res.oshaHcLavg;
+    if (verifyStandard === 'OSHA_PEL' && res.oshaPelLavg) return res.oshaPelLavg;
+    return res.lavg; // fallback to primary lavg field
+  })();
+
   numCheck(res.twa     || res.dosReportTWA, _rptTWA,  0.5, 'twa');
-  numCheck(res.dose,                         _rptDose, 1.0, 'dose');
-  numCheck(res.lavg,                         _rptLavg, 0.1, 'lavg');
+  numCheck(_appDose,                         _rptDose, 1.0, 'dose');
+  numCheck(_appLavg,                         _rptLavg, 0.1, 'lavg');
   numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
   numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
 
