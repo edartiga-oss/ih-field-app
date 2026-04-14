@@ -767,9 +767,26 @@ function readSpreadsheetBuffer(buf, ext) {
 
     for (const sname of wb.SheetNames) {
       if (SKIP.has(sname)) continue;
+
+      // ── Skip hidden / veryHidden sheets ──────────────────
+      // SheetJS stores sheet visibility in wb.Workbook.Sheets[] array (index-matched to SheetNames)
+      const sheetIdx = wb.SheetNames.indexOf(sname);
+      const wbSheets = wb.Workbook && wb.Workbook.Sheets ? wb.Workbook.Sheets : [];
+      const sheetMeta = wbSheets[sheetIdx];
+      // Hidden: 0 or undefined = visible, 1 = hidden, 2 = veryHidden
+      if (sheetMeta && sheetMeta.Hidden) continue;
+
       const ws2 = wb.Sheets[sname];
       const aoa  = XLSX.utils.sheet_to_json(ws2, { header: 1, defval: null, raw: false, dateNF: 'yyyy-mm-dd' });
       const aoa_raw = XLSX.utils.sheet_to_json(ws2, { header: 1, defval: null, raw: true });
+
+      // ── Minimum-data guard ────────────────────────────────
+      // Reject sheets where both Personnel Name cells are empty or #N/A
+      // (template placeholder sheets with no real survey data)
+      const empL = aoa[3] ? (aoa[3][1] || '') : '';   // row 4, col B
+      const empR = aoa[3] ? (aoa[3][5] || '') : '';   // row 4, col F
+      const isBlank = v => !v || ['#N/A','#REF!','#NUM!','','0'].includes(v.toString().trim());
+      if (isBlank(empL) && isBlank(empR)) continue;
 
       // Extract IH name from row where col E (idx 4) === 'IH'
       let ihName = '';
@@ -844,7 +861,10 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
   };
 
   const empName = clean(kv['Personnel Name']);
-  if (!empName) return null;  // empty half
+  const dosSerial = clean(kv['Dosimeter.Serial Number']);
+
+  // Skip if no real employee name or no dosimeter serial — blank/template/placeholder side
+  if (!empName || !dosSerial) return null;
 
   const fmtDateRaw = v => {
     if (!v) return '';
