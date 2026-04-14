@@ -6117,9 +6117,10 @@ function verifyMatchAndCompare(report, _preMatchedSurvey) {
     return { _filename: report._filename, _error: 'Serial not found in report', overall: 'UNMATCHED' };
   }
 
-  // If a pre-matched survey is supplied (re-run on standard toggle), use it directly
+  // If a pre-matched survey is supplied (re-run on standard toggle), use it directly.
+  // Guard against empty objects from prior broken runs.
   var matched = [];
-  if (_preMatchedSurvey) {
+  if (_preMatchedSurvey && _preMatchedSurvey.id) {
     matched = [_preMatchedSurvey];
   } else {
     // Load all surveys and match by serial (and optionally date)
@@ -6174,6 +6175,18 @@ function verifyMatchAndCompare(report, _preMatchedSurvey) {
   }
 
   var survey = matched[0];
+
+  // Guard: reject empty/stub survey objects that somehow passed the filter
+  if (!survey || !survey.id) {
+    return {
+      _filename: report._filename,
+      serial: report.serial,
+      reportName: report.reportName,
+      _error: 'No valid survey found for serial ' + report.serial + ' on ' + (report.surveyDate || 'unknown date'),
+      overall: 'UNMATCHED'
+    };
+  }
+
   return verifyCompareFields(survey, report);
 }
 
@@ -6503,19 +6516,21 @@ function verifyRenderResults(rows) {
   rows.forEach(function(row) {
     var tr = document.createElement('tr');
     tr.style.borderBottom = '1px solid var(--border)';
-    tr.style.cursor = 'pointer';
     tr.addEventListener('mouseenter', function() { tr.style.background = 'var(--surface)'; });
     tr.addEventListener('mouseleave', function() { tr.style.background = ''; });
-    tr.addEventListener('click', function() { verifyOpenDrawer(row); });
 
     if (row.overall === 'UNMATCHED' || row.overall === 'ERROR') {
       tr.innerHTML =
-        '<td colspan="12" style="padding:10px 14px; color:var(--text3); font-style:italic;">' +
+        '<td colspan="16" style="padding:10px 14px; color:var(--text3); font-style:italic;">' +
         '⚠ ' + (row._error || row.overall) + ' — ' + row._filename +
         '</td>';
       tbody.appendChild(tr);
       return;
     }
+
+    // Only matched rows get the click-to-drawer handler
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', function() { verifyOpenDrawer(row); });
 
     var c = row.checks || {};
 
