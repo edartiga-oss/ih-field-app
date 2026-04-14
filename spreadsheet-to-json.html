@@ -802,7 +802,7 @@ function readSpreadsheetBuffer(buf, ext) {
 const _ND_SECTIONS = new Set(['Dosimeter','Calibration','Pre Cal','Post Cal','Survey Data',
   'Work Description/ Equipment Used/PPE Used']);
 const _ND_SKIP_LABELS = new Set(['Noise Dosimetry','Noise Dosimetry Day 1','Noise Dosimetry Day 2',
-  'Windscreen Used','Sample Position','Exposure Origin','Time']);
+  'Windscreen Used','Sample Position','Exposure Origin']);
 
 function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
   const kv = {};  // section.label → raw value
@@ -894,9 +894,10 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
     kv['Survey Data.Start Date'] || kv['Survey Data.Start Date/Time'],
     kv['Survey Data.Start Time']
   );
+  // Fix: stop date and stop time are separate keys — don't OR them together as first arg
   const stopDT  = combineDT(
-    kv['Survey Data.Stop Date']  || kv['Survey Data.Stop Time'],
-    kv['Survey Data.Stop Date'] ? kv['Survey Data.Stop Time'] : null
+    kv['Survey Data.Stop Date'],
+    kv['Survey Data.Stop Time']
   );
 
   const numKV = key => {
@@ -908,6 +909,7 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
 
   const lavg    = numKV('Survey Data.Lavg (dB)');
   const twa     = numKV('Survey Data.8 HR TWA (dB)');
+  // Use the dosimeter's own reported Sample Time (mins) — matches what was actually measured
   const rtMins  = numKV('Survey Data.Sample Time (mins)');
 
   // Dose% — use selected standard params (exchange + criterion from UI)
@@ -916,8 +918,26 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
 
   const preReading  = kv['Pre Cal.Result (dB)'];
   const postReading = kv['Post Cal.Result (dB)'];
-  const noiseNotes  = [clean(kv['Survey Data.Primary Noise Source']), clean(kv['Survey Data.Eng/PPE/Admin Controls'])]
-                        .filter(Boolean).join('; ');
+  // Pre/post cal times: label is 'Time' under 'Pre Cal' / 'Post Cal' sections
+  const preCalTime  = fmtTimeRaw(kv['Pre Cal.Time']);
+  const postCalTime = fmtTimeRaw(kv['Post Cal.Time']);
+
+  // NIST cal due = calibration date + 1 year (row 17)
+  const calDateRaw = kv['Calibration.Calibration Date'];
+  let nistDue = '';
+  if (calDateRaw) {
+    const calDateStr = fmtDateRaw(calDateRaw);
+    if (calDateStr) {
+      const d = new Date(calDateStr + 'T00:00:00');
+      d.setFullYear(d.getFullYear() + 1);
+      nistDue = d.toISOString().slice(0, 10);
+    }
+  }
+
+  const noiseNotes  = [
+    clean(kv['Work Description/ Equipment Used/PPE Used.Primary Noise Source'] || kv['Survey Data.Primary Noise Source'] || ''),
+    clean(kv['Work Description/ Equipment Used/PPE Used.Eng/PPE/Admin Controls'] || kv['Survey Data.Eng/PPE/Admin Controls'] || '')
+  ].filter(Boolean).join('; ');
 
   return {
     id: `NDS-${sheetName.replace(/\s/g,'')}${labelCol===0?'L':'R'}-${Date.now().toString(36).toUpperCase().slice(-4)}`,
@@ -955,14 +975,14 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
       make: clean(kv['Calibration.Manufaturer'] || ''),
       model: clean(kv['Calibration.Model'] || ''),
       serial: clean(kv['Calibration.Serial Number'] || ''),
-      nistDue: fmtDateRaw(kv['Calibration.Calibration Date']),
+      nistDue: nistDue,
       refLevel: '114',
     },
     calibration: {
-      preTime: fmtTimeRaw(kv['Pre Cal.Time']),
+      preTime: preCalTime,
       preReading: preReading !== null && preReading !== undefined ? preReading.toString() : '',
       preInitials: '',
-      postTime: fmtTimeRaw(kv['Post Cal.Time']),
+      postTime: postCalTime,
       postReading: postReading !== null && postReading !== undefined ? postReading.toString() : '',
       postInitials: '',
       surveyStart: startDT,
@@ -1258,7 +1278,7 @@ function runQA(s) {
   // Survey time logic
   if (s.calibration.surveyStart && s.calibration.surveyEnd) {
     const ms = new Date(s.calibration.surveyEnd) - new Date(s.calibration.surveyStart);
-    chk(ms > 0, 'calibration.timeOrder', 'Survey end must be after start',
+    chk(ms >= 0, 'calibration.timeOrder', 'Survey end must be on or after start',
       `Start: ${s.calibration.surveyStart} · End: ${s.calibration.surveyEnd}`);
     chk(ms >= 15*60000, 'calibration.minRuntime', 'Runtime < 15 minutes — verify',
       `Runtime: ${(ms/3600000).toFixed(2)} hrs`);
