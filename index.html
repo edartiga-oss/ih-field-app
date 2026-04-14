@@ -508,6 +508,7 @@ body { padding: 20px 18px; }
   };
 })();
 </script>
+<script src="hcp-letters.js"></script>
 </head>
 <body>
 
@@ -1592,6 +1593,38 @@ body { padding: 20px 18px; }
         <button class="btn btn-outline btn-sm" onclick="exportBatchPDF()">PDF</button>
         <button class="btn btn-outline btn-sm" onclick="exportBatchExcel()">Excel</button>
         <button class="btn btn-teal btn-sm" onclick="exportSummaryTable()">Summary Table</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="export-group">
+    <div class="export-group-header">Hearing Conservation Program Letters</div>
+    <div class="export-row">
+      <div>
+        <div class="export-label">Batch Notification Letters — All Locations</div>
+        <div class="export-sub">One letter per employee for every SEG where a UTL was calculated, across all locations</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn btn-teal btn-sm" onclick="generateHearingLettersPDF(null)">Generate PDF</button>
+      </div>
+    </div>
+    <div class="export-row">
+      <div style="flex:1;">
+        <div class="export-label">Batch Notification Letters — Single Location</div>
+        <div class="export-sub">Select a location to generate letters for only that site</div>
+        <div style="margin-top:8px;">
+          <select id="hcpLettersLocFilter" style="padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px; width:100%; max-width:320px;">
+            <option value="">Select a location...</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="export-row">
+      <div>
+        <div id="hcpLettersLocCount" style="font-size:12px; color:var(--text3);">Select a location above to see letter count</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn btn-outline btn-sm" onclick="exportHCPLettersByLocation()">Generate PDF</button>
       </div>
     </div>
   </div>
@@ -3563,6 +3596,46 @@ function renderExportList() {
       names.map(n => `<option value="${esc(n)}" ${n === current ? 'selected' : ''}>${esc(n)}</option>`).join('');
     updateExportIHCount();
   }
+  // Populate HCP Letters location dropdown
+  const hcpSel = document.getElementById('hcpLettersLocFilter');
+  if (hcpSel) {
+    const locs = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
+    const curLoc = hcpSel.value;
+    hcpSel.innerHTML = '<option value="">Select a location...</option>' +
+      locs.map(l => `<option value="${esc(l)}" ${l === curLoc ? 'selected' : ''}>${esc(l)}</option>`).join('');
+    updateHCPLettersCount();
+  }
+}
+
+function updateHCPLettersCount() {
+  const sel = document.getElementById('hcpLettersLocFilter');
+  const countEl = document.getElementById('hcpLettersLocCount');
+  if (!sel || !countEl) return;
+  const loc = sel.value;
+  if (!loc) { countEl.textContent = 'Select a location above to see letter count'; return; }
+  // Count employees in SEGs where UTL is calculable for this location
+  const locSurveys = surveys.filter(s => (s.employee?.location || '') === loc);
+  const segGroups = {};
+  locSurveys.forEach(s => {
+    const seg = s.employee?.seg || '';
+    if (!segGroups[seg]) segGroups[seg] = [];
+    segGroups[seg].push(s);
+  });
+  let letterCount = 0;
+  Object.values(segGroups).forEach(group => {
+    const twas = group.map(s => parseFloat(s.results?.twa)).filter(n => !isNaN(n));
+    if (!twas.length) return;
+    const stats = lognormalStats(twas);
+    const utl = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
+    if (utl !== null) letterCount += twas.length;
+  });
+  countEl.textContent = letterCount + ' letter' + (letterCount !== 1 ? 's' : '') + ' for ' + loc;
+}
+
+function exportHCPLettersByLocation() {
+  const sel = document.getElementById('hcpLettersLocFilter');
+  if (!sel || !sel.value) { alert('Please select a location first.'); return; }
+  generateHearingLettersPDF(sel.value);
 }
 
 function updateExportIHCount() {
@@ -6368,7 +6441,9 @@ function renderRAC() {
     return '<div class="card" style="margin-bottom:16px;">'
       + '<div class="card-header" style="font-size:14px;display:flex;justify-content:space-between;align-items:center;">'
       + '<span>' + esc(seg) + '<span style="margin-left:8px;font-size:11px;font-weight:400;color:rgba(255,255,255,0.55);">' + personnel + ' personnel</span></span>'
-      + racBadge(rac) + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;">'
+      + (utl !== null && !utlNA ? racLettersBtnHtml(group[0]?.employee?.location || '', seg) : '')
+      + racBadge(rac) + '</div></div>'
       + '<div class="card-body" style="padding:14px 16px;">'
       + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px;">'
       + metricCards.map(function(c){ return '<div style="border-radius:var(--radius);padding:8px 10px;'+c[2]+'"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">'+c[0]+'</div><div style="font-size:16px;font-weight:600;'+c[3]+'">'+c[1]+'</div></div>'; }).join('')
