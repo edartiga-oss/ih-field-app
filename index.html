@@ -6618,7 +6618,21 @@ function verifyOpenDrawer(row) {
   var identWarn = row.identWarn;
   var lines = [];
 
-  lines.push('<div style="font-size:11px; color:var(--text3); margin-bottom:12px; font-family:var(--mono);">File: ' + row._filename + '</div>');
+  lines.push('<div style="font-size:11px; color:var(--text3); margin-bottom:6px; font-family:var(--mono);">File: ' + row._filename + '</div>');
+  // Debug: show matched survey key fields
+  if (row._survey) {
+    var _dbgS = row._survey;
+    var _dbgSerial  = (_dbgS.dosimeter && _dbgS.dosimeter.serial) || _dbgS.serial || '—';
+    var _dbgName    = (_dbgS.employee  && _dbgS.employee.name)    || '—';
+    var _dbgDate    = (_dbgS.calibration && _dbgS.calibration.surveyStart) || '—';
+    var _dbgTWA     = (_dbgS.results   && _dbgS.results.twa)      || '—';
+    var _dbgPreCal  = (_dbgS.calibration && (_dbgS.calibration.preReading || _dbgS.calibration.preCal)) || '—';
+    lines.push('<div style="font-size:10px; color:var(--text3); margin-bottom:12px; padding:6px 8px; background:var(--surface2); border-radius:6px; font-family:var(--mono); line-height:1.8;">'
+      + 'Matched survey ID: ' + (_dbgS.id || '—') + '<br>'
+      + 'Serial: ' + _dbgSerial + ' &nbsp;|&nbsp; Name: ' + _dbgName + '<br>'
+      + 'Date: ' + _dbgDate + ' &nbsp;|&nbsp; TWA: ' + _dbgTWA + ' &nbsp;|&nbsp; PreCal: ' + _dbgPreCal
+      + '</div>');
+  }
 
   function detailRow(label, chk, fmtFn) {
     if (!chk) return '';
