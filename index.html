@@ -6468,21 +6468,27 @@ function verifyCompareFields(survey, report) {
 
   // Select the app-side dose/lavg for the active standard
   var _appDose = (function() {
-    if (verifyStandard === 'ACGIH'    && res.acgihDose)   return res.acgihDose;
-    if (verifyStandard === 'OSHA_HC'  && res.oshaHcDose)  return res.oshaHcDose;
-    if (verifyStandard === 'OSHA_PEL' && res.oshaPelDose) return res.oshaPelDose;
-    return res.dose; // fallback to primary dose field
+    if (verifyStandard === 'ACGIH') {
+      // Use ACGIH-specific field if populated, else fall back to primary res.dose
+      // (legacy surveys only have res.dose which was typically recorded under ACGIH)
+      return res.acgihDose || res.dose || null;
+    }
+    if (verifyStandard === 'OSHA_HC')  return res.oshaHcDose  || null; // no fallback — wrong standard
+    if (verifyStandard === 'OSHA_PEL') return res.oshaPelDose || null; // no fallback — wrong standard
+    return res.dose || null; // APP mode — use primary field
   })();
   var _appLavg = (function() {
-    if (verifyStandard === 'ACGIH'    && res.acgihLavg)   return res.acgihLavg;
-    if (verifyStandard === 'OSHA_HC'  && res.oshaHcLavg)  return res.oshaHcLavg;
-    if (verifyStandard === 'OSHA_PEL' && res.oshaPelLavg) return res.oshaPelLavg;
-    return res.lavg; // fallback to primary lavg field
+    if (verifyStandard === 'ACGIH') {
+      return res.acgihLavg || res.lavg || null;
+    }
+    if (verifyStandard === 'OSHA_HC')  return res.oshaHcLavg  || null;
+    if (verifyStandard === 'OSHA_PEL') return res.oshaPelLavg || null;
+    return res.lavg || null; // APP mode
   })();
 
   numCheck(res.twa     || res.dosReportTWA, _rptTWA,  0.5, 'twa');
-  numCheck(_appDose,                         _rptDose, 1.0, 'dose');
-  numCheck(_appLavg,                         _rptLavg, 0.1, 'lavg');
+  numCheck(_appDose,                         _rptDose, 2.0, 'dose');  // ±2% — firmware display rounding
+  numCheck(_appLavg,                         _rptLavg, 0.5, 'lavg');  // ±0.5 dB — threshold differences
   numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
   numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
 
