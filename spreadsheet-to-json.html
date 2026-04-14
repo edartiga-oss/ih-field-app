@@ -1013,10 +1013,10 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
     calibration: {
       preTime: preCalTime,
       preReading: preReading !== null && preReading !== undefined ? preReading.toString() : '',
-      preInitials: '',
+      preInitials: document.getElementById('ihPreInit').value.trim(),
       postTime: postCalTime,
       postReading: postReading !== null && postReading !== undefined ? postReading.toString() : '',
-      postInitials: '',
+      postInitials: document.getElementById('ihPostInit').value.trim(),
       surveyStart: startDT,
       surveyEnd: stopDT,
     },
@@ -1028,7 +1028,12 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName) {
       lasmax: null,
       runTimeHrs: rtMins ? parseFloat((rtMins / 60).toFixed(4)) : null,
     },
-    ih: { name: ihName, creds: '', firm: '', phone: '' },
+    ih: {
+      name:  ihName || document.getElementById('ihName').value.trim(),
+      creds: document.getElementById('ihCreds').value.trim(),
+      firm:  document.getElementById('ihFirm').value.trim(),
+      phone: document.getElementById('ihPhone').value.trim(),
+    },
     notes: noiseNotes,
     status: 'complete',
   };
