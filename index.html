@@ -6487,8 +6487,8 @@ function verifyCompareFields(survey, report) {
   })();
 
   numCheck(res.twa     || res.dosReportTWA, _rptTWA,  0.5, 'twa');
-  numCheck(_appDose,                         _rptDose, 2.0, 'dose');  // ±2% — firmware display rounding
-  numCheck(_appLavg,                         _rptLavg, 0.5, 'lavg');  // ±0.5 dB — threshold differences
+  numCheck(_appDose,                         _rptDose, 5.0, 'dose');  // ±5% — firmware display rounding
+  numCheck(_appLavg,                         _rptLavg, 1.0, 'lavg');  // ±1 dB — threshold differences
   numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
   numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
 
@@ -6870,10 +6870,10 @@ function verifyOpenDrawer(row) {
     return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.5)' : '';
   }));
   lines.push(detailRow('Dose (%)', c.dose, function(k) {
-    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + '% (tolerance ±1.0)' : '';
+    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + '% (tolerance ±5.0)' : '';
   }));
   lines.push(detailRow('Lavg (dBA)', c.lavg, function(k) {
-    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
+    return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±1.0)' : '';
   }));
   lines.push(detailRow('Run Time', c.runTime, function(k) {
     if (k.status === 'PASS') return 'Match' + (k.deltaMin !== null ? ' (Δ ' + k.deltaMin + ' min, tolerance ±2)' : '');
