@@ -6126,19 +6126,40 @@ function verifyMatchAndCompare(report, _preMatchedSurvey) {
     var surveys = [];
     try { surveys = JSON.parse(localStorage.getItem('ih_noise_surveys_v2') || '[]'); } catch(e) {}
 
-    matched = surveys.filter(function(s) {
-      var serial = (s.dosimeter && s.dosimeter.serial) || s.serial || '';
+    // Match by dosimeter serial first (preferred), then fall back to top-level serial
+    var dosMatched = surveys.filter(function(s) {
+      var serial = (s.dosimeter && s.dosimeter.serial) || '';
       return serial && serial.replace(/\s/g,'') === report.serial.replace(/\s/g,'');
     });
+    var legacyMatched = surveys.filter(function(s) {
+      var serial = s.serial || '';
+      return !s.dosimeter && serial && serial.replace(/\s/g,'') === report.serial.replace(/\s/g,'');
+    });
+    matched = dosMatched.length ? dosMatched : legacyMatched;
 
-    // If multiple serials match, narrow by date
-    if (matched.length > 1 && report.surveyDate) {
+    // Always narrow by date when the report has a survey date — even for single matches,
+    // to avoid returning a wrong survey that happens to share the same serial number
+    if (report.surveyDate) {
       var rDate = normalizeDate(report.surveyDate);
-      var narrowed = matched.filter(function(s) {
-        var sDate = normalizeDate(extractSurveyDate(s));
-        return rDate && sDate && rDate === sDate;
-      });
-      if (narrowed.length) matched = narrowed;
+      if (rDate) {
+        var narrowed = matched.filter(function(s) {
+          var sDate = normalizeDate(extractSurveyDate(s));
+          return sDate && rDate === sDate;
+        });
+        if (narrowed.length) matched = narrowed;
+        // If date narrowing eliminated all results, fall back to serial-only match
+        // (date may differ by a day due to timezone — try ±1 day as secondary fallback)
+        if (!narrowed.length && matched.length > 0) {
+          var rMs = new Date(rDate).getTime();
+          var fuzzy = matched.filter(function(s) {
+            var sDate = normalizeDate(extractSurveyDate(s));
+            if (!sDate) return false;
+            var diff = Math.abs(new Date(sDate).getTime() - rMs);
+            return diff <= 86400000; // ±1 day
+          });
+          if (fuzzy.length) matched = fuzzy;
+        }
+      }
     }
   }
 
