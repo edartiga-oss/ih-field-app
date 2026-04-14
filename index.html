@@ -3670,7 +3670,10 @@ function buildPDFDoc(surveysArr) {
       doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
       doc.text(label, x, y2);
       doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
-      doc.text(String(value || '—'), x, y2 + 10);
+      const valStr = String(value || '—');
+      const maxW = (w || colW) - 6;
+      const wrapped = doc.splitTextToSize(valStr, maxW);
+      doc.text(wrapped[0], x, y2 + 10);
       return y2;
     }
 
@@ -3678,7 +3681,7 @@ function buildPDFDoc(surveysArr) {
       fields.forEach((f, i) => {
         const col = i % 3;
         const rowN = Math.floor(i / 3);
-        row(f[0], f[1], 36 + col * colW, y2 + rowN * 38, colW - 8);
+        row(f[0], f[1], 36 + col * colW, y2 + rowN * 38, colW - 10);
       });
       return y2 + Math.ceil(fields.length / 3) * 38;
     }
