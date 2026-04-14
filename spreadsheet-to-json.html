@@ -1497,15 +1497,108 @@ function copyJSON() {
 //  EXPORT
 // ══════════════════════════════════════════════════════════════════
 function buildExportSurvey(s) {
-  const out = JSON.parse(JSON.stringify(s));
-  delete out._row;
-  delete out._nativeSheet;
-  return out;
+  // ── Remap to the exact schema the main app (ih_noise_surveys_v2) expects ──
+  // Reference: LAARNG_surveys_import format confirmed against app source.
+
+  const calDate = s.project.date || '';
+
+  // preTime / postTime: app expects full datetime "YYYY-MM-DDTHH:MM:SS"
+  // Internal storage may be time-only "HH:MM:SS" — prepend survey date
+  const toFullDT = (t, fallbackDate) => {
+    if (!t) return '';
+    if (/^\d{4}-\d{2}-\d{2}T/.test(t)) return t;           // already full datetime
+    if (/^\d{2}:\d{2}/.test(t)) return `${fallbackDate}T${t}`; // time-only → prepend date
+    return t;
+  };
+
+  const preTimeFull  = toFullDT(s.calibration.preTime,  calDate);
+  const postTimeFull = toFullDT(s.calibration.postTime, calDate);
+
+  // runTimeHrs → runTime (app uses hours as a float named runTime)
+  const runTime = s.results.runTimeHrs !== null && s.results.runTimeHrs !== undefined
+    ? s.results.runTimeHrs
+    : null;
+
+  // id: keep generated id or make a short hex fallback
+  const id = s.id || Math.floor(Math.random()*0xffffffff).toString(16).padStart(8,'0');
+
+  return {
+    id,
+    createdAt: s.timestamp || new Date().toISOString(),
+    status: s.status || 'complete',
+    notes: s.notes || '',
+    deviceNickname: '',
+    project: {
+      name:     s.project.name     || '',
+      date:     s.project.date     || '',
+      standard: s.project.standard || 'ACGIH',
+      client:   s.project.client   || '',
+    },
+    employee: {
+      name:     s.employee.name     || '',
+      empId:    s.employee.empId    || '',
+      company:  s.employee.company  || '',
+      title:    s.employee.title    || '',
+      dept:     s.employee.dept     || '',
+      location: s.employee.location || '',
+      task:     s.employee.task     || '',
+      seg:      s.employee.seg      || '',
+    },
+    dosimeter: {
+      make:       s.dosimeter.make       || '',
+      model:      s.dosimeter.model      || '',
+      serial:     s.dosimeter.serial     || '',
+      exchange:   s.dosimeter.exchange   || '',
+      criterion:  s.dosimeter.criterion  || '',
+      weighting:  s.dosimeter.weighting  || '',
+      response:   s.dosimeter.response   || '',
+      factoryCal: s.dosimeter.factoryCal || '',
+    },
+    calibrator: {
+      make:        s.calibrator.make     || '',
+      model:       s.calibrator.model    || '',
+      serial:      s.calibrator.serial   || '',
+      lastNistCal: s.calibrator.nistDue  || '',   // app uses lastNistCal
+      nistDue:     s.calibrator.nistDue  || '',
+      refLevel:    s.calibrator.refLevel || '114',
+    },
+    calibration: {
+      preTime:      preTimeFull,
+      preReading:   s.calibration.preReading   || '',
+      preInitials:  s.calibration.preInitials  || '',
+      postTime:     postTimeFull,
+      postReading:  s.calibration.postReading  || '',
+      postInitials: s.calibration.postInitials || '',
+      surveyStart:  s.calibration.surveyStart  || '',
+      surveyEnd:    s.calibration.surveyEnd    || '',
+    },
+    placement: {
+      location:    (s.placement && s.placement.location) || '',
+      micType:     '',
+      windscreen:  '',
+      obstructions:'',
+    },
+    results: {
+      twa:         s.results.twa   !== null && s.results.twa   !== undefined ? s.results.twa   : null,
+      dosReportTWA:s.results.twa   !== null && s.results.twa   !== undefined ? s.results.twa   : null,
+      lavg:        s.results.lavg  !== null && s.results.lavg  !== undefined ? s.results.lavg  : null,
+      dose:        s.results.dose  !== null && s.results.dose  !== undefined ? s.results.dose  : null,
+      runTime,
+      hour1:'', hour2:'', hour3:'', hour4:'', hour5:'',
+      hour6:'', hour7:'', hour8:'', hour9:'', hour10:'',
+    },
+    ih: {
+      name:        s.ih.name  || '',
+      credentials: s.ih.creds || s.ih.credentials || '',  // internal uses 'creds', app uses 'credentials'
+      firm:        s.ih.firm  || '',
+      phone:       s.ih.phone || '',
+    },
+  };
 }
 
 function exportSingleJSONByIdx(i) {
   const s = parsedSurveys[i];
-  downloadJSON(buildExportSurvey(s), `survey_${(s.employee.name||'row').replace(/\s+/g,'_')}_${s.project.date||'nodate'}.json`);
+  downloadJSON({ surveys: [buildExportSurvey(s)] }, `survey_${(s.employee.name||'row').replace(/\s+/g,'_')}_${s.project.date||'nodate'}.json`);
   flashExportMsg();
 }
 
@@ -1524,7 +1617,7 @@ async function exportAllJSON(passOnly = false) {
 
   if (surveys.length === 1) {
     const s = surveys[0];
-    downloadJSON(buildExportSurvey(s), `survey_${(s.employee.name||'row').replace(/\s+/g,'_')}_${s.project.date||'nodate'}.json`);
+    downloadJSON({ surveys: [buildExportSurvey(s)] }, `survey_${(s.employee.name||'row').replace(/\s+/g,'_')}_${s.project.date||'nodate'}.json`);
     flashExportMsg(); return;
   }
 
@@ -1535,7 +1628,8 @@ async function exportAllJSON(passOnly = false) {
   const projectName = (combined[0].project.name || 'surveys').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_-]/g,'');
   const date = combined[0].project.date || new Date().toISOString().slice(0,10);
 
-  downloadJSON(combined, `IH_dosimetry_${projectName}_${date}_${surveys.length}surveys.json`);
+  // Wrap in { surveys: [...] } — the format the main app's import expects
+  downloadJSON({ surveys: combined }, `IH_dosimetry_${projectName}_${date}_${surveys.length}surveys.json`);
   flashExportMsg();
 }
 
