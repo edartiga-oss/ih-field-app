@@ -6095,7 +6095,7 @@ function verifyExtractFields(text, filename) {
 
 
 // ── Match report to survey ────────────────────────────────
-function verifyMatchAndCompare(report) {
+function verifyMatchAndCompare(report, _preMatchedSurvey) {
   if (report._parseError) {
     return { _filename: report._filename, _error: 'Parse failed', overall: 'ERROR' };
   }
@@ -6103,24 +6103,29 @@ function verifyMatchAndCompare(report) {
     return { _filename: report._filename, _error: 'Serial not found in report', overall: 'UNMATCHED' };
   }
 
-  // Load all surveys
-  var surveys = [];
-  try { surveys = JSON.parse(localStorage.getItem('ih_noise_surveys_v2') || '[]'); } catch(e) {}
+  // If a pre-matched survey is supplied (re-run on standard toggle), use it directly
+  var matched = [];
+  if (_preMatchedSurvey) {
+    matched = [_preMatchedSurvey];
+  } else {
+    // Load all surveys and match by serial (and optionally date)
+    var surveys = [];
+    try { surveys = JSON.parse(localStorage.getItem('ih_noise_surveys_v2') || '[]'); } catch(e) {}
 
-  // Match by serial (and optionally date)
-  var matched = surveys.filter(function(s) {
-    var serial = (s.dosimeter && s.dosimeter.serial) || s.serial || '';
-    return serial && serial.replace(/\s/g,'') === report.serial.replace(/\s/g,'');
-  });
-
-  // If multiple serials match, narrow by date
-  if (matched.length > 1 && report.surveyDate) {
-    var rDate = normalizeDate(report.surveyDate);
-    var narrowed = matched.filter(function(s) {
-      var sDate = normalizeDate(extractSurveyDate(s));
-      return rDate && sDate && rDate === sDate;
+    matched = surveys.filter(function(s) {
+      var serial = (s.dosimeter && s.dosimeter.serial) || s.serial || '';
+      return serial && serial.replace(/\s/g,'') === report.serial.replace(/\s/g,'');
     });
-    if (narrowed.length) matched = narrowed;
+
+    // If multiple serials match, narrow by date
+    if (matched.length > 1 && report.surveyDate) {
+      var rDate = normalizeDate(report.surveyDate);
+      var narrowed = matched.filter(function(s) {
+        var sDate = normalizeDate(extractSurveyDate(s));
+        return rDate && sDate && rDate === sDate;
+      });
+      if (narrowed.length) matched = narrowed;
+    }
   }
 
   if (!matched.length) {
@@ -6189,6 +6194,56 @@ function verifyCompareFields(survey, report) {
   var identWarn = !identOk && (checks.name.status === 'WARN');
 
   // Numeric fields
+
+  // ── Pick the report dosimeter slot matching the selected standard ──
+  // dBadge2 stores: D1=ACGIH, D2=OSHA HC, D3=OSHA PEL (slot order matches setup order)
+  // If the report has multiple slots, use the one that corresponds to verifyStandard.
+  // Fall back to the default (D1/first available) if a slot is absent.
+  var _vstd = VERIFY_STANDARDS[verifyStandard] || VERIFY_STANDARDS.APP;
+  var _slots = report._dosSlots || [null, null, null, null]; // [null, D1, D2, D3]
+
+  // Identify which slot to use
+  var _activeSlot = null;
+  if (_vstd.dosSlot !== null && _slots[_vstd.dosSlot]) {
+    _activeSlot = _slots[_vstd.dosSlot];
+  } else if (_vstd.dosSlot === null) {
+    // APP mode — try to find the slot whose setup matches the app-recorded dosimeter
+    // by matching exchange rate; default to slot 1
+    var _appEx = parseFloat(dos.exchange);
+    _activeSlot = null;
+    for (var _si = 1; _si <= 3; _si++) {
+      if (_slots[_si] && parseFloat(_slots[_si].exchange) === _appEx) { _activeSlot = _slots[_si]; break; }
+    }
+    if (!_activeSlot) _activeSlot = _slots[1] || {};
+  } else {
+    // Requested slot absent (single-setup report) — fall back to D1
+    _activeSlot = _slots[1] || {};
+  }
+
+  // Override report comparison values with the active slot's data
+  var _rptTWA  = (_activeSlot.twa      !== undefined && _activeSlot.twa      !== null) ? _activeSlot.twa      : report.twa;
+  var _rptDose = (_activeSlot.dose     !== undefined && _activeSlot.dose     !== null) ? _activeSlot.dose     : report.dose;
+  var _rptLavg = (_activeSlot.lavg     !== undefined && _activeSlot.lavg     !== null) ? _activeSlot.lavg     : report.lavg;
+  var _rptExch = (_activeSlot.exchange !== undefined && _activeSlot.exchange !== null) ? _activeSlot.exchange : report.exchange;
+  var _rptCrit = (_activeSlot.criterion!== undefined && _activeSlot.criterion!== null) ? _activeSlot.criterion: report.criterion;
+  var _rptWgt  = (_activeSlot.weighting!== undefined && _activeSlot.weighting!== null) ? _activeSlot.weighting: report.weighting;
+  var _rptResp = (_activeSlot.response !== undefined && _activeSlot.response !== null) ? _activeSlot.response : report.response;
+
+  // Use selected standard's expected values for setup checks
+  var expExchange  = (_vstd.exchange  !== null) ? _vstd.exchange  : dos.exchange;
+  var expCriterion = (_vstd.criterion !== null) ? _vstd.criterion : dos.criterion;
+  var expWeighting = (verifyStandard !== 'APP') ? 'A'    : dos.weighting;
+  var expResponse  = (verifyStandard !== 'APP') ? 'Slow' : dos.response;
+
+  setupCheck(expExchange,  _rptExch,  'exchange');
+  setupCheck(expCriterion, _rptCrit,  'criterion');
+  setupCheck(expWeighting, _rptWgt,   'weighting');
+  setupCheck(expResponse,  _rptResp,  'response');
+
+  // Tag standard label and active slot for drawer display
+  checks._standardLabel = _vstd.label;
+  checks._dosSlotLabel  = _activeSlot.slot ? 'D' + _activeSlot.slot + ' (' + (_activeSlot.setupRaw || '') + ')' : '';
+
   function numCheck(appVal, rptVal, tolerance, key) {
     var a = parseFloat(appVal), r = rptVal;
     if (isNaN(a) || r === null) {
@@ -6320,54 +6375,6 @@ function verifyCompareFields(survey, report) {
     }
   }
 
-  // ── Pick the report dosimeter slot matching the selected standard ──
-  // dBadge2 stores: D1=ACGIH, D2=OSHA HC, D3=OSHA PEL (slot order matches setup order)
-  // If the report has multiple slots, use the one that corresponds to verifyStandard.
-  // Fall back to the default (D1/first available) if a slot is absent.
-  var _vstd = VERIFY_STANDARDS[verifyStandard] || VERIFY_STANDARDS.APP;
-  var _slots = report._dosSlots || [null, null, null, null]; // [null, D1, D2, D3]
-
-  // Identify which slot to use
-  var _activeSlot = null;
-  if (_vstd.dosSlot !== null && _slots[_vstd.dosSlot]) {
-    _activeSlot = _slots[_vstd.dosSlot];
-  } else if (_vstd.dosSlot === null) {
-    // APP mode — try to find the slot whose setup matches the app-recorded dosimeter
-    // by matching exchange rate; default to slot 1
-    var _appEx = parseFloat(dos.exchange);
-    _activeSlot = null;
-    for (var _si = 1; _si <= 3; _si++) {
-      if (_slots[_si] && parseFloat(_slots[_si].exchange) === _appEx) { _activeSlot = _slots[_si]; break; }
-    }
-    if (!_activeSlot) _activeSlot = _slots[1] || {};
-  } else {
-    // Requested slot absent (single-setup report) — fall back to D1
-    _activeSlot = _slots[1] || {};
-  }
-
-  // Override report comparison values with the active slot's data
-  var _rptTWA  = (_activeSlot.twa      !== undefined && _activeSlot.twa      !== null) ? _activeSlot.twa      : report.twa;
-  var _rptDose = (_activeSlot.dose     !== undefined && _activeSlot.dose     !== null) ? _activeSlot.dose     : report.dose;
-  var _rptLavg = (_activeSlot.lavg     !== undefined && _activeSlot.lavg     !== null) ? _activeSlot.lavg     : report.lavg;
-  var _rptExch = (_activeSlot.exchange !== undefined && _activeSlot.exchange !== null) ? _activeSlot.exchange : report.exchange;
-  var _rptCrit = (_activeSlot.criterion!== undefined && _activeSlot.criterion!== null) ? _activeSlot.criterion: report.criterion;
-  var _rptWgt  = (_activeSlot.weighting!== undefined && _activeSlot.weighting!== null) ? _activeSlot.weighting: report.weighting;
-  var _rptResp = (_activeSlot.response !== undefined && _activeSlot.response !== null) ? _activeSlot.response : report.response;
-
-  // Use selected standard's expected values for setup checks
-  var expExchange  = (_vstd.exchange  !== null) ? _vstd.exchange  : dos.exchange;
-  var expCriterion = (_vstd.criterion !== null) ? _vstd.criterion : dos.criterion;
-  var expWeighting = (verifyStandard !== 'APP') ? 'A'    : dos.weighting;
-  var expResponse  = (verifyStandard !== 'APP') ? 'Slow' : dos.response;
-
-  setupCheck(expExchange,  _rptExch,  'exchange');
-  setupCheck(expCriterion, _rptCrit,  'criterion');
-  setupCheck(expWeighting, _rptWgt,   'weighting');
-  setupCheck(expResponse,  _rptResp,  'response');
-
-  // Tag standard label and active slot for drawer display
-  checks._standardLabel = _vstd.label;
-  checks._dosSlotLabel  = _activeSlot.slot ? 'D' + _activeSlot.slot + ' (' + (_activeSlot.setupRaw || '') + ')' : '';
 
   // Overall — identification passes if EITHER serial OR name matches
   var hasHardFail = ['twa','dose','lavg','preCal','postCal','runTime','startTime','stopTime',
