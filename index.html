@@ -3755,12 +3755,12 @@ function buildPDFDoc(surveysArr) {
     ];
     (function() {
       var cal = s.calibration || {};
-      var preT  = cal.preCalTime  || cal.preCal  || '';
-      var postT = cal.postCalTime || cal.postCal || '';
+      var preT  = cal.preTime  || '';
+      var postT = cal.postTime || '';
       var startT = cal.surveyStart || '';
       var endT   = cal.surveyEnd   || '';
-      var preR  = parseFloat(cal.preReading  || cal.preCalReading  || '');
-      var postR = parseFloat(cal.postReading || cal.postCalReading || '');
+      var preR  = parseFloat(cal.preReading  || '');
+      var postR = parseFloat(cal.postReading || '');
 
       // Prefer stored checks if present, otherwise calculate
       var stored = (s.qa && s.qa.checks) ? s.qa.checks : null;
