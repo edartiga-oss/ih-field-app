@@ -4802,9 +4802,9 @@ function renderStats() {
     { label:'Max TWA', value:fmt(maxVal(twas)), unit:'dBA' },
     { label:'Min TWA', value:fmt(minVal(twas)), unit:'dBA' },
     { label:'Avg Dose', value:fmt(avg(doses)), unit:'%' },
-    { label:'≥ PEL (' + _PEL + ' dBA)', value:atOrAbovePEL, unit:'', alert:atOrAbovePEL>0 },
-    { label:'≥ AL (' + _AL + ' dBA)',   value:atOrAboveAL,  unit:'' },
-    { label:'< AL (' + _AL + ' dBA)',   value:belowAL,      unit:'' },
+    { label:'\u2265 PEL (' + _PEL + ' dBA)', value:atOrAbovePEL, unit:'', alert:atOrAbovePEL>0 },
+    { label:'\u2265 AL (' + _AL + ' dBA)',   value:atOrAboveAL,  unit:'' },
+    { label:'< AL (' + _AL + ' dBA)',        value:belowAL,      unit:'' },
     { label:'QA Flags', value:qaFails, unit:'', alert:qaFails>0 },
   ];
 
@@ -5985,72 +5985,110 @@ function verifyExtractFields(text, filename) {
     return isNaN(n) ? null : n;
   }
 
-  // ── Results — "D1 " prefixed ─────────────────────────────
-  // "D1 TWA 8Hrs\t59.0 dB"
-  var twaRaw  = get('d1 twa 8hrs') || get('d1 twa 8 hrs') || get('d1 twa') || get('twa 8hrs') || get('twa');
-  var twa     = numParse(twaRaw);
-
-  // "D1 Dose\t0.2 %" or "D1 Dose\t4,717.3 %" for high-exposure workers
-  var doseRaw = get('d1 dose') || get('dose');
-  var dose    = numParse(doseRaw);
-
-  // "D1 Lavg\t58.4 dB"
-  var lavgRaw = get('d1 lavg') || get('d1 laeq') || get('lavg') || get('laeq');
-  var lavg    = numParse(lavgRaw);
-
-  // LASmax (for LASmax > 115 flag)
-  var lasmaxRaw = get('d1 lasmax (time)') || get('d1 lasmax');
-  var lasmax    = numParse(lasmaxRaw);
-
-  // ── Dosimeter setup ──────────────────────────────────────
-  // "Dosimeter 1 Setup\tACGIH (T80, C85, Q3)"
-  // Standard Casella setup string: T##=threshold, C##=criterion, Q#=exchange
-  var setupRaw = get('dosimeter 1 setup') || get('dosimeter setup') || get('d1 setup');
-  var exchange = null, criterion = null, threshold = null, weighting = null, response = null;
-  if (setupRaw) {
-    var tMatch = setupRaw.match(/T(\d+)/i);
-    var cMatch = setupRaw.match(/C(\d+)/i);
-    var qMatch = setupRaw.match(/Q(\d+)/i);
-    if (tMatch) threshold = parseFloat(tMatch[1]);
-    if (cMatch) criterion = parseFloat(cMatch[1]);
-    if (qMatch) exchange  = parseFloat(qMatch[1]);
-    // ACGIH/NIOSH implies A-weighting Slow; OSHA implies A-weighting Slow as well
-    // Weighting and response are not explicitly in setup string — infer if needed
-    if (/[ACZ]-?weight/i.test(setupRaw)) {
-      var wm = setupRaw.match(/([ACZ])-?weight/i);
-      if (wm) weighting = wm[1].toUpperCase();
-    } else if (/ACGIH|NIOSH|OSHA/i.test(setupRaw)) {
-      weighting = 'A'; // all standard methods use A-weighting
-    }
-    if (/slow/i.test(setupRaw)) response = 'Slow';
-    else if (/fast/i.test(setupRaw)) response = 'Fast';
-    else if (/ACGIH|NIOSH|OSHA/i.test(setupRaw)) response = 'Slow'; // standard default
+  // ── Multi-slot dosimeter results ——————————————————
+  // dBadge2 can run up to 3 simultaneous dosimeter setups: D1, D2, D3.
+  // We extract all three slots so verifyMatchAndCompare can pick the
+  // right one based on verifyStandard (ACGIH=D1, OSHA HC=D2, OSHA PEL=D3).
+  function parseSetupString(raw) {
+    if (!raw) return { exchange:null, criterion:null, threshold:null, weighting:null, response:null, setupRaw:null };
+    var tM = raw.match(/T(\d+)/i), cM = raw.match(/C(\d+)/i), qM = raw.match(/Q(\d+)/i);
+    var wgt = null, resp = null;
+    if (/[ACZ]-?weight/i.test(raw)) { var wm = raw.match(/([ACZ])-?weight/i); if (wm) wgt = wm[1].toUpperCase(); }
+    else if (/ACGIH|NIOSH|OSHA/i.test(raw)) wgt = 'A';
+    if (/slow/i.test(raw)) resp = 'Slow';
+    else if (/fast/i.test(raw)) resp = 'Fast';
+    else if (/ACGIH|NIOSH|OSHA/i.test(raw)) resp = 'Slow';
+    return {
+      setupRaw:  raw,
+      exchange:  qM ? parseFloat(qM[1]) : null,
+      criterion: cM ? parseFloat(cM[1]) : null,
+      threshold: tM ? parseFloat(tM[1]) : null,
+      weighting: wgt,
+      response:  resp
+    };
   }
 
+  // Extract all three dosimeter slots
+  var dosSlots = [null]; // index 0 unused; slots are 1-based
+  for (var _di = 1; _di <= 3; _di++) {
+    var _p  = 'd' + _di + ' ';
+    var _su = get('dosimeter ' + _di + ' setup') || get(_p + 'setup');
+    var _tw = get(_p + 'twa 8hrs') || get(_p + 'twa 8 hrs') || get(_p + 'twa');
+    var _do = get(_p + 'dose');
+    var _lv = get(_p + 'lavg') || get(_p + 'laeq');
+    var _lx = get(_p + 'lasmax (time)') || get(_p + 'lasmax');
+    if (_su || _tw || _do) {
+      var _setup = parseSetupString(_su);
+      dosSlots.push({
+        slot:      _di,
+        setupRaw:  _su,
+        twa:       numParse(_tw),
+        dose:      numParse(_do),
+        lavg:      numParse(_lv),
+        lasmax:    numParse(_lx),
+        exchange:  _setup.exchange,
+        criterion: _setup.criterion,
+        threshold: _setup.threshold,
+        weighting: _setup.weighting,
+        response:  _setup.response
+      });
+    } else {
+      dosSlots.push(null);
+    }
+  }
+
+  // Default slot values (D1 / first populated) — used for single-setup reports
+  // verifyMatchAndCompare will override these with the correct slot
+  var _ds = dosSlots[1] || dosSlots[2] || dosSlots[3] || {};
+  var twa       = (_ds.twa       !== undefined) ? _ds.twa       : null;
+  var dose      = (_ds.dose      !== undefined) ? _ds.dose      : null;
+  var lavg      = (_ds.lavg      !== undefined) ? _ds.lavg      : null;
+  var lasmax    = (_ds.lasmax    !== undefined) ? _ds.lasmax    : null;
+  var exchange  = (_ds.exchange  !== undefined) ? _ds.exchange  : null;
+  var criterion = (_ds.criterion !== undefined) ? _ds.criterion : null;
+  var threshold = (_ds.threshold !== undefined) ? _ds.threshold : null;
+  var weighting = (_ds.weighting !== undefined) ? _ds.weighting : null;
+  var response  = (_ds.response  !== undefined) ? _ds.response  : null;
+
+  // Legacy single-slot fallbacks (CSV / older format without D-prefix)
+  if (twa      === null) twa      = numParse(get('twa 8hrs') || get('twa'));
+  if (dose     === null) dose     = numParse(get('dose'));
+  if (lavg     === null) lavg     = numParse(get('lavg') || get('laeq'));
+  if (exchange === null) {
+    var _su0 = parseSetupString(get('dosimeter setup'));
+    exchange = _su0.exchange; criterion = _su0.criterion;
+    threshold = _su0.threshold; weighting = _su0.weighting; response = _su0.response;
+  }
+
+  // LASmax (D1 only — used for >115 flag)
+  var lasmaxRaw = get('d1 lasmax (time)') || get('d1 lasmax');
+  if (lasmax === null) lasmax = numParse(lasmaxRaw);
+
   return {
-    _filename:  filename,
-    _rawText:   text,
-    _kvMap:     kvMap,       // expose for debug mode
-    serial:     serial,
-    reportName: reportName,
-    surveyDate: surveyDate,
-    startRaw:   startRaw,
-    stopRaw:    stopRaw,
-    preCalTime: preCalTime,
+    _filename:   filename,
+    _rawText:    text,
+    _kvMap:      kvMap,       // expose for debug mode
+    _dosSlots:   dosSlots,    // [null, D1, D2, D3] — null if slot not present
+    serial:      serial,
+    reportName:  reportName,
+    surveyDate:  surveyDate,
+    startRaw:    startRaw,
+    stopRaw:     stopRaw,
+    preCalTime:  preCalTime,
     postCalTime: postCalTime,
-    twa:        twa,
-    dose:       dose,
-    lavg:       lavg,
-    lasmax:     lasmax,
-    runTime:    runTime,
-    preCal:     preCal,
-    postCal:    postCal,
-    calDrift:   drift,
-    exchange:   exchange,
-    criterion:  criterion,
-    threshold:  threshold,
-    weighting:  weighting,
-    response:   response
+    twa:         twa,
+    dose:        dose,
+    lavg:        lavg,
+    lasmax:      lasmax,
+    runTime:     runTime,
+    preCal:      preCal,
+    postCal:     postCal,
+    calDrift:    drift,
+    exchange:    exchange,
+    criterion:   criterion,
+    threshold:   threshold,
+    weighting:   weighting,
+    response:    response
   };
 }
 
@@ -6164,9 +6202,9 @@ function verifyCompareFields(survey, report) {
     }
   }
 
-  numCheck(res.twa     || res.dosReportTWA, report.twa,    0.5, 'twa');
-  numCheck(res.dose,                         report.dose,   1.0, 'dose');
-  numCheck(res.lavg,                         report.lavg,   0.1, 'lavg');
+  numCheck(res.twa     || res.dosReportTWA, _rptTWA,  0.5, 'twa');
+  numCheck(res.dose,                         _rptDose, 1.0, 'dose');
+  numCheck(res.lavg,                         _rptLavg, 0.1, 'lavg');
   numCheck(cal.preReading,                   report.preCal, 0.1, 'preCal');
   numCheck(cal.postReading,                  report.postCal,0.1, 'postCal');
 
@@ -6282,20 +6320,54 @@ function verifyCompareFields(survey, report) {
     }
   }
 
-  // Use selected standard's expected values, or fall back to App-recorded dosimeter values
+  // ── Pick the report dosimeter slot matching the selected standard ──
+  // dBadge2 stores: D1=ACGIH, D2=OSHA HC, D3=OSHA PEL (slot order matches setup order)
+  // If the report has multiple slots, use the one that corresponds to verifyStandard.
+  // Fall back to the default (D1/first available) if a slot is absent.
   var _vstd = VERIFY_STANDARDS[verifyStandard] || VERIFY_STANDARDS.APP;
+  var _slots = report._dosSlots || [null, null, null, null]; // [null, D1, D2, D3]
+
+  // Identify which slot to use
+  var _activeSlot = null;
+  if (_vstd.dosSlot !== null && _slots[_vstd.dosSlot]) {
+    _activeSlot = _slots[_vstd.dosSlot];
+  } else if (_vstd.dosSlot === null) {
+    // APP mode — try to find the slot whose setup matches the app-recorded dosimeter
+    // by matching exchange rate; default to slot 1
+    var _appEx = parseFloat(dos.exchange);
+    _activeSlot = null;
+    for (var _si = 1; _si <= 3; _si++) {
+      if (_slots[_si] && parseFloat(_slots[_si].exchange) === _appEx) { _activeSlot = _slots[_si]; break; }
+    }
+    if (!_activeSlot) _activeSlot = _slots[1] || {};
+  } else {
+    // Requested slot absent (single-setup report) — fall back to D1
+    _activeSlot = _slots[1] || {};
+  }
+
+  // Override report comparison values with the active slot's data
+  var _rptTWA  = (_activeSlot.twa      !== undefined && _activeSlot.twa      !== null) ? _activeSlot.twa      : report.twa;
+  var _rptDose = (_activeSlot.dose     !== undefined && _activeSlot.dose     !== null) ? _activeSlot.dose     : report.dose;
+  var _rptLavg = (_activeSlot.lavg     !== undefined && _activeSlot.lavg     !== null) ? _activeSlot.lavg     : report.lavg;
+  var _rptExch = (_activeSlot.exchange !== undefined && _activeSlot.exchange !== null) ? _activeSlot.exchange : report.exchange;
+  var _rptCrit = (_activeSlot.criterion!== undefined && _activeSlot.criterion!== null) ? _activeSlot.criterion: report.criterion;
+  var _rptWgt  = (_activeSlot.weighting!== undefined && _activeSlot.weighting!== null) ? _activeSlot.weighting: report.weighting;
+  var _rptResp = (_activeSlot.response !== undefined && _activeSlot.response !== null) ? _activeSlot.response : report.response;
+
+  // Use selected standard's expected values for setup checks
   var expExchange  = (_vstd.exchange  !== null) ? _vstd.exchange  : dos.exchange;
   var expCriterion = (_vstd.criterion !== null) ? _vstd.criterion : dos.criterion;
   var expWeighting = (verifyStandard !== 'APP') ? 'A'    : dos.weighting;
   var expResponse  = (verifyStandard !== 'APP') ? 'Slow' : dos.response;
 
-  setupCheck(expExchange,  report.exchange,   'exchange');
-  setupCheck(expCriterion, report.criterion,  'criterion');
-  setupCheck(expWeighting, report.weighting,  'weighting');
-  setupCheck(expResponse,  report.response,   'response');
+  setupCheck(expExchange,  _rptExch,  'exchange');
+  setupCheck(expCriterion, _rptCrit,  'criterion');
+  setupCheck(expWeighting, _rptWgt,   'weighting');
+  setupCheck(expResponse,  _rptResp,  'response');
 
-  // Tag which standard was used (shown in detail drawer)
+  // Tag standard label and active slot for drawer display
   checks._standardLabel = _vstd.label;
+  checks._dosSlotLabel  = _activeSlot.slot ? 'D' + _activeSlot.slot + ' (' + (_activeSlot.setupRaw || '') + ')' : '';
 
   // Overall — identification passes if EITHER serial OR name matches
   var hasHardFail = ['twa','dose','lavg','preCal','postCal','runTime','startTime','stopTime',
@@ -6469,10 +6541,10 @@ var verifyCurrentRows = [];
 // ── Verify standard toggle ────────────────────────────────
 var verifyStandard = 'APP'; // 'APP' | 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL'
 var VERIFY_STANDARDS = {
-  APP:      { label:'App Setup',    exchange:null, criterion:null, note:'Comparing report setup to App-recorded values' },
-  ACGIH:    { label:'ACGIH/NIOSH',  exchange:3,    criterion:85,   note:'Q3 \u00b7 C85 \u00b7 A-weighting \u00b7 Slow \u2014 ACGIH/NIOSH standard' },
-  OSHA_HC:  { label:'OSHA HC',      exchange:5,    criterion:85,   note:'Q5 \u00b7 C85 \u00b7 A-weighting \u00b7 Slow \u2014 OSHA Hearing Conservation' },
-  OSHA_PEL: { label:'OSHA PEL',     exchange:5,    criterion:90,   note:'Q5 \u00b7 C90 \u00b7 A-weighting \u00b7 Slow \u2014 OSHA PEL' }
+  APP:      { label:'App Setup',   exchange:null, criterion:null, dosSlot:null, note:'Comparing report setup to App-recorded values' },
+  ACGIH:    { label:'ACGIH/NIOSH', exchange:3,    criterion:85,   dosSlot:1,    note:'Q3 · C85 · A-weighting · Slow — ACGIH/NIOSH standard (D1)' },
+  OSHA_HC:  { label:'OSHA HC',     exchange:5,    criterion:85,   dosSlot:2,    note:'Q5 · C85 · A-weighting · Slow — OSHA Hearing Conservation (D2)' },
+  OSHA_PEL: { label:'OSHA PEL',    exchange:5,    criterion:90,   dosSlot:3,    note:'Q5 · C90 · A-weighting · Slow — OSHA PEL (D3)' }
 };
 
 function verifySetStandard(std) {
@@ -6571,7 +6643,7 @@ function verifyOpenDrawer(row) {
   lines.push(detailRow('Stop Time', c.stopTime, function(k) {
     return k.diffMin !== undefined ? 'Δ ' + k.diffMin.toFixed(1) + ' min (tolerance ±1)' : '';
   }));
-  lines.push('<div style="font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 4px;">Dosimeter Setup Parameters <span style="font-weight:400; text-transform:none; letter-spacing:0;">— ' + (c._standardLabel || 'App Setup') + '</span></div>');
+  lines.push('<div style="font-size:10px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 4px;">Dosimeter Setup Parameters <span style="font-weight:400; text-transform:none; letter-spacing:0;">— ' + (c._standardLabel || 'App Setup') + (c._dosSlotLabel ? ' · ' + c._dosSlotLabel : '') + '</span></div>');
   lines.push(detailRow('Exchange Rate (dB)', c.exchange, function(k) {
     return k.delta !== undefined ? (k.status === 'PASS' ? 'Match (Δ ' + k.delta.toFixed(2) + ')' : 'MISMATCH — setup differs from report') : '';
   }));
