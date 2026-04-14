@@ -118,8 +118,16 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
   }
 
   // ── 5. Render each letter ─────────────────────────────────────────
+  // Prime the font state once before the loop so jsPDF never falls back to Courier
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10.5);
+
   letters.forEach(function(letter, idx) {
     if (idx > 0) doc.addPage();
+
+    // Reset to known-good font state at the top of every page
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
 
     var s         = letter.survey;
     var empName   = (s.employee?.name    || 'Employee').trim();
@@ -160,16 +168,17 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     // ── HEADER BAND ────────────────────────────────────────────────
     fillRect(0, 0, W, 58, NAVY);
 
-    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setC(TEAL);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); setC(TEAL);
     doc.text('NATIONAL GUARD BUREAU', ML, 18);
-    doc.setFont('helvetica','normal'); setC([165, 195, 215]);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); setC([165, 195, 215]);
     doc.text('REGIONAL INDUSTRIAL HYGIENE \u2014 SOUTHEAST OFFICE', ML, 29);
     doc.text('510 PLAZA DRIVE, SUITE 1530, COLLEGE PARK, GA  30349', ML, 40);
 
-    doc.setFontSize(8); doc.setFont('helvetica','bold'); setC(TEAL);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); setC(TEAL);
     doc.text('IH FIELD', W - MR, 18, { align: 'right' });
-    doc.setFont('helvetica','normal'); setC([165, 195, 215]);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); setC([165, 195, 215]);
     doc.text('Noise Dosimetry', W - MR, 29, { align: 'right' });
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
     y = 70;
 
@@ -178,12 +187,13 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     y += 13;
 
     // ── TITLE ──────────────────────────────────────────────────────
-    doc.setFontSize(13); doc.setFont('helvetica','bold'); setC(NAVY);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); setC(NAVY);
     doc.text('Hearing Conservation Program Notification Letter', ML, y);
     y += 16;
 
-    doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setC(DARK);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); setC(DARK);
     doc.text('Subject: Employee Notification of Noise Survey Sampling Results', ML, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     y += 14;
 
     hRule(y);
@@ -197,28 +207,29 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
     var c1 = ML + 10, c2 = ML + 10 + CW * 0.5;
 
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setC(GRAY);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
     doc.text('EMPLOYEE NAME',        c1, y + 13);
     doc.text('JOB TITLE / COMPANY',  c2, y + 13);
 
-    doc.setFontSize(10); doc.setFont('helvetica','normal'); setC(BLACK);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); setC(BLACK);
     doc.text(empName, c1, y + 27, { maxWidth: CW * 0.46 });
     var titleComp = (empTitle && empComp) ? empTitle + ' \u2014 ' + empComp
                   : (empTitle || empComp || '\u2014');
     doc.text(titleComp, c2, y + 27, { maxWidth: CW * 0.46 });
 
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setC(GRAY);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
     doc.text('SEG',              c1, y + 43);
     doc.text('SURVEY LOCATION',  c2, y + 43);
 
-    doc.setFontSize(9.5); doc.setFont('helvetica','normal'); setC(BLACK);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); setC(BLACK);
     doc.text(seg, c1, y + 55, { maxWidth: CW * 0.46 });
     doc.text(loc, c2, y + 55, { maxWidth: CW * 0.46 });
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
     y += metaH + 14;
 
     // ── PARAGRAPH 1 ────────────────────────────────────────────────
-    doc.setFontSize(10.5); doc.setFont('helvetica','normal'); setC(BLACK);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
     var p1a = '1.  Department of the Army (DA) regulations require employees to be notified of their exposure '
             + 'results from Industrial Hygiene surveys. The following results are from the noise survey '
@@ -226,10 +237,10 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.splitTextToSize(p1a, CW).forEach(function(l){ doc.text(l, ML, y); y += 14; });
 
     y += 2;
-    doc.setFont('helvetica','bolditalic'); setC([0, 95, 160]);
-    doc.splitTextToSize(loc + '  \u2014  ' + surveyDate, CW - 20)
+    doc.setFont('helvetica','bolditalic'); doc.setFontSize(10.5); setC([0, 95, 160]);
+    doc.splitTextToSize(surveyDate, CW - 20)
        .forEach(function(l){ doc.text(l, ML + 16, y); y += 14; });
-    doc.setFont('helvetica','normal'); setC(BLACK);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     y += 6;
 
     // ── TWA RESULT BOX ─────────────────────────────────────────────
@@ -238,16 +249,17 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.setDrawColor(0, 184, 160); doc.setLineWidth(1);
     doc.rect(ML, y, CW, twaBoxH, 'S');
 
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setC(GRAY);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
     doc.text('EMPLOYEE PERSONAL NOISE EXPOSURE \u2014 8-HR TWA', ML + 10, y + 13);
 
-    doc.setFontSize(13.5); doc.setFont('helvetica','bold'); setC(twaColor);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13.5); setC(twaColor);
     doc.text(empName + '     ' + twaStr, ML + 10, y + 31);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
     y += twaBoxH + 12;
 
     // ── PARAGRAPH 2 ────────────────────────────────────────────────
-    doc.setFontSize(10.5); doc.setFont('helvetica','normal'); setC(BLACK);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
     var p2 = '2.  This employee was designated to the ' + seg + ' SEG and there were '
            + sampleLanguage + '. Therefore, a statistical calculation called the Upper '
@@ -262,6 +274,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     y += 6;
 
     // ── PARAGRAPH 3 ────────────────────────────────────────────────
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     doc.text('3.  As a precaution you should continue to:', ML, y);
     y += 15;
 
@@ -271,6 +284,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       'c.  Have a copy of this notification letter placed in your employee file.',
       'd.  If you have any questions regarding this matter, contact the State Occupational Health Office.'
     ].forEach(function(bullet) {
+      doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
       doc.splitTextToSize(bullet, CW - 18).forEach(function(l, i) {
         doc.text(l, ML + (i === 0 ? 10 : 26), y);
         y += 13.5;
@@ -286,31 +300,32 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       doc.setDrawColor(190, 205, 220); doc.setLineWidth(0.5);
       doc.rect(ML, y, CW, statsBoxH, 'S');
 
-      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setC(GRAY);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
       doc.text('UTL CALCULATION SUMMARY', ML + 10, y + 13);
 
       var cols = [ML + 10, ML + 10 + CW * 0.25, ML + 10 + CW * 0.5, ML + 10 + CW * 0.75];
       var labels = ['Samples (n)', 'UTL 95/95', 'SEG Personnel', 'RAC'];
       labels.forEach(function(h, i) { doc.text(h, cols[i], y + 26); });
 
-      doc.setFontSize(11.5); doc.setFont('helvetica','bold');
-      setC(BLACK); doc.text(String(n),         cols[0], y + 42);
-      setC(twaColor); doc.text(utlStr,          cols[1], y + 42);
-      setC(BLACK); doc.text(String(personnel),  cols[2], y + 42);
-      setC(racColor); doc.text(racStr,           cols[3], y + 42);
+      doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+      setC(BLACK);    doc.text(String(n),         cols[0], y + 42);
+      setC(twaColor); doc.text(utlStr,             cols[1], y + 42);
+      setC(BLACK);    doc.text(String(personnel),  cols[2], y + 42);
+      setC(racColor); doc.text(racStr,              cols[3], y + 42);
+      doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
       y += statsBoxH + 10;
     }
 
     // ── FOOTER ─────────────────────────────────────────────────────
     fillRect(0, H - 34, W, 34, NAVY);
-    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setC([145, 178, 200]);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC([145, 178, 200]);
     doc.text('IH Field \u2014 Noise Dosimetry  |  HCP Notification Letter', ML, H - 18);
     doc.text(
       'Generated: ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}),
       ML, H - 8
     );
-    setC([145, 178, 200]);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC([145, 178, 200]);
     doc.text('CONTROLLED DISTRIBUTION \u2014 FOR EMPLOYEE FILE USE ONLY', W - MR, H - 13, { align: 'right' });
   });
 
