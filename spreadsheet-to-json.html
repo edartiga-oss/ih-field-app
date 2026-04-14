@@ -888,13 +888,13 @@ function derivePlacement(sheetCBs, side) {
   else if (rShoulder)           location = 'Right shoulder';
   else if (area)                location = 'Chest/lapel area';
 
-  const windscreen = windYes ? 'Yes' : 'No';
-  const micType    = windYes ? 'Omnidirectional, windscreen installed' : 'Omnidirectional';
+  const windscreen = windYes ? 'yes' : 'no';
+  const micType    = windYes ? 'Omnidirectional, windscreen installed' : 'Omnidirectional, no windscreen';
   const noteParts  = [];
   if (operator) noteParts.push('Operator position');
   if (ambient)  noteParts.push('Ambient conditions');
 
-  return { location, micType, windscreen, obstructions: 'None noted', notes: noteParts.join('; ') };
+  return { location, micType, windscreen, obstructions: 'none', notes: noteParts.join('; ') };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -996,8 +996,16 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       continue;
     }
 
-    // Skip rows where the label looks like a time (HH:MM:SS)
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(labelStr)) continue;
+    // Skip rows where the label looks like a time (HH:MM:SS) UNLESS we're in the
+    // Work Description section — those are hourly field observation rows we want to keep
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(labelStr)) {
+      if (section === 'Work Description/ Equipment Used/PPE Used' && rawVal) {
+        // Store as "HH:MM" keyed under the section, deduplicating by time
+        const timeKey = `${section}.${labelStr.slice(0,5)}`;
+        if (!(timeKey in kv)) kv[timeKey] = rawVal;
+      }
+      continue;
+    }
 
     const key = section ? `${section}.${labelStr}` : labelStr;
     if (!(key in kv)) kv[key] = rawVal;  // first-seen wins
@@ -1111,10 +1119,50 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
     }
   }
 
-  const noiseNotes  = [
+  const noiseNotes = [
     clean(kv['Work Description/ Equipment Used/PPE Used.Primary Noise Source'] || kv['Survey Data.Primary Noise Source'] || ''),
     clean(kv['Work Description/ Equipment Used/PPE Used.Eng/PPE/Admin Controls'] || kv['Survey Data.Eng/PPE/Admin Controls'] || '')
   ].filter(Boolean).join('; ');
+
+  // Eng/PPE/Admin Controls — stored as a combined string in the spreadsheet
+  const controlsRaw = clean(
+    kv['Work Description/ Equipment Used/PPE Used.Eng/PPE/Admin Controls'] ||
+    kv['Survey Data.Eng/PPE/Admin Controls'] || ''
+  );
+
+  // Hourly field observations — stored in kv as "Work Description....HH:MM" → text
+  // Note: first-seen wins in kv, but hourly rows often repeat identical text across hours.
+  // Instead, re-scan aoa directly to get ALL hourly rows in sheet order.
+  const _WORK_SUBSECTIONS = new Set(['Primary Noise Source','Eng/PPE/Admin Controls','Time']);
+  const _MAIN_SECTIONS = new Set(['Dosimeter','Calibration','Pre Cal','Post Cal','Survey Data',
+    'Work Description/ Equipment Used/PPE Used']);
+  const hourlyObs = [];
+  let inWorkDesc = false;
+  for (let i = 0; i < aoa.length; i++) {
+    const labelRaw = aoa[i][labelCol];
+    if (!labelRaw && labelRaw !== 0) continue;
+    const label = labelRaw.toString().trim();
+    if (!label) continue;
+    // Enter Work Description section
+    if (label === 'Work Description/ Equipment Used/PPE Used') { inWorkDesc = true; continue; }
+    // Exit only on a new top-level section header
+    if (inWorkDesc && _MAIN_SECTIONS.has(label) && label !== 'Work Description/ Equipment Used/PPE Used') {
+      inWorkDesc = false;
+    }
+    if (!inWorkDesc) continue;
+    // Skip sub-headers and non-time rows; capture time-keyed observation rows
+    if (_WORK_SUBSECTIONS.has(label)) continue;
+    if (/^\d{1,2}:\d{2}/.test(label)) {
+      const valRaw = aoa[i][valCol];
+      const text = valRaw ? clean(valRaw.toString()) : '';
+      if (text && text.toLowerCase() !== 'lunch') {
+        hourlyObs.push(`${label.slice(0, 5)}: ${text}`);
+      }
+    }
+  }
+  // Map to hour1–hour10 slots (up to 10 entries)
+  const hourSlots = {};
+  hourlyObs.slice(0, 10).forEach((obs, i) => { hourSlots[`hour${i+1}`] = obs; });
 
   return {
     id: `NDS-${sheetName.replace(/\s/g,'')}${labelCol===0?'L':'R'}-${Date.now().toString(36).toUpperCase().slice(-4)}`,
@@ -1175,6 +1223,14 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       dose,
       lasmax: null,
       runTimeHrs: rtMins ? parseFloat((rtMins / 60).toFixed(4)) : null,
+      engControls:   controlsRaw,   // combined eng/PPE/admin from spreadsheet
+      adminControls: '',
+      ppe:           '',
+      hour1:  hourSlots.hour1  || '', hour2:  hourSlots.hour2  || '',
+      hour3:  hourSlots.hour3  || '', hour4:  hourSlots.hour4  || '',
+      hour5:  hourSlots.hour5  || '', hour6:  hourSlots.hour6  || '',
+      hour7:  hourSlots.hour7  || '', hour8:  hourSlots.hour8  || '',
+      hour9:  hourSlots.hour9  || '', hour10: hourSlots.hour10 || '',
     },
     ih: {
       name:  ihName || document.getElementById('ihName').value.trim(),
@@ -1721,19 +1777,26 @@ function buildExportSurvey(s) {
       surveyEnd:    s.calibration.surveyEnd    || '',
     },
     placement: {
-      location:    (s.placement && s.placement.location) || '',
-      micType:     '',
-      windscreen:  '',
-      obstructions:'',
+      location:    (s.placement && s.placement.location)    || '',
+      micType:     (s.placement && s.placement.micType)     || '',
+      windscreen:  (s.placement && s.placement.windscreen)  || '',
+      obstructions:(s.placement && s.placement.obstructions)|| 'none',
+      notes:       (s.placement && s.placement.notes)       || '',
     },
     results: {
-      twa:         s.results.twa   !== null && s.results.twa   !== undefined ? s.results.twa   : null,
-      dosReportTWA:s.results.twa   !== null && s.results.twa   !== undefined ? s.results.twa   : null,
-      lavg:        s.results.lavg  !== null && s.results.lavg  !== undefined ? s.results.lavg  : null,
-      dose:        s.results.dose  !== null && s.results.dose  !== undefined ? s.results.dose  : null,
+      twa:         s.results.twa  != null ? s.results.twa  : null,
+      dosReportTWA:s.results.twa  != null ? s.results.twa  : null,
+      lavg:        s.results.lavg != null ? s.results.lavg : null,
+      dose:        s.results.dose != null ? s.results.dose : null,
       runTime,
-      hour1:'', hour2:'', hour3:'', hour4:'', hour5:'',
-      hour6:'', hour7:'', hour8:'', hour9:'', hour10:'',
+      engControls:   s.results.engControls   || '',
+      adminControls: s.results.adminControls || '',
+      ppe:           s.results.ppe           || '',
+      hour1:  s.results.hour1  || '', hour2:  s.results.hour2  || '',
+      hour3:  s.results.hour3  || '', hour4:  s.results.hour4  || '',
+      hour5:  s.results.hour5  || '', hour6:  s.results.hour6  || '',
+      hour7:  s.results.hour7  || '', hour8:  s.results.hour8  || '',
+      hour9:  s.results.hour9  || '', hour10: s.results.hour10 || '',
     },
     ih: {
       name:        s.ih.name  || '',
