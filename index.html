@@ -6397,42 +6397,317 @@ function renderRAC() {
 }
 
 function printRAC() {
-  // Build filter summary for printout
-  var ihLabels  = racSelectedIHs       === null ? ['All IHs']        : [...racSelectedIHs].sort();
-  var locLabels = racSelectedLocations === null ? ['All Locations']   : [...racSelectedLocations].sort();
-  var segLabels = racSelectedSEGs      === null ? ['All SEGs']        : [...racSelectedSEGs].sort();
+  try {
+    if (!window.jspdf) {
+      if (confirm('PDF library not loaded. This usually means a cached version of the page is being served.\n\nClick OK to reload, or Cancel to dismiss.')) {
+        window.location.reload(true);
+      }
+      return;
+    }
 
-  var summaryHTML =
-    '<div id="racPrintFilterSummary" style="display:none; margin-bottom:16px; padding:10px 14px;'
-    + 'border:1px solid #ccc; border-radius:6px; font-size:11px; color:#4a5c72;">'
-    + '<div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;'
-    + 'color:#8096b0; margin-bottom:6px;">Filters Applied</div>'
-    + '<div style="display:flex; flex-wrap:wrap; gap:12px;">'
-    + '<div><strong>IH:</strong> ' + ihLabels.map(function(s){ return esc(s); }).join(', ') + '</div>'
-    + '<div><strong>Location:</strong> ' + locLabels.map(function(s){ return esc(s); }).join(', ') + '</div>'
-    + '<div><strong>SEG:</strong> ' + segLabels.map(function(s){ return esc(s); }).join(', ') + '</div>'
-    + '</div>'
-    + '<div style="margin-top:6px; font-size:10px; color:#8096b0;">Printed: ' + new Date().toLocaleString() + '</div>'
-    + '</div>';
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    var W = doc.internal.pageSize.getWidth();
+    var H = doc.internal.pageSize.getHeight();
+    var NAVY  = [15,  34,  53];
+    var TEAL  = [0,  184, 160];
+    var GRAY  = [74,  92, 114];
+    var LGRAY = [235, 238, 243];
+    var WHITE = [255, 255, 255];
+    var RED   = [163,  45,  45];
+    var AMBER = [122,  79,   0];
+    var GREEN = [  8,  80,  65];
+    var L  = 36;
+    var R  = W - 36;
+    var CW = R - L;
 
-  // Inject summary before racResults
-  var resultsEl = document.getElementById('racResults');
-  var summaryEl = document.getElementById('racPrintFilterSummary');
-  if (summaryEl) summaryEl.remove();
-  resultsEl.insertAdjacentHTML('beforebegin', summaryHTML);
+    function addPageFooter() {
+      doc.setDrawColor(...LGRAY); doc.setLineWidth(0.5);
+      doc.line(L, H - 28, R, H - 28);
+      doc.setFontSize(8); doc.setFont('helvetica','normal');
+      doc.setTextColor(...GRAY);
+      doc.text('IH Field \u2014 Noise RAC Report', L, H - 16);
+      doc.text('Page ' + doc.internal.getNumberOfPages(), R, H - 16, { align: 'right' });
+    }
 
-  // Activate RAC view and print
-  var views = document.querySelectorAll('.view');
-  var prevActive = document.querySelector('.view.active');
-  views.forEach(function(v) { v.classList.remove('active'); });
-  document.getElementById('view-rac').classList.add('active');
-  window.print();
+    function checkY(y, needed) {
+      if (y + needed > H - 48) {
+        addPageFooter();
+        doc.addPage();
+        y = 36;
+      }
+      return y;
+    }
 
-  // Restore
-  views.forEach(function(v) { v.classList.remove('active'); });
-  if (prevActive) prevActive.classList.add('active');
-  var injected = document.getElementById('racPrintFilterSummary');
-  if (injected) injected.remove();
+    function sectionLabel(y, label) {
+      doc.setFillColor(...LGRAY); doc.rect(L, y, CW, 18, 'F');
+      doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.setTextColor(...GRAY);
+      doc.text(label.toUpperCase(), L + 8, y + 12);
+      return y + 18;
+    }
+
+    function racColors(rac) {
+      if (rac === 2) return { bg: [252,235,235], txt: RED   };
+      if (rac === 3) return { bg: [255,248,230], txt: AMBER };
+      if (rac === 4) return { bg: [225,245,238], txt: GREEN };
+      return { bg: LGRAY, txt: GRAY };
+    }
+
+    function racLabel(rac) {
+      if (rac === 2) return 'RAC 2 \u2014 High';
+      if (rac === 3) return 'RAC 3 \u2014 Medium';
+      if (rac === 4) return 'RAC 4 \u2014 Low';
+      return '\u2014';
+    }
+
+    var fmtDb = function(v) { return (v === null || v === undefined || isNaN(v)) ? '\u2014' : v.toFixed(1) + ' dBA'; };
+
+    // ── Collect filtered data ──────────────────────────────
+    var allIHs  = [...new Set(surveys.map(function(s){ return s.deviceNickname || (s.ih && s.ih.name) || ''; }).filter(Boolean))].sort();
+    var allLocs = [...new Set(surveys.map(function(s){ return (s.employee && s.employee.location) || ''; }).filter(Boolean))].sort();
+    var allSEGs = [...new Set(surveys.map(function(s){ return (s.employee && s.employee.seg) || ''; }).filter(Boolean))].sort();
+
+    var effIHs  = racSelectedIHs        !== null ? racSelectedIHs        : new Set(allIHs);
+    var effLocs = racSelectedLocations  !== null ? racSelectedLocations  : new Set(allLocs);
+
+    var sel = surveys.filter(function(s) {
+      var ih  = s.deviceNickname || (s.ih && s.ih.name) || '';
+      var loc = (s.employee && s.employee.location) || '';
+      var seg = (s.employee && s.employee.seg) || '';
+      return (!allIHs.length  || effIHs.has(ih))
+          && (!allLocs.length || effLocs.has(loc))
+          && (racSelectedSEGs === null || racSelectedSEGs.has(seg));
+    });
+
+    var segGroups = {};
+    sel.forEach(function(s) {
+      var seg = (s.employee && s.employee.seg) || 'Unknown';
+      if (!segGroups[seg]) segGroups[seg] = [];
+      segGroups[seg].push(s);
+    });
+    var segs = Object.keys(segGroups).sort();
+
+    // ── Page 1 header ─────────────────────────────────────
+    doc.setFillColor(...NAVY); doc.rect(0, 0, W, 56, 'F');
+    doc.setFillColor(...TEAL); doc.rect(0, 56, W, 4,  'F');
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(17); doc.setFont('helvetica','bold');
+    doc.text('NOISE RISK ASSESSMENT CODE (RAC) REPORT', L, 26);
+    doc.setFontSize(9);  doc.setFont('helvetica','normal');
+    var proj = (projectMeta && projectMeta.name)     ? projectMeta.name     : '';
+    var std  = (projectMeta && projectMeta.standard) ? projectMeta.standard : '';
+    doc.text((proj ? proj + '  |  ' : '') + (std ? std + '  |  ' : '') + 'Printed: ' + new Date().toLocaleString(), L, 44);
+    addPageFooter();
+
+    var y = 76;
+
+    // ── Filters ───────────────────────────────────────────
+    var ihLabels  = racSelectedIHs       === null ? ['All IHs']      : [...racSelectedIHs].sort();
+    var locLabels = racSelectedLocations === null ? ['All Locations'] : [...racSelectedLocations].sort();
+    var segLabels = racSelectedSEGs      === null ? ['All SEGs']      : [...racSelectedSEGs].sort();
+
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+    doc.text('FILTERS APPLIED', L, y + 10); y += 18;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(30,30,30);
+    doc.text('IH: '       + ihLabels.join(', '),  L, y); y += 13;
+    doc.text('Location: ' + locLabels.join(', '), L, y); y += 13;
+    doc.text('SEG: '      + segLabels.join(', '), L, y); y += 20;
+
+    // ── RAC Reference table ───────────────────────────────
+    y = checkY(y, 120);
+    y = sectionLabel(y, 'Noise RAC Reference Table'); y += 8;
+
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+    doc.text('(1) Determine number of personnel in SEG / OEG.', L, y); y += 12;
+    doc.text('(2) Calculate UTL (95th %ile / 95% confidence). For <6 samples, small-sample correction applied.', L, y); y += 12;
+    doc.text('(3) Compare UTL to table below.', L, y); y += 14;
+
+    var col0 = L, col1 = L + CW * 0.55, col2 = L + CW * 0.775;
+    var rh = 20;
+    doc.setFillColor(...NAVY); doc.rect(col0, y, CW, rh, 'F');
+    doc.setTextColor(...WHITE); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('UTL Result',    col0 + 6, y + 13);
+    doc.text('< 10 people',   col1 + 6, y + 13);
+    doc.text('10 or more',    col2 + 6, y + 13);
+    y += rh;
+
+    var refRows = [
+      ['< 82 dBA TWA',        'RAC 4 \u2014 Low',    GREEN, 'RAC 3 \u2014 Medium', AMBER],
+      ['82 dBA and over TWA', 'RAC 3 \u2014 Medium', AMBER, 'RAC 2 \u2014 High',   RED  ],
+    ];
+    refRows.forEach(function(r, i) {
+      var rowBg = i % 2 === 0 ? [250,250,252] : WHITE;
+      doc.setFillColor(...rowBg); doc.rect(col0, y, CW, rh, 'F');
+      doc.setDrawColor(...LGRAY); doc.setLineWidth(0.4); doc.rect(col0, y, CW, rh, 'S');
+      doc.setTextColor(40,40,40); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.text(r[0], col0 + 6, y + 13);
+      doc.setFillColor(...r[2]); doc.roundedRect(col1 + 4, y + 4, 90, 12, 3, 3, 'F');
+      doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.text(r[1], col1 + 49, y + 12, { align: 'center' });
+      doc.setFillColor(...r[4]); doc.roundedRect(col2 + 4, y + 4, 90, 12, 3, 3, 'F');
+      doc.text(r[3], col2 + 49, y + 12, { align: 'center' });
+      y += rh;
+    });
+    y += 20;
+
+    // ── Summary table ─────────────────────────────────────
+    y = checkY(y, 60);
+    y = sectionLabel(y, 'SEG Summary'); y += 8;
+
+    var sc = [L, L + CW*0.32, L + CW*0.55, L + CW*0.72];
+    var sh = 18;
+    doc.setFillColor(...NAVY); doc.rect(L, y, CW, sh, 'F');
+    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    ['SEG Name','UTL 95/95','Personnel','RAC'].forEach(function(h, i) {
+      doc.text(h, sc[i] + 6, y + 12);
+    });
+    y += sh;
+
+    segs.forEach(function(seg, si) {
+      y = checkY(y, 22);
+      var group     = segGroups[seg];
+      var twas      = group.map(function(s){ return parseFloat(s.results && s.results.twa); }).filter(function(n){ return !isNaN(n); });
+      var stats     = lognormalStats(twas);
+      var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
+      var utlNA     = !twas.length;
+      var surveyCt  = group.length;
+      var personnel = racPersonnelOverrides[seg] || surveyCt;
+      var rac       = utlNA ? null : calcRAC(utl, personnel);
+      var rc        = racColors(rac);
+
+      doc.setFillColor(...(si % 2 === 0 ? [248,249,251] : WHITE));
+      doc.rect(L, y, CW, 22, 'F');
+      doc.setDrawColor(...LGRAY); doc.setLineWidth(0.3); doc.rect(L, y, CW, 22, 'S');
+      doc.setTextColor(20,20,20); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.text(seg, sc[0] + 6, y + 14);
+      doc.setFont('helvetica','normal');
+      doc.text(utlNA ? 'N/A' : fmtDb(utl), sc[1] + 6, y + 14);
+      doc.text(String(personnel),            sc[2] + 6, y + 14);
+      if (rac !== null) {
+        doc.setFillColor(...rc.bg); doc.roundedRect(sc[3] + 4, y + 4, 90, 14, 3, 3, 'F');
+        doc.setTextColor(...rc.txt); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+        doc.text(racLabel(rac), sc[3] + 49, y + 13, { align: 'center' });
+      } else {
+        doc.setTextColor(...GRAY); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+        doc.text('\u2014', sc[3] + 6, y + 14);
+      }
+      y += 22;
+    });
+    y += 18;
+
+    // ── Per-SEG detail sections ───────────────────────────
+    segs.forEach(function(seg) {
+      var group     = segGroups[seg];
+      var twas      = group.map(function(s){ return parseFloat(s.results && s.results.twa); }).filter(function(n){ return !isNaN(n); });
+      var stats     = lognormalStats(twas);
+      var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
+      var utlNA     = !twas.length;
+      var surveyCt  = group.length;
+      var personnel = racPersonnelOverrides[seg] || surveyCt;
+      var rac       = utlNA ? null : calcRAC(utl, personnel);
+      var rc        = racColors(rac);
+
+      y = checkY(y, 80);
+
+      // SEG header band
+      doc.setFillColor(...NAVY); doc.rect(L, y, CW, 24, 'F');
+      doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+      doc.text(seg, L + 8, y + 16);
+      if (rac !== null) {
+        doc.setFillColor(...rc.bg); doc.roundedRect(R - 100, y + 5, 92, 14, 3, 3, 'F');
+        doc.setTextColor(...rc.txt); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+        doc.text(racLabel(rac), R - 54, y + 14, { align: 'center' });
+      }
+      y += 24;
+
+      // Metrics row
+      var metrics = [
+        ['n (surveys)', String(surveyCt)],
+        ['Personnel',   String(personnel)],
+        ['GM',          stats ? fmtDb(stats.gm) : '\u2014'],
+        ['UCL 95%',     (stats && !isNaN(stats.ucl95)) ? fmtDb(stats.ucl95) : '\u2014'],
+        ['UTL 95/95',   utlNA ? 'N/A' : fmtDb(utl)],
+      ];
+      var mw = CW / metrics.length;
+      metrics.forEach(function(m, mi) {
+        var mx = L + mi * mw;
+        doc.setFillColor(245,246,248); doc.rect(mx, y, mw - 2, 34, 'F');
+        doc.setDrawColor(...LGRAY); doc.setLineWidth(0.3); doc.rect(mx, y, mw - 2, 34, 'S');
+        doc.setTextColor(...GRAY); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+        doc.text(m[0], mx + 6, y + 10);
+        doc.setTextColor(20,20,20); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        doc.text(m[1], mx + 6, y + 26);
+      });
+      y += 38;
+
+      // Small-sample warning
+      if (stats && stats.smallSample) {
+        y = checkY(y, 18);
+        doc.setFillColor(255,248,230); doc.rect(L, y, CW, 16, 'F');
+        doc.setTextColor(...AMBER); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.text('Small sample (n=' + stats.n + ', <6): UTL estimate is imprecise.', L + 6, y + 11);
+        y += 18;
+      } else if (twas.length === 1) {
+        y = checkY(y, 18);
+        doc.setFillColor(255,248,230); doc.rect(L, y, CW, 16, 'F');
+        doc.setTextColor(...AMBER); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        doc.text('Single sample (n=1): TWA used directly as UTL.', L + 6, y + 11);
+        y += 18;
+      }
+
+      // Survey results table header
+      y = checkY(y, 22);
+      var dc = [L, L+CW*0.22, L+CW*0.40, L+CW*0.56, L+CW*0.72, L+CW*0.86];
+      doc.setFillColor(235,238,243); doc.rect(L, y, CW, 16, 'F');
+      doc.setTextColor(...GRAY); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+      ['Employee','IH','Date','Location','TWA','Dose %'].forEach(function(h, i) {
+        doc.text(h, dc[i] + 4, y + 11);
+      });
+      y += 16;
+
+      // Survey rows
+      group.slice().sort(function(a,b){
+        return (parseFloat(b.results && b.results.twa)||0) - (parseFloat(a.results && a.results.twa)||0);
+      }).forEach(function(s, ri) {
+        y = checkY(y, 16);
+        var twa  = parseFloat(s.results && s.results.twa);
+        var dose = parseFloat(s.results && s.results.dose);
+        var date = (s.calibration && s.calibration.surveyStart)
+          ? new Date(s.calibration.surveyStart).toLocaleDateString() : '\u2014';
+        var twaColor = isNaN(twa) ? GRAY : twa >= 90 ? RED : twa >= 85 ? AMBER : GREEN;
+
+        doc.setFillColor(...(ri % 2 === 0 ? [251,252,254] : WHITE));
+        doc.rect(L, y, CW, 16, 'F');
+        doc.setDrawColor(...LGRAY); doc.setLineWidth(0.2); doc.rect(L, y, CW, 16, 'S');
+        doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+        doc.setTextColor(20,20,20);
+        doc.text((s.employee && s.employee.name) || '\u2014', dc[0]+4, y+11);
+        doc.setTextColor(...TEAL);
+        doc.text(s.deviceNickname || (s.ih && s.ih.name) || '\u2014', dc[1]+4, y+11);
+        doc.setTextColor(20,20,20);
+        doc.text(date, dc[2]+4, y+11);
+        doc.text((s.employee && s.employee.location) || '\u2014', dc[3]+4, y+11);
+        doc.setTextColor(...twaColor); doc.setFont('helvetica','bold');
+        doc.text(isNaN(twa) ? '\u2014' : twa.toFixed(1)+' dBA', dc[4]+4, y+11);
+        doc.setTextColor(20,20,20); doc.setFont('helvetica','normal');
+        doc.text(isNaN(dose) ? '\u2014' : dose.toFixed(1)+'%', dc[5]+4, y+11);
+        y += 16;
+      });
+      y += 20;
+    });
+
+    addPageFooter();
+
+    // ── Save ──────────────────────────────────────────────
+    var projName = (projectMeta && projectMeta.name) ? projectMeta.name.replace(/\s+/g,'-') : 'Project';
+    doc.save('NoiseRAC_' + projName + '_' + new Date().toISOString().slice(0,10) + '.pdf');
+    showToast('RAC PDF exported', 'success');
+
+  } catch(e) {
+    showToast('RAC PDF export failed: ' + e.message, 'error');
+    console.error(e);
+  }
 }
 
 </script>
