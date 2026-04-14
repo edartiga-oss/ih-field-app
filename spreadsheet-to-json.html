@@ -1064,12 +1064,19 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
     return ds || '';
   };
 
-  // Shop and survey date live in the shared header area (rows 2-3, col A/B).
-  // The right-side survey (cols E/F) has no Shop field — fall back to left side's Shop (col B).
-  // We read these directly from the raw aoa since they're above the section-key structure.
-  const shopFromHeader   = (aoa[2] && aoa[2][1]) ? clean(aoa[2][1].toString()) : ''; // row 3 col B
-  const shopRaw    = clean(kv['Shop']) || shopFromHeader;
-  const locationRaw= clean(kv['Location']) || shopRaw;
+  // Shop = row 3 col B (shared for both sides)
+  const shopFromHeader = (aoa[2] && aoa[2][1]) ? clean(aoa[2][1].toString()) : ''; // row 3 col B
+  const shopRaw = clean(kv['Shop']) || shopFromHeader;
+
+  // Location = row 3 col F — always the shared facility location for both surveys in this tab
+  const locationFromHeader = (aoa[2] && aoa[2][5]) ? clean(aoa[2][5].toString()) : ''; // row 3 col F
+  const locationRaw = locationFromHeader || clean(kv['Location']) || shopRaw;
+
+  // Dept/Area — blank unless a building number is referenced in SEG or primary noise source
+  const segText  = clean(kv['SEG'] || '');
+  const noteText = clean(kv['Work Description/ Equipment Used/PPE Used.Primary Noise Source'] || kv['Survey Data.Primary Noise Source'] || '');
+  const bldgMatch = (segText + ' ' + noteText).match(/\b[Bb]ldg\.?\s*\d+\b/);
+  const deptRaw = bldgMatch ? bldgMatch[0] : '';
 
   // Survey date: shared row 2 col B for both sides
   const surveyDateFromHeader = (aoa[1] && aoa_raw[1] && aoa_raw[1][1]) ? fmtDateRaw(aoa_raw[1][1]) : '';
@@ -1180,10 +1187,10 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       empId: '',
       company: shopRaw || 'RRAD',
       title: clean(kv['Job Titile'] || kv['Job Title'] || ''),
-      dept: locationRaw,
+      dept: deptRaw,
       location: locationRaw,
       task: clean(kv['Processes'] || ''),
-      seg: clean(kv['SEG'] || ''),
+      seg: segText,
       process: clean(kv['Processes'] || ''),
     },
     dosimeter: {
