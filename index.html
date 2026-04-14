@@ -1377,34 +1377,34 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
         <div class="field">
           <label style="color:var(--teal); font-weight:600;">ACGIH/NIOSH Dose %</label>
           <input type="number" id="resAcgihDose" placeholder="e.g., 223.5" step="0.1" oninput="autosave()">
-          <div class="hint">D1 — Q3, C85, T80 · auto-calc from Lavg</div>
+          <div class="hint">D1 — Q3, C85, T80 · Dose% auto-calc when Lavg + Run Time entered</div>
         </div>
         <div class="field">
           <label style="color:var(--teal); font-weight:600;">ACGIH/NIOSH Lavg (dBA)</label>
-          <input type="number" id="resAcgihLavg" placeholder="e.g., 88.5" step="0.1" oninput="autosave()">
-          <div class="hint">D1 Lavg · same as measured Lavg</div>
+          <input type="number" id="resAcgihLavg" placeholder="e.g., 88.5" step="0.1" oninput="syncStandardResults(); autosave()">
+          <div class="hint">D1 Lavg · from report (threshold-dependent)</div>
         </div>
 
         <div class="field">
           <label style="color:#6b7fcf; font-weight:600;">OSHA HC Dose %</label>
           <input type="number" id="resOshaHcDose" placeholder="e.g., 48.6" step="0.1" oninput="autosave()">
-          <div class="hint">D2 — Q5, C85, T80 · auto-calc from Lavg</div>
+          <div class="hint">D2 — Q5, C85, T80 · Dose% auto-calc when Lavg + Run Time entered</div>
         </div>
         <div class="field">
           <label style="color:#6b7fcf; font-weight:600;">OSHA HC Lavg (dBA)</label>
-          <input type="number" id="resOshaHcLavg" placeholder="e.g., 84.7" step="0.1" oninput="autosave()">
-          <div class="hint">D2 Lavg · same as measured Lavg</div>
+          <input type="number" id="resOshaHcLavg" placeholder="e.g., 84.7" step="0.1" oninput="syncStandardResults(); autosave()">
+          <div class="hint">D2 Lavg · from report (threshold-dependent)</div>
         </div>
 
         <div class="field">
           <label style="color:#c07040; font-weight:600;">OSHA PEL Dose %</label>
           <input type="number" id="resOshaPelDose" placeholder="e.g., 27.1" step="0.1" oninput="autosave()">
-          <div class="hint">D3 — Q5, C90, T90 · auto-calc from Lavg</div>
+          <div class="hint">D3 — Q5, C90, T90 · Dose% auto-calc when Lavg + Run Time entered</div>
         </div>
         <div class="field">
           <label style="color:#c07040; font-weight:600;">OSHA PEL Lavg (dBA)</label>
-          <input type="number" id="resOshaPelLavg" placeholder="e.g., 80.5" step="0.1" oninput="autosave()">
-          <div class="hint">D3 Lavg · same as measured Lavg</div>
+          <input type="number" id="resOshaPelLavg" placeholder="e.g., 80.5" step="0.1" oninput="syncStandardResults(); autosave()">
+          <div class="hint">D3 Lavg · from report (threshold-dependent)</div>
         </div>
 
       </div>
@@ -3486,22 +3486,24 @@ function calcResults() {
   syncStandardResults();
 }
 
-// ── Cross-standard Dose%/Lavg calculator ─────────────────────────────────────
-// Lavg is exchange-rate-independent (it's just the time-averaged SPL).
-// Dose% depends on exchange rate and criterion:
+// ── Cross-standard Dose% calculator ──────────────────────────────────────────
+// Lavg differs between standards because each uses a different threshold
+// (ACGIH T80, OSHA HC T80, OSHA PEL T90) — sounds below the threshold
+// are excluded from the time-averaging, so a higher threshold = lower Lavg.
+// Therefore Lavg CANNOT be cross-derived; it must come from the dosimeter report.
+//
+// Dose% CAN be cross-calculated given Lavg + RunTime for each standard:
 //   Dose% = 100 × (RunTime/8) × 10^((Lavg − Criterion) / (Exchange / log10(2)))
-// So given Lavg + RunTime from the measured values, all three standard
-// slots can be calculated regardless of which standard the dosimeter was set to.
 //
 // Standard parameters:
-//   ACGIH/NIOSH : Exchange=3, Criterion=85
-//   OSHA HC     : Exchange=5, Criterion=85
-//   OSHA PEL    : Exchange=5, Criterion=90
+//   ACGIH/NIOSH : Exchange=3, Criterion=85, Threshold=80
+//   OSHA HC     : Exchange=5, Criterion=85, Threshold=80
+//   OSHA PEL    : Exchange=5, Criterion=90, Threshold=90
 
 var STD_PARAMS = {
-  ACGIH:    { exchange: 3, criterion: 85, doseId: 'resAcgihDose',   lavgId: 'resAcgihLavg'   },
-  OSHA_HC:  { exchange: 5, criterion: 85, doseId: 'resOshaHcDose',  lavgId: 'resOshaHcLavg'  },
-  OSHA_PEL: { exchange: 5, criterion: 90, doseId: 'resOshaPelDose', lavgId: 'resOshaPelLavg' }
+  ACGIH:    { exchange: 3, criterion: 85, threshold: 80, doseId: 'resAcgihDose',   lavgId: 'resAcgihLavg'   },
+  OSHA_HC:  { exchange: 5, criterion: 85, threshold: 80, doseId: 'resOshaHcDose',  lavgId: 'resOshaHcLavg'  },
+  OSHA_PEL: { exchange: 5, criterion: 90, threshold: 90, doseId: 'resOshaPelDose', lavgId: 'resOshaPelLavg' }
 };
 
 function calcDoseFromLavg(lavg, runTime, exchange, criterion) {
@@ -3537,25 +3539,22 @@ function syncStandardResults(forceOverwrite) {
     if (!doseEl || !lavgEl) return;
 
     if (slot === activeSlot) {
-      // This is the dosimeter's native standard — copy directly from measured values
-      if (doseRaw && (forceOverwrite || !doseEl.value)) {
+      // Native standard — copy directly from measured values
+      if (!isNaN(dose) && doseRaw && (forceOverwrite || !doseEl.value)) {
         doseEl.value = dose.toFixed(1);
         anyPopulated = true;
       }
-      if (lavgRaw && (forceOverwrite || !lavgEl.value)) {
+      if (!isNaN(lavg) && lavgRaw && (forceOverwrite || !lavgEl.value)) {
         lavgEl.value = lavg.toFixed(1);
         anyPopulated = true;
       }
     } else {
-      // Cross-calculate for other standards using Lavg (standard-independent)
-      // Lavg: copy directly — it's the same physical quantity regardless of standard
-      if (!isNaN(lavg) && (forceOverwrite || !lavgEl.value)) {
-        lavgEl.value = lavg.toFixed(1);
-        anyPopulated = true;
-      }
-      // Dose: re-calculate using this standard's exchange rate and criterion
-      if (!isNaN(lavg) && !isNaN(runTime) && runTime > 0 && (forceOverwrite || !doseEl.value)) {
-        var calcDose = calcDoseFromLavg(lavg, runTime, p.exchange, p.criterion);
+      // Non-native standard:
+      // Lavg — can ONLY come from the dosimeter report (threshold differs), never cross-copy.
+      // Dose% — can be cross-calculated IF this slot's Lavg is already populated.
+      var slotLavg = parseFloat(lavgEl.value);
+      if (!isNaN(slotLavg) && !isNaN(runTime) && runTime > 0 && (forceOverwrite || !doseEl.value)) {
+        var calcDose = calcDoseFromLavg(slotLavg, runTime, p.exchange, p.criterion);
         if (calcDose !== null) {
           doseEl.value = calcDose.toFixed(1);
           anyPopulated = true;
@@ -3567,35 +3566,35 @@ function syncStandardResults(forceOverwrite) {
   if (anyPopulated) autosave();
 }
 
-// Force-sync: overwrites all per-standard fields and shows a summary toast
+// Force-sync: recalculates all Dose% values where Lavg is present
 function forceSyncStandardResults() {
-  var lavgRaw    = document.getElementById('resLavg').value;
   var runTimeRaw = document.getElementById('resRunTime').value;
-  var lavg       = parseFloat(lavgRaw);
   var runTime    = parseFloat(runTimeRaw);
 
-  if (isNaN(lavg)) {
-    showToast('Enter Lavg first — it is needed to calculate all standard doses', 'warn');
-    return;
-  }
   if (isNaN(runTime) || runTime <= 0) {
-    showToast('Enter Run Time to calculate cross-standard Dose% values', 'warn');
+    showToast('Enter Run Time to calculate Dose% values', 'warn');
     return;
   }
 
   syncStandardResults(true); // forceOverwrite = true
 
-  var exchange  = parseFloat(document.getElementById('dosExchange').value);
-  var criterion = parseFloat(document.getElementById('dosCriterion').value);
-  var activeSlot = null;
-  if (exchange === 3 && criterion === 85) activeSlot = 'ACGIH/NIOSH';
-  else if (exchange === 5 && criterion === 85) activeSlot = 'OSHA HC';
-  else if (exchange === 5 && criterion === 90) activeSlot = 'OSHA PEL';
+  // Show which slots were calculable
+  var populated = [];
+  Object.keys(STD_PARAMS).forEach(function(slot) {
+    var p = STD_PARAMS[slot];
+    var lavgEl = document.getElementById(p.lavgId);
+    var doseEl = document.getElementById(p.doseId);
+    if (doseEl && doseEl.value) {
+      var labels = { ACGIH: 'ACGIH/NIOSH', OSHA_HC: 'OSHA HC', OSHA_PEL: 'OSHA PEL' };
+      populated.push(labels[slot]);
+    }
+  });
 
-  var msg = activeSlot
-    ? 'All standards synced (native: ' + activeSlot + ', others cross-calculated from Lavg)'
-    : 'All standards calculated from Lavg + Run Time';
-  showToast(msg, 'success');
+  if (populated.length) {
+    showToast('Dose% calculated for: ' + populated.join(', '), 'success');
+  } else {
+    showToast('Enter Lavg values for each standard to calculate Dose%', 'warn');
+  }
 }
 
 
