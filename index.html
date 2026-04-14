@@ -6037,28 +6037,42 @@ function verifyExtractFields(text, filename) {
     }
   }
 
-  // Default slot values (D1 / first populated) — used for single-setup reports
-  // verifyMatchAndCompare will override these with the correct slot
-  var _ds = dosSlots[1] || dosSlots[2] || dosSlots[3] || {};
-  var twa       = (_ds.twa       !== undefined) ? _ds.twa       : null;
-  var dose      = (_ds.dose      !== undefined) ? _ds.dose      : null;
-  var lavg      = (_ds.lavg      !== undefined) ? _ds.lavg      : null;
-  var lasmax    = (_ds.lasmax    !== undefined) ? _ds.lasmax    : null;
-  var exchange  = (_ds.exchange  !== undefined) ? _ds.exchange  : null;
-  var criterion = (_ds.criterion !== undefined) ? _ds.criterion : null;
-  var threshold = (_ds.threshold !== undefined) ? _ds.threshold : null;
-  var weighting = (_ds.weighting !== undefined) ? _ds.weighting : null;
-  var response  = (_ds.response  !== undefined) ? _ds.response  : null;
-
-  // Legacy single-slot fallbacks (CSV / older format without D-prefix)
-  if (twa      === null) twa      = numParse(get('twa 8hrs') || get('twa'));
-  if (dose     === null) dose     = numParse(get('dose'));
-  if (lavg     === null) lavg     = numParse(get('lavg') || get('laeq'));
-  if (exchange === null) {
-    var _su0 = parseSetupString(get('dosimeter setup'));
-    exchange = _su0.exchange; criterion = _su0.criterion;
-    threshold = _su0.threshold; weighting = _su0.weighting; response = _su0.response;
+  // ── Legacy single-slot fallback (CSV / older format, no D-prefix) ──────
+  // If no D-prefixed keys were found at all, try bare key names and
+  // populate dosSlots[1] so the slot-selection logic has something to work with.
+  var _hasAnySlot = dosSlots[1] || dosSlots[2] || dosSlots[3];
+  if (!_hasAnySlot) {
+    var _legTW  = numParse(get('twa 8hrs') || get('twa'));
+    var _legDo  = numParse(get('dose'));
+    var _legLv  = numParse(get('lavg') || get('laeq'));
+    var _legSu  = get('dosimeter setup') || get('dosimeter 1 setup');
+    var _legSet = parseSetupString(_legSu);
+    dosSlots[1] = {
+      slot:      1,
+      setupRaw:  _legSu,
+      twa:       _legTW,
+      dose:      _legDo,
+      lavg:      _legLv,
+      lasmax:    null,
+      exchange:  _legSet.exchange,
+      criterion: _legSet.criterion,
+      threshold: _legSet.threshold,
+      weighting: _legSet.weighting,
+      response:  _legSet.response
+    };
   }
+
+  // Default slot values (D1 / first populated) — for top-level report fields
+  var _ds = dosSlots[1] || dosSlots[2] || dosSlots[3] || {};
+  var twa       = (_ds.twa       != null) ? _ds.twa       : null;
+  var dose      = (_ds.dose      != null) ? _ds.dose      : null;
+  var lavg      = (_ds.lavg      != null) ? _ds.lavg      : null;
+  var lasmax    = (_ds.lasmax    != null) ? _ds.lasmax    : null;
+  var exchange  = (_ds.exchange  != null) ? _ds.exchange  : null;
+  var criterion = (_ds.criterion != null) ? _ds.criterion : null;
+  var threshold = (_ds.threshold != null) ? _ds.threshold : null;
+  var weighting = (_ds.weighting != null) ? _ds.weighting : null;
+  var response  = (_ds.response  != null) ? _ds.response  : null;
 
   // LASmax (D1 only — used for >115 flag)
   var lasmaxRaw = get('d1 lasmax (time)') || get('d1 lasmax');
@@ -6214,10 +6228,10 @@ function verifyCompareFields(survey, report) {
     for (var _si = 1; _si <= 3; _si++) {
       if (_slots[_si] && parseFloat(_slots[_si].exchange) === _appEx) { _activeSlot = _slots[_si]; break; }
     }
-    if (!_activeSlot) _activeSlot = _slots[1] || {};
+    if (!_activeSlot) _activeSlot = _slots[1] || _slots[2] || _slots[3] || {};
   } else {
-    // Requested slot absent (single-setup report) — fall back to D1
-    _activeSlot = _slots[1] || {};
+    // Requested slot absent (single-setup report) — use best available
+    _activeSlot = _slots[1] || _slots[2] || _slots[3] || {};
   }
 
   // Override report comparison values with the active slot's data
