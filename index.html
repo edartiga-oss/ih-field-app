@@ -6274,8 +6274,8 @@ function verifyCompareFields(survey, report) {
   numCheck(res.twa     || res.dosReportTWA, _rptTWA,  0.5, 'twa');
   numCheck(res.dose,                         _rptDose, 1.0, 'dose');
   numCheck(res.lavg,                         _rptLavg, 0.1, 'lavg');
-  numCheck(cal.preReading,                   report.preCal, 0.1, 'preCal');
-  numCheck(cal.postReading,                  report.postCal,0.1, 'postCal');
+  numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
+  numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
 
   // Run time — calculate from surveyStart/surveyEnd for comparison.
   // App stores run time as decimal hours (e.g. "8.0") via resRunTime field,
