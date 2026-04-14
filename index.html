@@ -3743,31 +3743,74 @@ function buildPDFDoc(surveysArr) {
     ];
     y = grid3(calCols.map((c,i) => [c, calVals[i]]), y) + 8;
 
-    // QA results table
+    // QA results table — re-derive from stored calibration data so surveys
+    // without a saved s.qa.checks object still show correct Pass/Fail.
     const qaLabels = [
       'Pre-cal before survey start',
       'Post-cal after survey end',
       'Pre-cal within 1 hr of start',
       'Post-cal within 1 hr of end',
-      'Pre/post difference ≤ 5%'
+      'Pre/post difference <= 5%',
+      'Calculated TWA matches report (+/- 0.5 dB)'
     ];
-    const qaChks = s.qa?.checks || {};
-    const qaVals2 = [
-      qaChks.preBefore, qaChks.postAfter, qaChks.preWithin1hr, qaChks.postWithin1hr, qaChks.calWithin5pct
-    ];
-    const rowH = 15;
-    qaLabels.forEach((lbl, i) => {
-      const bg = qaVals2[i] === true ? [234,250,241] : qaVals2[i] === false ? [253,240,240] : LGRAY;
-      doc.setFillColor(...bg);
-      doc.rect(36, y + i * rowH, W - 72, rowH - 1, 'F');
-      doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY);
-      doc.text(lbl, 40, y + i * rowH + 10);
-      const res = qaVals2[i] === true ? 'PASS' : qaVals2[i] === false ? 'FAIL' : 'N/A';
-      const resColor = qaVals2[i] === true ? [29,122,69] : qaVals2[i] === false ? [184,48,48] : [...GRAY];
-      doc.setFont('helvetica','bold'); doc.setTextColor(...resColor);
-      doc.text(res, W - 60, y + i * rowH + 10, { align: 'right' });
-    });
-    y += qaLabels.length * rowH + 14;
+    (function() {
+      var cal = s.calibration || {};
+      var preT  = cal.preCalTime  || cal.preCal  || '';
+      var postT = cal.postCalTime || cal.postCal || '';
+      var startT = cal.surveyStart || '';
+      var endT   = cal.surveyEnd   || '';
+      var preR  = parseFloat(cal.preReading  || cal.preCalReading  || '');
+      var postR = parseFloat(cal.postReading || cal.postCalReading || '');
+
+      // Prefer stored checks if present, otherwise calculate
+      var stored = (s.qa && s.qa.checks) ? s.qa.checks : null;
+
+      function derive(key, fn) {
+        if (stored && stored[key] !== undefined) return stored[key];
+        try { return fn(); } catch(e) { return undefined; }
+      }
+
+      var qaVals2 = [
+        derive('preBefore',     function() { return preT  && startT ? new Date(preT)  < new Date(startT) : undefined; }),
+        derive('postAfter',     function() { return postT && endT   ? new Date(postT) > new Date(endT)   : undefined; }),
+        derive('preWithin1hr',  function() {
+          if (!preT || !startT) return undefined;
+          var d = (new Date(startT) - new Date(preT)) / 60000;
+          return d >= 0 && d <= 60;
+        }),
+        derive('postWithin1hr', function() {
+          if (!postT || !endT) return undefined;
+          var d = (new Date(postT) - new Date(endT)) / 60000;
+          return d >= 0 && d <= 60;
+        }),
+        derive('calWithin5pct', function() {
+          if (isNaN(preR) || isNaN(postR) || preR <= 0) return undefined;
+          return Math.abs(postR - preR) / preR * 100 <= 5;
+        }),
+        derive('twaMatch', function() {
+          var calcTWA   = parseFloat((s.results && s.results.twa)           || '');
+          var reportTWA = parseFloat((s.results && s.results.dosReportTWA)  || '');
+          if (isNaN(calcTWA) || isNaN(reportTWA)) return undefined;
+          return Math.abs(calcTWA - reportTWA) <= 0.5;
+        })
+      ];
+
+      var rowH = 15;
+      qaLabels.forEach(function(lbl, i) {
+        var val = qaVals2[i];
+        var bg = val === true ? [234,250,241] : val === false ? [253,240,240] : LGRAY;
+        doc.setFillColor(...bg);
+        doc.rect(36, y + i * rowH, W - 72, rowH - 1, 'F');
+        doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY);
+        doc.text(lbl, 40, y + i * rowH + 10);
+        var res = val === true ? 'PASS' : val === false ? 'FAIL' : 'N/A';
+        var resColor = val === true ? [29,122,69] : val === false ? [184,48,48] : [...GRAY];
+        doc.setFont('helvetica','bold'); doc.setTextColor(...resColor);
+        doc.text(res, W - 60, y + i * rowH + 10, { align: 'right' });
+      });
+      y += qaLabels.length * rowH + 14;
+    })();
+
 
     // Dosimetry results
     if (y > 650) { doc.addPage(); y = 40; }
