@@ -736,21 +736,23 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     y += metaH + 14;
 
     // ── PARAGRAPH 1 ────────────────────────────────────────────────
-    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+    var LH = 13.5; // consistent line height for 10.5pt body text
 
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     var p1a = '1.  Department of the Army (DA) regulations require employees to be notified of their exposure '
             + 'results from Industrial Hygiene surveys. The following results are from the noise survey '
             + 'performed at the:';
-    doc.splitTextToSize(p1a, CW).forEach(function(l){ doc.text(l, ML, y); y += 14; });
+    var p1aLines = doc.splitTextToSize(p1a, CW);
+    doc.text(p1aLines, ML, y);
+    y += p1aLines.length * LH + 4;
 
-    y += 2;
     doc.setFont('helvetica','bolditalic'); doc.setFontSize(10.5); setC([0, 95, 160]);
-    doc.splitTextToSize(surveyDate, CW - 20)
-       .forEach(function(l){ doc.text(l, ML + 16, y); y += 14; });
-    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
-    y += 6;
+    var dateLines = doc.splitTextToSize(surveyDate, CW - 20);
+    doc.text(dateLines, ML + 16, y);
+    y += dateLines.length * LH + 8;
 
     // ── TWA RESULT BOX ─────────────────────────────────────────────
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     var twaBoxH = 40;
     fillRect(ML, y, CW, twaBoxH, [230, 248, 242]);
     doc.setDrawColor(0, 184, 160); doc.setLineWidth(1);
@@ -761,13 +763,11 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
     doc.setFont('helvetica','bold'); doc.setFontSize(13.5); setC(twaColor);
     doc.text(empName + '     ' + twaStr, ML + 10, y + 31);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
-    y += twaBoxH + 12;
+    y += twaBoxH + 14;
 
     // ── PARAGRAPH 2 ────────────────────────────────────────────────
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
-
     var p2 = '2.  This employee was designated to the ' + seg + ' SEG and there were '
            + sampleLanguage + '. Therefore, a statistical calculation called the Upper '
            + 'Tolerance Limit (UTL) was able to be calculated at the 95\u202f% confidence '
@@ -776,15 +776,17 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
            + '(DoDI) 6055.12 noise standard of 85\u202fdBA. ' + however + 'based on this result '
            + 'and the SEG UTL calculation result of ' + utlStr + ', you ' + doDoNot
            + ' to be included in the Hearing Conservation Program.';
-
-    doc.splitTextToSize(p2, CW).forEach(function(l){ doc.text(l, ML, y); y += 14; });
-    y += 6;
+    var p2Lines = doc.splitTextToSize(p2, CW);
+    doc.text(p2Lines, ML, y);
+    y += p2Lines.length * LH + 8;
 
     // ── PARAGRAPH 3 ────────────────────────────────────────────────
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     doc.text('3.  As a precaution you should continue to:', ML, y);
-    y += 15;
+    y += LH + 2;
 
+    var BIND = ML + 10;  // bullet indent x
+    var BWRAP = CW - 10; // wrap width for bullets
     [
       'a.  Wear either earplugs or muffs whenever noise levels are greater than or equal to 85\u202fdBA.',
       'b.  Obey warning signs throughout the installation in noise hazardous areas and on equipment which require personnel to wear hearing protection.',
@@ -792,11 +794,9 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       'd.  If you have any questions regarding this matter, contact the State Occupational Health Office.'
     ].forEach(function(bullet) {
       doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
-      doc.splitTextToSize(bullet, CW - 18).forEach(function(l, i) {
-        doc.text(l, ML + (i === 0 ? 10 : 26), y);
-        y += 13.5;
-      });
-      y += 2;
+      var bLines = doc.splitTextToSize(bullet, BWRAP);
+      doc.text(bLines, BIND, y);
+      y += bLines.length * LH + 3;
     });
 
     // ── UTL STATS CALLOUT BOX (only if space remains) ──────────────
