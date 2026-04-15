@@ -4817,8 +4817,9 @@ function updateInventoryBadge() {
 //        Noise Manual 6th Ed. lognormal method.
 //
 //  UTL:  95th-percentile / 95% confidence Upper Tolerance Limit
-//        Method: Owen's K-factor (lognormal, AIHA Strategy / Noise Manual)
+//        Method: Hahn & Meeker (1991) K-factor — matches IHSTAT v2.0 / R 'tolerance' pkg
 //        Formula: exp(ȳ + K(n) × s)
+//        Prior Owen (1958) K-values were ~0.9–1.5 larger (over-conservative).
 //
 //  Both operate on natural log of TWA dBA values (lognormal assumption).
 // ═══════════════════════════════════════════════════════════
@@ -4834,13 +4835,22 @@ var T95 = {
   29:1.699, 39:1.685, 59:1.671, 119:1.658
 };
 
-// Owen's K-factors for 95th-percentile / 95% confidence UTL (lognormal)
+// Hahn & Meeker (1991) K-factors for 95th-percentile / 95% confidence UTL (lognormal)
+// Source: IHSTAT v2.0 / R 'tolerance' package — industry standard reference
+// Replaces prior Owen (1958) values which were ~0.9–1.5 larger (over-conservative)
 var K_UTL = {
-  2:37.094, 3:10.553, 4:7.042,  5:5.741,
-  6:5.062,  7:4.641,  8:4.353,  9:4.143,  10:3.981,
-  11:3.852, 12:3.747, 13:3.659, 14:3.585, 15:3.520,
-  16:3.464, 17:3.414, 18:3.370, 19:3.331, 20:3.295,
-  25:3.158, 30:3.064, 40:2.941, 50:2.863, 100:2.684
+   3:7.6559,  4:5.1439,  5:4.2027,  6:3.7077,
+   7:3.3995,  8:3.1873,  9:3.0312, 10:2.9110,
+  11:2.8150, 12:2.7363, 13:2.6705, 14:2.6144,
+  15:2.5660, 16:2.5237, 17:2.4863, 18:2.4529,
+  19:2.4230, 20:2.3960, 21:2.3714, 22:2.3490,
+  23:2.3283, 24:2.3093, 25:2.2917, 26:2.2753,
+  27:2.2600, 28:2.2458, 29:2.2324, 30:2.2198,
+  31:2.2080, 32:2.1968, 33:2.1863, 34:2.1762,
+  35:2.1667, 36:2.1577, 37:2.1491, 38:2.1408,
+  39:2.1330, 40:2.1255, 41:2.1183, 42:2.1114,
+  43:2.1048, 44:2.0985, 45:2.0924, 46:2.0865,
+  47:2.0808, 48:2.0754, 49:2.0701, 50:2.0650
 };
 
 function tValue95(n) {
@@ -4855,12 +4865,13 @@ function tValue95(n) {
 }
 
 function kUTL(n) {
-  if (n < 2) return NaN;
+  if (n < 3) return NaN;
   var keys = Object.keys(K_UTL).map(Number).sort(function(a,b){return a-b;});
   for (var i = 0; i < keys.length; i++) {
     if (n <= keys[i]) return K_UTL[keys[i]];
   }
-  return 1.645 + (2.576 / Math.sqrt(n));
+  // Large-sample approximation (n > 50), Hahn-Meeker asymptote
+  return 1.645 + (1.645 / Math.sqrt(n));
 }
 
 function lognormalStats(twas) {
@@ -4880,7 +4891,7 @@ function lognormalStats(twas) {
   //                   + T.INV(0.95,COUNT(...)-1) * STDEV.S(LN(...)) / SQRT(COUNT(...)))
   var t   = tValue95(n);
   var ucl = Math.exp(logMean + logVar/2 + t * logSD / Math.sqrt(n));
-  // UTL — Owen's K-factor (lognormal 95th pct / 95% confidence)
+  // UTL — Hahn & Meeker (1991) K-factor (lognormal 95th pct / 95% confidence)
   var k   = kUTL(n);
   var utl = Math.exp(logMean + k * logSD);
   return {
@@ -5246,7 +5257,7 @@ function renderStats() {
             + '</div>'
             + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
               + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
-              + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Owen’s K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
+              + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Hahn-Meeker K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
               + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed. | Standard: <strong>' + _segStd.label + '</strong> (PEL ' + _segPEL + ' dBA, AL ' + _segAL + ' dBA)'
             + '</div>'
             + smallNote
