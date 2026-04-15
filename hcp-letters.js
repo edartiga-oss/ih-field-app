@@ -117,6 +117,20 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.line(ML, y, ML + CW, y);
   }
 
+  // pdfSafe: replace Unicode chars not in Helvetica WinAnsi encoding
+  // to prevent jsPDF silently switching to Courier mid-paragraph
+  function pdfSafe(s) {
+    return String(s)
+      .replace(/\u202f/g, ' ')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\u2019|\u2018/g, "'")
+      .replace(/\u201c|\u201d/g, '"')
+      .replace(/\u2013/g, '-')
+      .replace(/\u2014/g, '--')
+      .replace(/\u2014/g, '--');
+  }
+
+
   // ── 5. Render each letter ─────────────────────────────────────────
   // Prime the font state once before the loop so jsPDF never falls back to Courier
   doc.setFont('helvetica', 'normal');
@@ -130,21 +144,21 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.setFontSize(10.5);
 
     var s         = letter.survey;
-    var empName   = (s.employee?.name    || 'Employee').trim();
-    var empTitle  = (s.employee?.title   || s.employee?.jobTitle || '').trim();
-    var empComp   = (s.employee?.company || s.employee?.employer || '').trim();
+    var empName   = pdfSafe((s.employee?.name    || 'Employee').trim());
+    var empTitle  = pdfSafe((s.employee?.title   || s.employee?.jobTitle || '').trim());
+    var empComp   = pdfSafe((s.employee?.company || s.employee?.employer || '').trim());
     var twa       = parseFloat(s.results?.twa);
     var utl       = letter.utl;
     var n         = letter.sampleCount;
     var personnel = letter.personnel;
-    var seg       = letter.seg;
-    var loc       = letter.location;
+    var seg       = pdfSafe(letter.seg);
+    var loc       = pdfSafe(letter.location);
     var twaStr    = twa.toFixed(1) + ' dBA';
     var utlStr    = utl.toFixed(1) + ' dBA';
     var twaColor  = twa >= 90 ? [163,45,45] : twa >= 85 ? [122,79,0] : [8,80,65];
 
     // Survey date
-    var surveyDate = '—';
+    var surveyDate = '--';
     var rawDate = s.calibration?.surveyStart || s.calibration?.date || '';
     if (rawDate) {
       try { surveyDate = new Date(rawDate).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}); }
@@ -153,14 +167,14 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
     // Dynamic text logic (mirrors highlighted template sections)
     var sampleLanguage = n >= 6
-      ? 'more than 6 employees\u2019 individual results'
-      : n + ' employee' + (n === 1 ? '' : 's') + '\u2019 individual result' + (n === 1 ? '' : 's');
+      ? "more than 6 employees' individual results"
+      : n + ' employee' + (n === 1 ? '' : 's') + "' individual result" + (n === 1 ? '' : 's');
     var aboveBelow = twa >= 85 ? 'above'   : 'below';
     var however    = twa >= 85 ? ''        : 'However, ';
     var needHCP    = utl >= 85;
     var doDoNot    = needHCP   ? 'do need' : 'do not need';
     var rac        = (typeof calcRAC === 'function') ? calcRAC(utl, personnel) : null;
-    var racStr     = rac === 2 ? 'RAC 2 \u2014 High' : rac === 3 ? 'RAC 3 \u2014 Medium' : rac === 4 ? 'RAC 4 \u2014 Low' : '\u2014';
+    var racStr     = rac === 2 ? 'RAC 2 -- High' : rac === 3 ? 'RAC 3 -- Medium' : rac === 4 ? 'RAC 4 -- Low' : '--';
     var racColor   = rac === 2 ? [163,45,45] : rac === 3 ? [122,79,0] : [8,80,65];
 
     var y = 0;
@@ -171,7 +185,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); setC(TEAL);
     doc.text('NATIONAL GUARD BUREAU', ML, 18);
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5); setC([165, 195, 215]);
-    doc.text('REGIONAL INDUSTRIAL HYGIENE \u2014 SOUTHEAST OFFICE', ML, 29);
+    doc.text('REGIONAL INDUSTRIAL HYGIENE -- SOUTHEAST OFFICE', ML, 29);
     doc.text('510 PLAZA DRIVE, SUITE 1530, COLLEGE PARK, GA  30349', ML, 40);
 
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); setC(TEAL);
@@ -252,7 +266,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.rect(ML, y, CW, twaBoxH, 'S');
 
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
-    doc.text('EMPLOYEE PERSONAL NOISE EXPOSURE \u2014 8-HR TWA', ML + 10, y + 13);
+    doc.text('EMPLOYEE PERSONAL NOISE EXPOSURE -- 8-HR TWA', ML + 10, y + 13);
 
     doc.setFont('helvetica','bold'); doc.setFontSize(13.5); setC(twaColor);
     doc.text(empName + '     ' + twaStr, ML + 10, y + 31);
@@ -263,10 +277,10 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     var p2 = '2.  This employee was designated to the ' + seg + ' SEG and there were '
            + sampleLanguage + '. Therefore, a statistical calculation called the Upper '
-           + 'Tolerance Limit (UTL) was able to be calculated at the 95\u202f% confidence '
-           + 'level to a result of ' + utlStr + '. The employee\u2019s exposure indicates levels '
+           + 'Tolerance Limit (UTL) was able to be calculated at the 95% confidence '
+           + 'level to a result of ' + utlStr + ". The employee's exposure indicates levels "
            + aboveBelow + ' the Department of the Army, Department of Defense Instruction '
-           + '(DoDI) 6055.12 noise standard of 85\u202fdBA. ' + however + 'based on this result '
+           + '(DoDI) 6055.12 noise standard of 85 dBA. ' + however + 'based on this result '
            + 'and the SEG UTL calculation result of ' + utlStr + ', you ' + doDoNot
            + ' to be included in the Hearing Conservation Program.';
     var p2Lines = doc.splitTextToSize(p2, CW);
@@ -281,7 +295,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     var BIND = ML + 10;  // bullet indent x
     var BWRAP = CW - 10; // wrap width for bullets
     [
-      'a.  Wear either earplugs or muffs whenever noise levels are greater than or equal to 85\u202fdBA.',
+      'a.  Wear either earplugs or muffs whenever noise levels are greater than or equal to 85 dBA.',
       'b.  Obey warning signs throughout the installation in noise hazardous areas and on equipment which require personnel to wear hearing protection.',
       'c.  Have a copy of this notification letter placed in your employee file.',
       'd.  If you have any questions regarding this matter, contact the State Occupational Health Office.'
@@ -320,13 +334,13 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     // ── FOOTER ─────────────────────────────────────────────────────
     fillRect(0, H - 34, W, 34, NAVY);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC([145, 178, 200]);
-    doc.text('IH Field \u2014 Noise Dosimetry  |  HCP Notification Letter', ML, H - 18);
+    doc.text('IH Field -- Noise Dosimetry  |  HCP Notification Letter', ML, H - 18);
     doc.text(
       'Generated: ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}),
       ML, H - 8
     );
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC([145, 178, 200]);
-    doc.text('CONTROLLED DISTRIBUTION \u2014 FOR EMPLOYEE FILE USE ONLY', W - MR, H - 13, { align: 'right' });
+    doc.text('CONTROLLED DISTRIBUTION -- FOR EMPLOYEE FILE USE ONLY', W - MR, H - 13, { align: 'right' });
   });
 
   // ── 6. Save ───────────────────────────────────────────────────────
