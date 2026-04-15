@@ -4768,6 +4768,11 @@ function renderStats() {
         + '</div>';
     }).join('');
 
+    // ── Per-SEG standard thresholds (needed by indTable and lognormal blocks) ──
+    var _segStdOuter = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
+    var _segPEL = _segStdOuter.pel;
+    var _segAL  = _segStdOuter.al;
+
     // ── Individual results table ──
     var indTable = '';
     if (showIndividual) {
@@ -4844,8 +4849,7 @@ function renderStats() {
           }
           var fmtDb = function(v) { return isNaN(v) ? '—' : v.toFixed(1) + ' dBA'; };
           var fmtX  = function(v) { return isNaN(v) ? '—' : v.toFixed(2) + 'x'; };
-          var _segStd = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
-          var _segPEL = _segStd.pel, _segAL = _segStd.al;
+          // _segPEL and _segAL are defined in the outer per-SEG scope
           var pelUCL = stats.ucl95    >= _segPEL;
           var pelUTL = stats.utl95_95 >= _segPEL;
           var alUCL  = !pelUCL && stats.ucl95    >= _segAL;
