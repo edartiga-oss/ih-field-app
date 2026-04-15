@@ -15,7 +15,7 @@ function racLettersBtnHtml(location, seg) {
   var lk  = (location || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   var sk  = (seg      || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   return '<button onclick="generateHearingLettersPDF(\'' + lk + '\',\'' + sk + '\')" '
-    + 'title="Generate HCP notification letters for this SEG" '
+    + 'title="Generate Hearing Notification Letters for this SEG" '
     + 'style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;font-size:11px;font-weight:600;'
     + 'background:rgba(0,184,160,0.15);color:var(--teal);border:1.5px solid var(--teal);'
     + 'border-radius:6px;cursor:pointer;flex-shrink:0;white-space:nowrap;">'
@@ -24,7 +24,7 @@ function racLettersBtnHtml(location, seg) {
     + '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>'
     + '<polyline points="14 2 14 8 20 8"/>'
     + '<line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'
-    + '</svg>Letters</button>';
+    + '</svg>Hearing Notification Letter</button>';
 }
 
 /**
@@ -202,7 +202,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
     // ── TITLE ──────────────────────────────────────────────────────
     doc.setFont('helvetica','bold'); doc.setFontSize(13); setC(NAVY);
-    doc.text('Hearing Conservation Program Notification Letter', ML, y);
+    doc.text('Hearing Notification Letter', ML, y);
     y += 16;
 
     doc.setFont('helvetica','bold'); doc.setFontSize(9.5); setC(DARK);
@@ -334,7 +334,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     // ── FOOTER ─────────────────────────────────────────────────────
     fillRect(0, H - 34, W, 34, NAVY);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC([145, 178, 200]);
-    doc.text('IH Field -- Noise Dosimetry  |  HCP Notification Letter', ML, H - 18);
+    doc.text('IH Field -- Noise Dosimetry  |  Hearing Notification Letter', ML, H - 18);
     doc.text(
       'Generated: ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}),
       ML, H - 8
@@ -347,11 +347,11 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
   var locPart = segFilter
     ? (locationFilter || 'All') + '_' + segFilter
     : (locationFilter || 'All_Locations');
-  var filename = 'HCP_Letters_' + locPart.replace(/[^a-zA-Z0-9_\-]/g,'_').substring(0,50)
+  var filename = 'Hearing_Notification_Letter_' + locPart.replace(/[^a-zA-Z0-9_\-]/g,'_').substring(0,50)
                + '_' + new Date().toISOString().slice(0,10) + '.pdf';
   doc.save(filename);
 
   if (typeof showToast === 'function') {
-    showToast('Generated ' + letters.length + ' HCP letter' + (letters.length !== 1 ? 's' : ''), 'success');
+    showToast('Generated ' + letters.length + ' Hearing Notification Letter' + (letters.length !== 1 ? 's' : ''), 'success');
   }
 }
