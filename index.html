@@ -4903,7 +4903,7 @@ function renderStats() {
             + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
               + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
               + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Hahn-Meeker K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
-              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed. | Standard: <strong>' + _segStd.label + '</strong> (PEL ' + _segPEL + ' dBA, AL ' + _segAL + ' dBA)'
+              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed. | Standard: <strong>' + _segStdOuter.label + '</strong> (PEL ' + _segPEL + ' dBA, AL ' + _segAL + ' dBA)'
             + '</div>'
             + smallNote
             + '</div>';
