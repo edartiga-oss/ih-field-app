@@ -1027,8 +1027,40 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   const empName = clean(kv['Personnel Name']);
   const dosSerial = clean(kv['Dosimeter.Serial Number']);
 
-  // Skip if no real employee name or no dosimeter serial — blank/template/placeholder side
-  if (!empName || !dosSerial) return null;
+  // Skip if no real employee name — blank/template/placeholder side
+  if (!empName) return null;
+
+  // ── Fallback column ────────────────────────────────────────────
+  // For shared fields (calibrator cal date, survey start/stop), the right-side
+  // value column (col F) may be null in some file versions — the same calibrator
+  // and shared date structure lives in col B. Build a secondary KV from col B/A
+  // to use as a fallback when valCol data is missing.
+  const fallbackKV = (valCol === 1) ? kv : (() => {
+    const fkv = {};
+    let sec = '';
+    for (let i = 0; i < aoa.length; i++) {
+      const raw = aoa[i][0], rawV = aoa_raw[i] ? aoa_raw[i][1] : null;
+      if (!raw && raw !== 0) continue;
+      const ls = raw.toString().trim(); if (!ls) continue;
+      if (_ND_SKIP_LABELS.has(ls)) continue;
+      if (_ND_SECTIONS.has(ls)) { sec = ls; continue; }
+      if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(ls)) continue;
+      const key = sec ? `${sec}.${ls}` : ls;
+      if (!(key in fkv)) fkv[key] = rawV;
+    }
+    return fkv;
+  })();
+
+  // Helper: get value from primary KV, fall back to fallbackKV if missing
+  const kvGet = (...keys) => {
+    for (const k of keys) {
+      if (kv[k] !== null && kv[k] !== undefined) return kv[k];
+    }
+    for (const k of keys) {
+      if (fallbackKV[k] !== null && fallbackKV[k] !== undefined) return fallbackKV[k];
+    }
+    return null;
+  };
 
   const fmtDateRaw = v => {
     if (!v) return '';
@@ -1108,23 +1140,32 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   const { exchange: ex, criterion: cr } = getStandardParams();
   const dose = calcDose(lavg, rtMins, ex, cr);
 
-  const preReading  = kv['Pre Cal.Result (dB)'];
-  const postReading = kv['Post Cal.Result (dB)'];
+  const preReading  = kvGet('Pre Cal.Result (dB)');
+  const postReading = kvGet('Post Cal.Result (dB)');
   // Pre/post cal: combine the Date row + Time row for a full datetime
-  const preCalTime  = combineDT(kv['Pre Cal.Date'],  kv['Pre Cal.Time'])  || fmtTimeRaw(kv['Pre Cal.Time']);
-  const postCalTime = combineDT(kv['Post Cal.Date'], kv['Post Cal.Time']) || fmtTimeRaw(kv['Post Cal.Time']);
+  const preCalTime  = combineDT(kvGet('Pre Cal.Date'),  kvGet('Pre Cal.Time'))  || fmtTimeRaw(kvGet('Pre Cal.Time'));
+  const postCalTime = combineDT(kvGet('Post Cal.Date'), kvGet('Post Cal.Time')) || fmtTimeRaw(kvGet('Post Cal.Time'));
 
   // NIST cal due = calibrator Calibration Date + 1 year
-  // Try KV key first (handles both section names), then fall back to direct row scan
-  const calDateRaw = kv['Calibration.Calibration Date'] || kv['Calibration.Calibration date'] ||
+  // Try primary KV first, then fallback (calibrator is shared for both surveys per tab)
+  const calDateRaw = kvGet('Calibration.Calibration Date', 'Calibration.Calibration date') ||
     (() => {
-      // Direct scan: find the 2nd 'Calibration Date' row (first is dosimeter, second is calibrator)
+      // Direct scan of primary col: find the 2nd 'Calibration Date' row
       let count = 0;
       for (let i = 0; i < aoa.length; i++) {
         const lbl = (aoa[i][labelCol] || '').toString().trim();
         if (lbl === 'Calibration Date' || lbl === 'Calibration date') {
           count++;
           if (count === 2) return aoa_raw[i] ? aoa_raw[i][valCol] : null;
+        }
+      }
+      // Fallback: scan col B (idx 1) for 2nd Calibration Date
+      count = 0;
+      for (let i = 0; i < aoa.length; i++) {
+        const lbl = (aoa[i][0] || '').toString().trim();
+        if (lbl === 'Calibration Date' || lbl === 'Calibration date') {
+          count++;
+          if (count === 2) return aoa_raw[i] ? aoa_raw[i][1] : null;
         }
       }
       return null;
@@ -1139,8 +1180,8 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
     }
   }
 
-  // Dosimeter factory cal — first 'Calibration Date' row
-  const dosCal = kv['Dosimeter.Calibration Date'] ||
+  // Dosimeter factory cal — first 'Calibration Date' row (with fallback to col B)
+  const dosCal = kvGet('Dosimeter.Calibration Date') ||
     (() => {
       for (let i = 0; i < aoa.length; i++) {
         const lbl = (aoa[i][labelCol] || '').toString().trim();
@@ -1148,35 +1189,41 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
           return aoa_raw[i] ? aoa_raw[i][valCol] : null;
         }
       }
+      // Fallback: col A/B
+      for (let i = 0; i < aoa.length; i++) {
+        const lbl = (aoa[i][0] || '').toString().trim();
+        if (lbl === 'Calibration Date' || lbl === 'Calibration date') {
+          return aoa_raw[i] ? aoa_raw[i][1] : null;
+        }
+      }
       return null;
     })();
 
-  // Survey start/stop — try KV keys first, then direct row scan for all label variants
-  const startDateRaw = kv['Survey Data.Start Date'] || kv['Survey Data.Start Date/Time'];
-  const startTimeRaw = kv['Survey Data.Start Time'];
-  const stopDateRaw  = kv['Survey Data.Stop Date'];
-  const stopTimeRaw  = kv['Survey Data.Stop Time'];
-
-  // Direct row fallback: scan aoa for exact label text
+  // Survey start/stop — try primary KV, then fallback KV, then direct row scan
   const findRowVal = (labelText) => {
+    // Scan primary labelCol first
     for (let i = 0; i < aoa.length; i++) {
       const lbl = (aoa[i][labelCol] || '').toString().trim();
       if (lbl === labelText) return aoa_raw[i] ? aoa_raw[i][valCol] : null;
     }
+    // Fallback: scan col A (idx 0) / col B (idx 1) when right side col is null
+    if (labelCol !== 0) {
+      for (let i = 0; i < aoa.length; i++) {
+        const lbl = (aoa[i][0] || '').toString().trim();
+        if (lbl === labelText) return aoa_raw[i] ? aoa_raw[i][1] : null;
+      }
+    }
     return null;
   };
 
-  // startDate: try all variants including combined "Start Date/Time" label
-  const startDate = startDateRaw
-    || findRowVal('Start Date')
-    || findRowVal('Start Date/Time');  // combined datetime in some templates
-  const startTime = startTimeRaw || findRowVal('Start Time');
+  const startDate = kvGet('Survey Data.Start Date', 'Survey Data.Start Date/Time')
+    || findRowVal('Start Date') || findRowVal('Start Date/Time');
+  const startTime = kvGet('Survey Data.Start Time') || findRowVal('Start Time');
+  // stopDate: fall back to startDate for templates with only a Stop Time row
+  const stopDate  = kvGet('Survey Data.Stop Date') || findRowVal('Stop Date') || startDate;
+  const stopTime  = kvGet('Survey Data.Stop Time') || findRowVal('Stop Time');
 
-  // stopDate: some templates only have "Stop Time" (no Stop Date row) — reuse start date
-  const stopDate  = stopDateRaw || findRowVal('Stop Date') || startDate;
-  const stopTime  = stopTimeRaw || findRowVal('Stop Time');
-
-  // combineDT handles: (date serial, time serial), (combined datetime serial, null), 
+  // combineDT handles: (date serial, time serial), (combined datetime serial, null),
   // (date string, time string)
   const startDT = combineDT(startDate, startTime);
   const stopDT  = combineDT(stopDate,  stopTime);
@@ -1249,9 +1296,9 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       process: clean(kv['Processes'] || ''),
     },
     dosimeter: {
-      make: clean(kv['Dosimeter.Manufaturer'] || kv['Dosimeter.Manufacturer'] || ''),
-      model: clean(kv['Dosimeter.Model'] || ''),
-      serial: clean(kv['Dosimeter.Serial Number'] || ''),
+      make: clean(kvGet('Dosimeter.Manufaturer', 'Dosimeter.Manufacturer') || ''),
+      model: clean(kvGet('Dosimeter.Model') || ''),
+      serial: clean(kvGet('Dosimeter.Serial Number') || ''),
       factoryCal: fmtDateRaw(dosCal),
       exchange: String(ex),
       criterion: String(cr),
@@ -1259,9 +1306,9 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       response: 'Slow',
     },
     calibrator: {
-      make: clean(kv['Calibration.Manufaturer'] || kv['Calibration.Manufacturer'] || ''),
-      model: clean(kv['Calibration.Model'] || ''),
-      serial: clean(kv['Calibration.Serial Number'] || ''),
+      make: clean(kvGet('Calibration.Manufaturer', 'Calibration.Manufacturer') || ''),
+      model: clean(kvGet('Calibration.Model') || ''),
+      serial: clean(kvGet('Calibration.Serial Number') || ''),
       lastNistCal: fmtDateRaw(calDateRaw),   // raw cal date (e.g. 2025-05-22)
       nistDue: nistDue,                       // lastNistCal + 1 year (e.g. 2026-05-22)
       refLevel: '114',
