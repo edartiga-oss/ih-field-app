@@ -2548,9 +2548,15 @@ function clearFormFields(keepInstruments) {
 
 function clearForm() {
   if (confirm('Clear all form fields? Unsaved data will be lost.')) {
-    clearFormFields();
     currentSurveyId = generateId();
+    clearFormFields();
+    document.getElementById('formTitle').textContent = 'New Noise Dosimetry Survey';
     document.getElementById('formSurveyId').textContent = 'Survey ID: ' + currentSurveyId;
+    var _now = new Date();
+    var _localNow = new Date(_now.getTime() - _now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+    var _startEl = document.getElementById('surveyStart');
+    if (_startEl) _startEl.value = _localNow;
+    runQA();
   }
 }
 
@@ -2807,11 +2813,15 @@ function saveSurvey() {
   // Reset form for the next survey — keep dosimeter/calibrator/IH fields populated
   clearFormFields(true);
   currentSurveyId = generateId();
+  document.getElementById('formTitle').textContent = 'New Noise Dosimetry Survey';
   document.getElementById('formSurveyId').textContent = 'Survey ID: ' + currentSurveyId;
-  // Auto-set pre-cal time to now for next survey convenience
-  var nowStr = new Date().toISOString().slice(0,16);
-  var preCalEl = document.getElementById('preCalTime');
-  if (preCalEl) preCalEl.value = nowStr;
+  // Seed time defaults: pre-cal = now, survey start = now (matching startNewSurvey behaviour)
+  var _now = new Date();
+  var _localNow = new Date(_now.getTime() - _now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+  var _preCalEl = document.getElementById('preCalTime');
+  var _startEl  = document.getElementById('surveyStart');
+  if (_preCalEl) _preCalEl.value = _localNow;
+  if (_startEl)  _startEl.value  = _localNow;
   runQA();
 }
 
