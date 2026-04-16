@@ -2506,10 +2506,14 @@ function startNewSurvey() {
   showView('form');
 }
 
-function clearFormFields() {
-  const ids = [
+function clearFormFields(keepInstruments) {
+  // Instrument/IH fields preserved when keepInstruments=true (after Save & Finalize)
+  const instrumentIds = [
     'dosMake','dosModel','dosSerial','dosFactoryCal','dosExchange','dosCriterion','dosWeighting','dosResponse',
     'calMake','calModel','calSerial','calLastNistCal','calNistDue','calRefLevel',
+    'ihName','ihCreds','ihFirm','ihPhone'
+  ];
+  const ids = [
     'preCalTime','preCalReading','preCalInitials',
     'surveyStart','surveyEnd',
     'postCalTime','postCalReading','postCalInitials',
@@ -2520,10 +2524,10 @@ function clearFormFields() {
     'lasmaxInterviewNotes','lasmax140CorrectiveNotes','lasmax140InvestigationNotes',
     'resEngControls','resAdminControls','resPPE',
     'resHour1','resHour2','resHour3','resHour4','resHour5','resHour6','resHour7','resHour8','resHour9','resHour10',
-    'resNotes',
-    'ihName','ihCreds','ihFirm','ihPhone'
+    'resNotes'
   ];
-  ids.forEach(id => {
+  const allIds = keepInstruments ? ids : ids.concat(instrumentIds);
+  allIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -2796,7 +2800,15 @@ function saveSurvey() {
   syncToSheets(data);
   renderExportList();
   showToast(qa.allPass ? 'Survey saved — all QA checks passed!' : 'Survey saved — review QA flags', qa.allPass ? 'success' : '');
-  showView('surveys');
+  // Reset form for the next survey — keep dosimeter/calibrator/IH fields populated
+  clearFormFields(true);
+  currentSurveyId = generateId();
+  document.getElementById('formSurveyId').textContent = 'Survey ID: ' + currentSurveyId;
+  // Auto-set pre-cal time to now for next survey convenience
+  var nowStr = new Date().toISOString().slice(0,16);
+  var preCalEl = document.getElementById('preCalTime');
+  if (preCalEl) preCalEl.value = nowStr;
+  runQA();
 }
 
 function upsertSurvey(data) {
