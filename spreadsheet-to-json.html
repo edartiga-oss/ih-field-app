@@ -1110,8 +1110,9 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
 
   const preReading  = kv['Pre Cal.Result (dB)'];
   const postReading = kv['Post Cal.Result (dB)'];
-  const preCalTime  = fmtTimeRaw(kv['Pre Cal.Time']);
-  const postCalTime = fmtTimeRaw(kv['Post Cal.Time']);
+  // Pre/post cal: combine the Date row + Time row for a full datetime
+  const preCalTime  = combineDT(kv['Pre Cal.Date'],  kv['Pre Cal.Time'])  || fmtTimeRaw(kv['Pre Cal.Time']);
+  const postCalTime = combineDT(kv['Post Cal.Date'], kv['Post Cal.Time']) || fmtTimeRaw(kv['Post Cal.Time']);
 
   // NIST cal due = calibrator Calibration Date + 1 year
   // Try KV key first (handles both section names), then fall back to direct row scan
