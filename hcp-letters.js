@@ -165,17 +165,14 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       catch(e) { surveyDate = rawDate.slice(0,10); }
     }
 
-    // Dynamic text logic (mirrors highlighted template sections)
-    var sampleLanguage = n >= 6
-      ? "more than 6 employees' individual results"
-      : n + ' employee' + (n === 1 ? '' : 's') + "' individual result" + (n === 1 ? '' : 's');
-    var aboveBelow = twa >= 85 ? 'above'   : 'below';
-    var however    = twa >= 85 ? ''        : 'However, ';
-    var needHCP    = utl >= 85;
-    var doDoNot    = needHCP   ? 'do need' : 'do not need';
-    var rac        = (typeof calcRAC === 'function') ? calcRAC(utl, personnel) : null;
-    var racStr     = rac === 2 ? 'RAC 2 -- High' : rac === 3 ? 'RAC 3 -- Medium' : rac === 4 ? 'RAC 4 -- Low' : '--';
-    var racColor   = rac === 2 ? [163,45,45] : rac === 3 ? [122,79,0] : [8,80,65];
+    // Dynamic text logic
+    var smallSample = n < 6;
+    var aboveBelow  = twa >= 85 ? 'above' : 'below';
+    var needHCP     = smallSample ? (twa >= 85) : (utl >= 85);
+    var doDoNot     = needHCP ? 'do need' : 'do not need';
+    var rac         = (typeof calcRAC === 'function') ? calcRAC(utl, personnel) : null;
+    var racStr      = rac === 2 ? 'RAC 2 -- High' : rac === 3 ? 'RAC 3 -- Medium' : rac === 4 ? 'RAC 4 -- Low' : '--';
+    var racColor    = rac === 2 ? [163,45,45] : rac === 3 ? [122,79,0] : [8,80,65];
 
     var y = 0;
 
@@ -275,14 +272,32 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
     // ── PARAGRAPH 2 ────────────────────────────────────────────────
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
-    var p2 = '2.  This employee was designated to the ' + seg + ' SEG and there were '
-           + sampleLanguage + '. Therefore, a statistical calculation called the Upper '
-           + 'Tolerance Limit (UTL) was able to be calculated at the 95% confidence '
-           + 'level to a result of ' + utlStr + ". The employee's exposure indicates levels "
-           + aboveBelow + ' the Department of the Army, Department of Defense Instruction '
-           + '(DoDI) 6055.12 noise standard of 85 dBA. ' + however + 'based on this result '
-           + 'and the SEG UTL calculation result of ' + utlStr + ', you ' + doDoNot
-           + ' to be included in the Hearing Conservation Program.';
+    var p2;
+    if (smallSample) {
+      // n < 6: UTL cannot be calculated, base HCP decision on individual TWA
+      var empCount = n === 1
+        ? "1 employee's individual result"
+        : n + " employees' individual results";
+      p2 = '2.  This employee was designated to the ' + seg + ' SEG and there '
+         + (n === 1 ? 'was ' : 'were ') + empCount + '. A Upper Tolerance Limit (UTL) '
+         + 'could not be calculated because fewer than 6 samples were available for this SEG. '
+         + "The employee's individual 8-hr TWA result of " + twaStr + ' indicates levels '
+         + aboveBelow + ' the Department of the Army, Department of Defense Instruction '
+         + '(DoDI) 6055.12 noise standard of 85 dBA. Based on this individual result, you '
+         + doDoNot + ' to be included in the Hearing Conservation Program.';
+    } else {
+      // n >= 6: UTL calculated, base HCP decision on UTL
+      var however = twa >= 85 ? '' : 'However, ';
+      var capB    = however ? 'b' : 'B';
+      p2 = '2.  This employee was designated to the ' + seg + ' SEG and there were '
+         + "more than 6 employees' individual results. Therefore, a statistical calculation "
+         + 'called the Upper Tolerance Limit (UTL) was able to be calculated at the 95% '
+         + 'confidence level to a result of ' + utlStr + ". The employee's exposure "
+         + 'indicates levels ' + aboveBelow + ' the Department of the Army, Department of '
+         + 'Defense Instruction (DoDI) 6055.12 noise standard of 85 dBA. '
+         + however + capB + 'ased on this result and the SEG UTL calculation result of '
+         + utlStr + ', you ' + doDoNot + ' to be included in the Hearing Conservation Program.';
+    }
     var p2Lines = doc.splitTextToSize(p2, CW);
     doc.text(p2Lines, ML, y);
     y += p2Lines.length * LH + 8;
