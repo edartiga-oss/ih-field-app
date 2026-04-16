@@ -2559,7 +2559,11 @@ function getFormData() {
   return {
     id: currentSurveyId,
     timestamp: new Date().toISOString(),
-    deviceNickname: deviceNickname || '',
+    // Preserve original deviceNickname when editing — use ih.name as fallback identity
+    deviceNickname: (function() {
+      var existing = surveys.find(function(s){ return s.id === currentSurveyId; });
+      return (existing && existing.deviceNickname) ? existing.deviceNickname : (deviceNickname || '');
+    })(),
     project: { ...projectMeta },
     dosimeter: {
       make: g('dosMake'), model: g('dosModel'), serial: g('dosSerial'),
@@ -2866,7 +2870,7 @@ function renderSurveyList() {
 
   // ── Rebuild IH filter ──
   const selectedIH  = filterSel ? filterSel.value : '';
-  const allNicknames = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
+  const allNicknames = [...new Set(surveys.map(s => s.ih?.name || s.deviceNickname || '').filter(Boolean))].sort();
   if (filterSel) {
     filterSel.innerHTML = '<option value="">All IHs</option>' +
       allNicknames.map(n => `<option value="${esc(n)}" ${n === selectedIH ? 'selected' : ''}>${esc(n)}</option>`).join('');
@@ -2901,7 +2905,7 @@ function renderSurveyList() {
 
   // ── Apply all filters ──
   const filtered = surveys.filter(s => {
-    if (selectedIH   && (s.deviceNickname || s.ih?.name || '') !== selectedIH)  return false;
+    if (selectedIH   && (s.ih?.name || s.deviceNickname || '') !== selectedIH)  return false;
     if (selectedSEG  && (s.employee?.seg  || '') !== selectedSEG)  return false;
     if (selectedLoc  && (s.employee?.location || '') !== selectedLoc) return false;
     if (selectedProc && (s.employee?.process || '') !== selectedProc) return false;
@@ -2929,7 +2933,7 @@ function renderSurveyList() {
     const lbl = statusLabel[s.status] || 'Draft';
     const survDate = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : 'No date';
     const meta = [s.dosimeter?.make, s.dosimeter?.model, s.dosimeter?.serial].filter(Boolean).join(' · ');
-    const ihTag  = s.deviceNickname || s.ih?.name || '';
+    const ihTag  = s.ih?.name || s.deviceNickname || '';
     const segTag = s.employee?.seg || '';
     const locTag = s.employee?.location || '';
     const conflict = s.conflictFlag ? '<span title="Edited on multiple devices — review and re-save to resolve" style="display:inline-flex;align-items:center;gap:3px;background:#fff8e6;border:1px solid var(--amber);color:#7a4f00;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;">&#9651; Conflict</span>' : '';
@@ -3835,7 +3839,7 @@ function renderExportList() {
   // Populate IH filter dropdown for filtered batch export
   const sel = document.getElementById('exportIHFilter');
   if (sel) {
-    const names = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
+    const names = [...new Set(surveys.map(s => s.ih?.name || s.deviceNickname || '').filter(Boolean))].sort();
     const current = sel.value;
     sel.innerHTML = '<option value="">Select a field IH...</option>' +
       names.map(n => `<option value="${esc(n)}" ${n === current ? 'selected' : ''}>${esc(n)}</option>`).join('');
@@ -3889,7 +3893,7 @@ function updateExportIHCount() {
   if (!sel || !countEl) return;
   const name = sel.value;
   if (!name) { countEl.textContent = 'Select a name above to see survey count'; return; }
-  const count = surveys.filter(s => (s.deviceNickname || s.ih?.name || '') === name).length;
+  const count = surveys.filter(s => (s.ih?.name || s.deviceNickname || '') === name).length;
   countEl.textContent = count + ' survey' + (count !== 1 ? 's' : '') + ' for ' + name;
 }
 
@@ -4606,7 +4610,7 @@ function renderStats() {
   const showIndividual = showInd && showInd.checked;
 
   // ── All IH names ──
-  const allIHs = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
+  const allIHs = [...new Set(surveys.map(s => s.ih?.name || s.deviceNickname || '').filter(Boolean))].sort();
   if (statsSelectedIHs === null) statsSelectedIHs = new Set(allIHs);
 
   // ── Render IH chips ──
@@ -4663,7 +4667,7 @@ function renderStats() {
 
   // ── Filter surveys by IH, Location, and SEG ──
   const sel = surveys.filter(function(s) {
-    var ih  = s.deviceNickname || s.ih?.name || '';
+    var ih  = s.ih?.name || s.deviceNickname || '';
     var loc = s.employee?.location || '';
     var seg = s.employee?.seg || '';
     var ihOk  = statsSelectedIHs === null || !allIHs.length || statsSelectedIHs.has(ih);
@@ -4808,7 +4812,7 @@ function renderStats() {
         var twa   = parseFloat(s.results?.twa);
         var dose  = parseFloat(s.results?.dose);
         var date  = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '—';
-        var ih    = s.deviceNickname || s.ih?.name || '—';
+        var ih    = s.ih?.name || s.deviceNickname || '—';
         var loc   = s.employee?.location || '—';
         var proc  = s.employee?.process  || '—';
         var qaOk  = s.qa?.allPass;
@@ -5041,7 +5045,7 @@ function getFilteredSurveys() {
   const sel = document.getElementById('exportIHFilter');
   const name = sel ? sel.value : '';
   if (!name) { showToast('Please select a field IH first', 'error'); return null; }
-  const filtered = surveys.filter(s => (s.deviceNickname || s.ih?.name || '') === name);
+  const filtered = surveys.filter(s => (s.ih?.name || s.deviceNickname || '') === name);
   if (!filtered.length) { showToast('No surveys found for ' + name, 'error'); return null; }
   return { surveys: filtered, name: name };
 }
@@ -6817,7 +6821,7 @@ function renderRAC() {
   var resultsEl  = document.getElementById('racResults');
   if (!resultsEl) return;
 
-  var allIHs  = [...new Set(surveys.map(function(s){ return s.deviceNickname || s.ih?.name || ''; }).filter(Boolean))].sort();
+  var allIHs  = [...new Set(surveys.map(function(s){ return s.ih?.name || s.deviceNickname || ''; }).filter(Boolean))].sort();
   var allLocs = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))].sort();
   var allSEGs = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))].sort();
 
@@ -6837,7 +6841,7 @@ function renderRAC() {
   if (segChipsEl) segChipsEl.innerHTML = allSEGs.map(function(seg) { return chipHtml(seg, racSelectedSEGs.has(seg), "racToggleSEG('" + esc(seg) + "')"); }).join('');
 
   var sel = surveys.filter(function(s) {
-    var ih  = s.deviceNickname || s.ih?.name || '';
+    var ih  = s.ih?.name || s.deviceNickname || '';
     var loc = s.employee?.location || '';
     var seg = s.employee?.seg || '';
     return (!allIHs.length || racSelectedIHs.has(ih))
@@ -6916,7 +6920,7 @@ function renderRAC() {
       var twaBg= isNaN(twa) ? '' : twa >= 90 ? 'background:#fcebeb;' : twa >= 85 ? 'background:#fff8e6;' : '';
       return '<tr style="border-bottom:1px solid var(--border);">'
         + '<td style="padding:6px 10px;font-size:12px;color:var(--text);">' + esc(s.employee?.name||'—') + '</td>'
-        + '<td style="padding:6px 10px;font-size:11px;color:var(--teal);">' + esc(s.deviceNickname||s.ih?.name||'—') + '</td>'
+        + '<td style="padding:6px 10px;font-size:11px;color:var(--teal);">' + esc(s.ih?.name||s.deviceNickname||'—') + '</td>'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);">' + date + '</td>'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);">' + esc(s.employee?.location||'—') + '</td>'
         + '<td style="padding:6px 10px;font-size:12px;font-weight:700;text-align:right;color:'+twaC+';'+twaBg+'">' + (isNaN(twa)?'—':twa.toFixed(1)+' dBA') + '</td>'
@@ -7031,7 +7035,7 @@ function printRAC() {
     var fmtDb = function(v) { return (v === null || v === undefined || isNaN(v)) ? '\u2014' : v.toFixed(1) + ' dBA'; };
 
     // ── Collect filtered data ──────────────────────────────
-    var allIHs  = [...new Set(surveys.map(function(s){ return s.deviceNickname || (s.ih && s.ih.name) || ''; }).filter(Boolean))].sort();
+    var allIHs  = [...new Set(surveys.map(function(s){ return (s.ih && s.ih.name) || s.deviceNickname || ''; }).filter(Boolean))].sort();
     var allLocs = [...new Set(surveys.map(function(s){ return (s.employee && s.employee.location) || ''; }).filter(Boolean))].sort();
     var allSEGs = [...new Set(surveys.map(function(s){ return (s.employee && s.employee.seg) || ''; }).filter(Boolean))].sort();
 
@@ -7039,7 +7043,7 @@ function printRAC() {
     var effLocs = racSelectedLocations  !== null ? racSelectedLocations  : new Set(allLocs);
 
     var sel = surveys.filter(function(s) {
-      var ih  = s.deviceNickname || (s.ih && s.ih.name) || '';
+      var ih  = (s.ih && s.ih.name) || s.deviceNickname || '';
       var loc = (s.employee && s.employee.location) || '';
       var seg = (s.employee && s.employee.seg) || '';
       return (!allIHs.length  || effIHs.has(ih))
@@ -7251,7 +7255,7 @@ function printRAC() {
         doc.setTextColor(20,20,20);
         doc.text((s.employee && s.employee.name) || '\u2014', dc[0]+4, y+11);
         doc.setTextColor(...TEAL);
-        doc.text(s.deviceNickname || (s.ih && s.ih.name) || '\u2014', dc[1]+4, y+11);
+        doc.text((s.ih && s.ih.name) || s.deviceNickname || '\u2014', dc[1]+4, y+11);
         doc.setTextColor(20,20,20);
         doc.text(date, dc[2]+4, y+11);
         doc.text((s.employee && s.employee.location) || '\u2014', dc[3]+4, y+11);
