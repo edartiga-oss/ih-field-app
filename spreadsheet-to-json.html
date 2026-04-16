@@ -1082,15 +1082,8 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   const surveyDateFromHeader = (aoa[1] && aoa_raw[1] && aoa_raw[1][1]) ? fmtDateRaw(aoa_raw[1][1]) : '';
   const surveyDate = fmtDateRaw(kv['Survey Date']) || fmtDateRaw(kv['Survey Data.Start Date'] || kv['Survey Data.Start Date/Time']) || surveyDateFromHeader;
 
-  const startDT = combineDT(
-    kv['Survey Data.Start Date'] || kv['Survey Data.Start Date/Time'],
-    kv['Survey Data.Start Time']
-  );
-  // Fix: stop date and stop time are separate keys — don't OR them together as first arg
-  const stopDT  = combineDT(
-    kv['Survey Data.Stop Date'],
-    kv['Survey Data.Stop Time']
-  );
+  const startDT = combineDT(startDate, startTime);
+  const stopDT  = combineDT(stopDate,  stopTime);
 
   const numKV = key => {
     const v = kv[key];
@@ -1110,12 +1103,24 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
 
   const preReading  = kv['Pre Cal.Result (dB)'];
   const postReading = kv['Post Cal.Result (dB)'];
-  // Pre/post cal times: label is 'Time' under 'Pre Cal' / 'Post Cal' sections
   const preCalTime  = fmtTimeRaw(kv['Pre Cal.Time']);
   const postCalTime = fmtTimeRaw(kv['Post Cal.Time']);
 
-  // NIST cal due = calibration date + 1 year (row 17)
-  const calDateRaw = kv['Calibration.Calibration Date'];
+  // NIST cal due = calibrator Calibration Date + 1 year
+  // Try KV key first (handles both section names), then fall back to direct row scan
+  const calDateRaw = kv['Calibration.Calibration Date'] || kv['Calibration.Calibration date'] ||
+    (() => {
+      // Direct scan: find the 2nd 'Calibration Date' row (first is dosimeter, second is calibrator)
+      let count = 0;
+      for (let i = 0; i < aoa.length; i++) {
+        const lbl = (aoa[i][labelCol] || '').toString().trim();
+        if (lbl === 'Calibration Date' || lbl === 'Calibration date') {
+          count++;
+          if (count === 2) return aoa_raw[i] ? aoa_raw[i][valCol] : null;
+        }
+      }
+      return null;
+    })();
   let nistDue = '';
   if (calDateRaw) {
     const calDateStr = fmtDateRaw(calDateRaw);
@@ -1125,6 +1130,37 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       nistDue = d.toISOString().slice(0, 10);
     }
   }
+
+  // Dosimeter factory cal — first 'Calibration Date' row
+  const dosCal = kv['Dosimeter.Calibration Date'] ||
+    (() => {
+      for (let i = 0; i < aoa.length; i++) {
+        const lbl = (aoa[i][labelCol] || '').toString().trim();
+        if (lbl === 'Calibration Date' || lbl === 'Calibration date') {
+          return aoa_raw[i] ? aoa_raw[i][valCol] : null;
+        }
+      }
+      return null;
+    })();
+
+  // Survey start/stop — try KV keys, then direct row scan for both label variants
+  const startDateRaw = kv['Survey Data.Start Date'] || kv['Survey Data.Start Date/Time'];
+  const startTimeRaw = kv['Survey Data.Start Time'];
+  const stopDateRaw  = kv['Survey Data.Stop Date'];
+  const stopTimeRaw  = kv['Survey Data.Stop Time'];
+
+  // Direct row fallback for start/stop if KV lookup missed them
+  const findRowVal = (labelText) => {
+    for (let i = 0; i < aoa.length; i++) {
+      const lbl = (aoa[i][labelCol] || '').toString().trim();
+      if (lbl === labelText) return aoa_raw[i] ? aoa_raw[i][valCol] : null;
+    }
+    return null;
+  };
+  const startDate = startDateRaw || findRowVal('Start Date') || findRowVal('Start Date/Time');
+  const startTime = startTimeRaw || findRowVal('Start Time');
+  const stopDate  = stopDateRaw  || findRowVal('Stop Date');
+  const stopTime  = stopTimeRaw  || findRowVal('Stop Time');
 
   const noiseNotes = [
     clean(kv['Work Description/ Equipment Used/PPE Used.Primary Noise Source'] || kv['Survey Data.Primary Noise Source'] || ''),
@@ -1194,17 +1230,17 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       process: clean(kv['Processes'] || ''),
     },
     dosimeter: {
-      make: clean(kv['Dosimeter.Manufaturer'] || ''),
+      make: clean(kv['Dosimeter.Manufaturer'] || kv['Dosimeter.Manufacturer'] || ''),
       model: clean(kv['Dosimeter.Model'] || ''),
       serial: clean(kv['Dosimeter.Serial Number'] || ''),
-      factoryCal: fmtDateRaw(kv['Dosimeter.Calibration Date']),
+      factoryCal: fmtDateRaw(dosCal),
       exchange: String(ex),
       criterion: String(cr),
       weighting: 'A',
       response: 'Slow',
     },
     calibrator: {
-      make: clean(kv['Calibration.Manufaturer'] || ''),
+      make: clean(kv['Calibration.Manufaturer'] || kv['Calibration.Manufacturer'] || ''),
       model: clean(kv['Calibration.Model'] || ''),
       serial: clean(kv['Calibration.Serial Number'] || ''),
       nistDue: nistDue,
