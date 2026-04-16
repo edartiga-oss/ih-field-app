@@ -1223,10 +1223,16 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   const stopDate  = kvGet('Survey Data.Stop Date') || findRowVal('Stop Date') || startDate;
   const stopTime  = kvGet('Survey Data.Stop Time') || findRowVal('Stop Time');
 
-  // combineDT handles: (date serial, time serial), (combined datetime serial, null),
-  // (date string, time string)
-  const startDT = combineDT(startDate, startTime);
-  const stopDT  = combineDT(stopDate,  stopTime);
+  // combineDT handles all layouts:
+  //   "Start Date/Time" label → combined serial in startDate, no startTime → combineDT(46086.313, null)
+  //   "Start Time" label with combined serial → no startDate, combined in startTime → detect here
+  //   Separate date + time rows → combineDT(dateSerial, timeSerial)
+  const startDT = startDate
+    ? combineDT(startDate, startTime)
+    : (typeof startTime === 'number' && startTime > 1 ? combineDT(startTime, null) : '');
+  const stopDT = stopDate
+    ? combineDT(stopDate, stopTime)
+    : (typeof stopTime === 'number' && stopTime > 1 ? combineDT(stopTime, null) : '');
 
   const noiseNotes = [
     clean(kv['Work Description/ Equipment Used/PPE Used.Primary Noise Source'] || kv['Survey Data.Primary Noise Source'] || ''),
