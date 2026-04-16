@@ -947,10 +947,16 @@ async function readSpreadsheetBuffer(buf, ext) {
 
       const sheetCBs = cbBySheet.get(sname) || null;
 
-      const left  = parseNativeSide(aoa, aoa_raw, sname, 0, 1, ihName, sheetCBs, 'left');
-      const right = parseNativeSide(aoa, aoa_raw, sname, 4, 5, ihName, sheetCBs, 'right');
-      if (left)  surveys.push(left);
-      if (right) surveys.push(right);
+      // Detect 3-survey sheets (e.g. "ND 5 & 6 & 7") — 3rd survey uses cols I/J (idx 8/9)
+      const empC = aoa[3] ? (aoa[3][8] || '') : '';
+      const hasThird = !isBlank(empC);
+
+      const left   = parseNativeSide(aoa, aoa_raw, sname, 0, 1, ihName, sheetCBs, 'left');
+      const right  = parseNativeSide(aoa, aoa_raw, sname, 4, 5, ihName, sheetCBs, 'right');
+      const middle = hasThird ? parseNativeSide(aoa, aoa_raw, sname, 8, 9, ihName, sheetCBs, 'right') : null;
+      if (left)   surveys.push(left);
+      if (right)  surveys.push(right);
+      if (middle) surveys.push(middle);
     }
 
     return { rows: surveys, sheetName: sheetLabel, nativeFormat: true };
@@ -1054,11 +1060,15 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   };
 
   const combineDT = (d, t) => {
-    const ds = fmtDateRaw(d);
-    // If d is a combined datetime serial (integer+fraction), extract both parts
-    if (typeof d === 'number' && d > 1 && !t) {
-      return fmtDateRaw(d) + 'T' + fmtTimeRaw(d);
+    if (!d && !t) return '';
+    // If d is a combined datetime serial (integer+fraction), extract date+time from it
+    // unless a separate t is provided (which takes priority for the time portion)
+    if (typeof d === 'number' && d > 1) {
+      const ds = fmtDateRaw(d);
+      const ts = t ? fmtTimeRaw(t) : fmtTimeRaw(d);
+      return ds && ts ? `${ds}T${ts}` : ds || '';
     }
+    const ds = fmtDateRaw(d);
     const ts = fmtTimeRaw(t);
     if (ds && ts) return `${ds}T${ts}`;
     return ds || '';
@@ -1140,13 +1150,13 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       return null;
     })();
 
-  // Survey start/stop — try KV keys, then direct row scan for both label variants
+  // Survey start/stop — try KV keys first, then direct row scan for all label variants
   const startDateRaw = kv['Survey Data.Start Date'] || kv['Survey Data.Start Date/Time'];
   const startTimeRaw = kv['Survey Data.Start Time'];
   const stopDateRaw  = kv['Survey Data.Stop Date'];
   const stopTimeRaw  = kv['Survey Data.Stop Time'];
 
-  // Direct row fallback for start/stop if KV lookup missed them
+  // Direct row fallback: scan aoa for exact label text
   const findRowVal = (labelText) => {
     for (let i = 0; i < aoa.length; i++) {
       const lbl = (aoa[i][labelCol] || '').toString().trim();
@@ -1154,11 +1164,19 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
     }
     return null;
   };
-  const startDate = startDateRaw || findRowVal('Start Date') || findRowVal('Start Date/Time');
-  const startTime = startTimeRaw || findRowVal('Start Time');
-  const stopDate  = stopDateRaw  || findRowVal('Stop Date');
-  const stopTime  = stopTimeRaw  || findRowVal('Stop Time');
 
+  // startDate: try all variants including combined "Start Date/Time" label
+  const startDate = startDateRaw
+    || findRowVal('Start Date')
+    || findRowVal('Start Date/Time');  // combined datetime in some templates
+  const startTime = startTimeRaw || findRowVal('Start Time');
+
+  // stopDate: some templates only have "Stop Time" (no Stop Date row) — reuse start date
+  const stopDate  = stopDateRaw || findRowVal('Stop Date') || startDate;
+  const stopTime  = stopTimeRaw || findRowVal('Stop Time');
+
+  // combineDT handles: (date serial, time serial), (combined datetime serial, null), 
+  // (date string, time string)
   const startDT = combineDT(startDate, startTime);
   const stopDT  = combineDT(stopDate,  stopTime);
 
@@ -1208,9 +1226,9 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   hourlyObs.slice(0, 10).forEach((obs, i) => { hourSlots[`hour${i+1}`] = obs; });
 
   return {
-    id: `NDS-${sheetName.replace(/\s/g,'')}${labelCol===0?'L':'R'}-${Date.now().toString(36).toUpperCase().slice(-4)}`,
+    id: `NDS-${sheetName.replace(/\s/g,'')}${labelCol===0?'L':labelCol===4?'R':'C'}-${Date.now().toString(36).toUpperCase().slice(-4)}`,
     timestamp: new Date().toISOString(),
-    _row: sheetName + (labelCol === 0 ? ' (left)' : ' (right)'),
+    _row: sheetName + (labelCol === 0 ? ' (left)' : labelCol === 4 ? ' (right)' : ' (center)'),
     _nativeSheet: sheetName,
     project: {
       name: shopRaw ? `${shopRaw} — Noise Dosimetry` : 'Noise Dosimetry',
@@ -1243,7 +1261,8 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
       make: clean(kv['Calibration.Manufaturer'] || kv['Calibration.Manufacturer'] || ''),
       model: clean(kv['Calibration.Model'] || ''),
       serial: clean(kv['Calibration.Serial Number'] || ''),
-      nistDue: nistDue,
+      lastNistCal: fmtDateRaw(calDateRaw),   // raw cal date (e.g. 2025-05-22)
+      nistDue: nistDue,                       // lastNistCal + 1 year (e.g. 2026-05-22)
       refLevel: '114',
     },
     calibration: {
@@ -1802,12 +1821,12 @@ function buildExportSurvey(s) {
       factoryCal: s.dosimeter.factoryCal || '',
     },
     calibrator: {
-      make:        s.calibrator.make     || '',
-      model:       s.calibrator.model    || '',
-      serial:      s.calibrator.serial   || '',
-      lastNistCal: s.calibrator.nistDue  || '',   // app uses lastNistCal
-      nistDue:     s.calibrator.nistDue  || '',
-      refLevel:    s.calibrator.refLevel || '114',
+      make:        s.calibrator.make        || '',
+      model:       s.calibrator.model       || '',
+      serial:      s.calibrator.serial      || '',
+      lastNistCal: s.calibrator.lastNistCal || '',   // raw calibrator cal date
+      nistDue:     s.calibrator.nistDue     || '',   // lastNistCal + 1 year
+      refLevel:    s.calibrator.refLevel    || '114',
     },
     calibration: {
       preTime:      preTimeFull,
