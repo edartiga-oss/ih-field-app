@@ -1106,13 +1106,14 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
     return ds || '';
   };
 
-  // Shop = row 3 col B (shared for both sides)
+  // Shop = KV 'Shop' key, or row 3 col B header fallback (RRAD template)
   const shopFromHeader = (aoa[2] && aoa[2][1]) ? clean(aoa[2][1].toString()) : ''; // row 3 col B
   const shopRaw = clean(kv['Shop']) || shopFromHeader;
 
-  // Location = row 3 col F — always the shared facility location for both surveys in this tab
+  // Location = KV 'Location' key (works for any row), then row 3 col F (RRAD template where
+  // Location label is in col E row 3 and value in col F row 3)
   const locationFromHeader = (aoa[2] && aoa[2][5]) ? clean(aoa[2][5].toString()) : ''; // row 3 col F
-  const locationRaw = locationFromHeader || clean(kv['Location']) || shopRaw;
+  const locationRaw = clean(kv['Location']) || locationFromHeader || shopRaw;
 
   // Dept/Area — blank unless a building number is referenced in SEG or primary noise source
   const segText  = clean(kv['SEG'] || '');
