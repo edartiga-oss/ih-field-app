@@ -2967,11 +2967,11 @@ function getQAResult() {
 
   if (preT && startT) {
     anyRun = true;
-    checks.preBefore = new Date(preT) < new Date(startT);
+    checks.preBefore = new Date(preT) <= new Date(startT);
   }
   if (postT && endT) {
     anyRun = true;
-    checks.postAfter = new Date(postT) > new Date(endT);
+    checks.postAfter = new Date(postT) >= new Date(endT);
   }
   if (preT && startT) {
     const diffMin = (new Date(startT) - new Date(preT)) / 60000;
@@ -3067,16 +3067,28 @@ function runQA() {
     }
   }
 
-  // QA1: pre-cal before start
+  // QA1: pre-cal at or before start
   if (preT && startT) {
-    const pass = new Date(preT) < new Date(startT);
-    setCheck('qa1','qa1val', pass, pass ? 'Before start' : 'After start!');
+    const preDate = new Date(preT), startDate = new Date(startT);
+    const pass = preDate <= startDate;
+    const fmtDt = function(d) { return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); };
+    setCheck('qa1','qa1val', pass,
+      pass
+        ? fmtDt(preDate) + ' ≤ ' + fmtDt(startDate)
+        : fmtDt(preDate) + ' > ' + fmtDt(startDate) + ' — after start!'
+    );
   } else setCheck('qa1','qa1val', null);
 
-  // QA2: post-cal after end
+  // QA2: post-cal at or after end
   if (postT && endT) {
-    const pass = new Date(postT) > new Date(endT);
-    setCheck('qa2','qa2val', pass, pass ? 'After end' : 'Before end!');
+    const postDate = new Date(postT), endDate = new Date(endT);
+    const pass = postDate >= endDate;
+    const fmtDt2 = function(d) { return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); };
+    setCheck('qa2','qa2val', pass,
+      pass
+        ? fmtDt2(postDate) + ' ≥ ' + fmtDt2(endDate)
+        : fmtDt2(postDate) + ' < ' + fmtDt2(endDate) + ' — before end!'
+    );
   } else setCheck('qa2','qa2val', null);
 
   // QA3: pre-cal within 1 hr of start
