@@ -1082,9 +1082,6 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   const surveyDateFromHeader = (aoa[1] && aoa_raw[1] && aoa_raw[1][1]) ? fmtDateRaw(aoa_raw[1][1]) : '';
   const surveyDate = fmtDateRaw(kv['Survey Date']) || fmtDateRaw(kv['Survey Data.Start Date'] || kv['Survey Data.Start Date/Time']) || surveyDateFromHeader;
 
-  const startDT = combineDT(startDate, startTime);
-  const stopDT  = combineDT(stopDate,  stopTime);
-
   const numKV = key => {
     const v = kv[key];
     if (typeof v === 'number' && v !== 0) return v;
@@ -1161,6 +1158,9 @@ function parseNativeSide(aoa, aoa_raw, sheetName, labelCol, valCol, ihName, shee
   const startTime = startTimeRaw || findRowVal('Start Time');
   const stopDate  = stopDateRaw  || findRowVal('Stop Date');
   const stopTime  = stopTimeRaw  || findRowVal('Stop Time');
+
+  const startDT = combineDT(startDate, startTime);
+  const stopDT  = combineDT(stopDate,  stopTime);
 
   const noiseNotes = [
     clean(kv['Work Description/ Equipment Used/PPE Used.Primary Noise Source'] || kv['Survey Data.Primary Noise Source'] || ''),
