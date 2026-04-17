@@ -211,7 +211,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     y += 13;
 
     // ── META INFO BOX ──────────────────────────────────────────────
-    var metaH = 58;
+    var metaH = 68;
     fillRect(ML, y, CW, metaH, [240, 246, 251]);
     doc.setDrawColor(200, 215, 228); doc.setLineWidth(0.5);
     doc.rect(ML, y, CW, metaH, 'S');
@@ -224,18 +224,18 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
     doc.setFont('helvetica','normal'); doc.setFontSize(10); setC(BLACK);
     doc.text(empName, c1, y + 27, { maxWidth: CW * 0.46 });
-    var titleComp = (empTitle && empComp) ? empTitle + ' \u2014 ' + empComp
-                  : (empTitle || empComp || '\u2014');
+    var titleComp = (empTitle && empComp) ? empTitle + ' -- ' + empComp
+                  : (empTitle || empComp || '--');
     doc.text(titleComp, c2, y + 27, { maxWidth: CW * 0.46 });
 
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
-    doc.text('SIMILAR EXPOSURE GROUP (SEG)', c1, y + 43);
-    doc.text('SURVEY LOCATION',  c2, y + 43);
+    doc.text('SIMILAR EXPOSURE GROUP (SEG)', c1, y + 45);
+    doc.text('SURVEY LOCATION',  c2, y + 45);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); setC(BLACK);
-    doc.text(seg, c1, y + 55, { maxWidth: CW * 0.46 });
-    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); setC(BLACK);
-    doc.text(loc, c2, y + 55, { maxWidth: CW * 0.46 });
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); setC(BLACK);
+    doc.text(seg, c1, y + 60, { maxWidth: CW * 0.46 });
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); setC(BLACK);
+    doc.text(loc, c2, y + 60, { maxWidth: CW * 0.46 });
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
     y += metaH + 14;
