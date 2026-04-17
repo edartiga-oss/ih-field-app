@@ -300,7 +300,9 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     }
     // Render p2 with SEG name bolded inline
     (function() {
-      var segIdx = p2.indexOf(seg);
+      // Bold token includes "SEG" so renders as e.g. "Vehicle Maintenance SEG"
+      var boldToken = seg + ' SEG';
+      var segIdx = p2.indexOf(boldToken);
       if (segIdx === -1) {
         doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
         var lines = doc.splitTextToSize(p2, CW);
@@ -309,14 +311,14 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
         return;
       }
       var before = p2.slice(0, segIdx);
-      var after  = p2.slice(segIdx + seg.length);
+      var after  = p2.slice(segIdx + boldToken.length);
 
       // Split full paragraph to get total line count for y advance
       doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
       var fullLines    = doc.splitTextToSize(p2, CW);
       var beforeLines  = doc.splitTextToSize(before, CW);
       var segLineIdx   = beforeLines.length - 1;
-      var lastBefore   = beforeLines[segLineIdx];
+      var lastBefore   = beforeLines[segLineIdx] || '';
       var curY         = y;
 
       // Lines before the seg line
@@ -332,8 +334,8 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       var segX = ML + doc.getTextWidth(lastBefore);
 
       doc.setFont('helvetica','bold'); doc.setFontSize(10.5); setC(BLACK);
-      doc.text(seg, segX, curY);
-      var afterX    = segX + doc.getTextWidth(seg);
+      doc.text(boldToken, segX, curY);
+      var afterX    = segX + doc.getTextWidth(boldToken);
       var spaceLeft = CW - (afterX - ML);
 
       // Fit as many words of 'after' onto the same line as possible
