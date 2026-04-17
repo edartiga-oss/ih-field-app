@@ -2516,7 +2516,17 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
-  document.querySelectorAll('.nav-tab')[['surveys','form','equipment','stats','rac','export','verify'].indexOf(name)].classList.add('active');
+  // Find the tab that dispatches to this view by inspecting onclick,
+  // rather than using a hardcoded position array — self-healing if
+  // tabs ever get reordered again.
+  const tabs = document.querySelectorAll('.nav-tab');
+  for (let i = 0; i < tabs.length; i++) {
+    const onclick = tabs[i].getAttribute('onclick') || '';
+    if (onclick.indexOf("showView('" + name + "')") !== -1) {
+      tabs[i].classList.add('active');
+      break;
+    }
+  }
   if (name === 'surveys')   renderSurveyList();
   if (name === 'export')    renderExportList();
   if (name === 'equipment') renderEquipmentLists();
