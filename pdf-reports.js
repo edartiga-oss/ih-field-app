@@ -1264,13 +1264,17 @@ function printRAC() {
       }
       y += 24;
 
-      // Metrics row
+      // Metrics row. Each cell is [label, value, valueColor?] — when the
+      // third element is present, it overrides the default dark-grey text
+      // color for the value. Used to tint UTL 95/95 red when it meets or
+      // exceeds the standard's threshold (consistent with TWA coloring).
+      var utlOverThreshold = !utlNA && !isNaN(utl) && utl >= twaWarnAt;
       var metrics = [
         ['n (surveys)', String(surveyCt)],
         ['Personnel',   String(personnel)],
         ['GM',          stats ? fmtDb(stats.gm) : '\u2014'],
         ['UCL 95%',     (stats && !isNaN(stats.ucl95)) ? fmtDb(stats.ucl95) : '\u2014'],
-        ['UTL 95/95',   utlNA ? 'N/A' : fmtDb(utl)],
+        ['UTL 95/95',   utlNA ? 'N/A' : fmtDb(utl), utlOverThreshold ? RED : null],
       ];
       var mw = CW / metrics.length;
       metrics.forEach(function(m, mi) {
@@ -1279,10 +1283,37 @@ function printRAC() {
         doc.setDrawColor(...LGRAY); doc.setLineWidth(0.3); doc.rect(mx, y, mw - 2, 34, 'S');
         doc.setTextColor(...GRAY); doc.setFont('helvetica','normal'); doc.setFontSize(7);
         doc.text(m[0], mx + 6, y + 10);
-        doc.setTextColor(20,20,20); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        var valColor = m[2] || [20,20,20];
+        doc.setTextColor(...valColor); doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text(m[1], mx + 6, y + 26);
       });
       y += 38;
+
+      // Method provenance line — shows how GM / UCL / UTL were derived,
+      // with the relevant constants pulled from the stats object so
+      // reviewers can audit the math. Rendered at caption size below the
+      // metrics strip. For single-sample SEGs, stats is null — show a
+      // reduced note; for zero-sample SEGs, skip entirely.
+      if (twas.length >= 2 && stats) {
+        y = checkY(y, 14);
+        var methodLine =
+          'n=' + stats.n + ' TWAs'
+          + '   \u00b7   GM: exp(mean ln TWA) = ' + stats.gm.toFixed(1) + ' dBA'
+          + '   \u00b7   UCL: Land\'s Exact, H(delta=' + stats.delta.toFixed(2) + ')=' + stats.t.toFixed(3)
+          + '   \u00b7   UTL: Hahn-Meeker, K=' + stats.K.toFixed(3);
+        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
+        // Wrap if it exceeds content width (narrow pages or long values).
+        var methodLines = doc.splitTextToSize(methodLine, CW);
+        methodLines.forEach(function(line) { doc.text(line, L, y + 8); y += 10; });
+        doc.setFont('helvetica','normal');
+        y += 2;
+      } else if (twas.length === 1) {
+        y = checkY(y, 12);
+        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
+        doc.text('n=1 \u2014 single sample; no UCL/UTL computed (TWA used directly as UTL).', L, y + 8);
+        doc.setFont('helvetica','normal');
+        y += 12;
+      }
 
       // Small-sample warning
       if (stats && stats.smallSample) {
