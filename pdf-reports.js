@@ -500,3 +500,259 @@ function exportBatchPDF() {
     showToast('Batch PDF exported (' + surveys.length + ' surveys)', 'success');
   } catch(e) { showToast('PDF export failed: ' + e.message, 'error'); console.error(e); }
 }
+
+
+// ═══════════════════════════════════════════════════════════
+//  4. REPORT: EQUIPMENT LIBRARY
+// ═══════════════════════════════════════════════════════════
+//  Entry points:
+//    buildEquipmentLibraryPDF()   — returns a jsPDF doc
+//    exportEquipmentLibraryPDF()  — save-to-file wrapper
+//
+//  Uses globals: equipment, window.jspdf, showToast
+//
+//  Layout: landscape letter, one page header, two tables stacked
+//  (Dosimeters, then Calibrators), each sorted alphabetically by
+//  make + model. Calibration/NIST-due dates color-coded: green if
+//  > 90 days out, amber ≤ 90 days, red if past due.
+//
+//  NOTE ON SHARED HELPERS
+//  ──────────────────────────────────────────────────────────
+//  This is the second report builder. The Section 2 helper stubs at
+//  the top of this file are still TODO. After this report ships and
+//  you've seen which patterns actually repeat between the surveys
+//  and inventory builders (likely: header stamp, footer, section
+//  bar, cal-date coloring), factor those into the Section 2 stubs
+//  in a follow-up pass. For now, this builder duplicates a minimal
+//  amount of header/footer code inline — marked with "// SHARED?"
+//  comments to flag the candidates.
+// ═══════════════════════════════════════════════════════════
+
+// Returns a status object for a calibration / NIST due date:
+//   { color: [r,g,b], label: 'past due' | '≤ 90 days' | 'current' | '—' }
+// Used to color-code the cal-due column in the inventory table.
+function equipCalStatus(dueDateStr) {
+  if (!dueDateStr) return { color: [120, 120, 120], label: '—' };
+  var due = new Date(dueDateStr);
+  if (isNaN(due.getTime())) return { color: [120, 120, 120], label: '—' };
+  var now = new Date();
+  var msPerDay = 86400000;
+  var daysOut = Math.floor((due - now) / msPerDay);
+  if (daysOut < 0)  return { color: [184,  48,  48], label: 'past due'  };  // red
+  if (daysOut <= 90) return { color: [184, 134,  11], label: '≤ 90 days' };  // amber
+  return { color: [ 29, 122,  69], label: 'current' };                       // green
+}
+
+function buildEquipmentLibraryPDF() {
+  const { jsPDF } = window.jspdf;
+  // Landscape letter: 792 x 612 pt (wider than tall). Matches the data
+  // density of a multi-column inventory table.
+  const doc = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'landscape' });
+  const W = doc.internal.pageSize.getWidth();    // 792
+  const H = doc.internal.pageSize.getHeight();   // 612
+
+  // Brand constants, loaded locally for convenience and to match the
+  // surveys builder's spread pattern.
+  const NAVY = PDF_BRAND.colors.navy;
+  const TEAL = PDF_BRAND.colors.teal;
+  const GRAY = PDF_BRAND.colors.muted;
+
+  // SHARED? — header bar + title stamp (also used by the surveys builder).
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, 52, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+  doc.text('EQUIPMENT LIBRARY', 36, 24);
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...TEAL);
+  doc.text('Dosimeters & Calibrators — Current Library Summary', 36, 38);
+  doc.setTextColor(180, 200, 220);
+  const totalCount = equipment.length +
+    ' item' + (equipment.length !== 1 ? 's' : '') +
+    '   ·   Generated ' + new Date().toLocaleString();
+  doc.text(totalCount, W - 36, 38, { align: 'right' });
+
+  let y = 72;
+
+  // SHARED? — navy section-bar heading. Compare to sectionHead() in
+  // buildPDFDoc — same visual but different return contract (this one
+  // returns the Y below the bar directly; sectionHead adds 36pt
+  // breathing room tuned for 10pt labels below it).
+  function sectionBar(title, y2) {
+    doc.setFillColor(...NAVY);
+    doc.rect(36, y2, W - 72, 18, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text(title.toUpperCase(), 40, y2 + 12);
+    return y2 + 26;
+  }
+
+  // Draws a table with given column headers and row data.
+  //   cols: [{ label, width, key }]    — key may be a string field name
+  //                                       or a function(row) => value
+  //   rows: array of data objects
+  //   statusKey: optional field name whose equipCalStatus() color
+  //              should tint the cell text (e.g., 'calDue', 'nistDue')
+  function drawTable(y2, cols, rows, statusKey) {
+    const rowH = 18;
+    const startX = 36;
+
+    // Header row
+    doc.setFillColor(235, 238, 242);
+    doc.rect(startX, y2, W - 72, rowH, 'F');
+    doc.setTextColor(...NAVY);
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    let x = startX + 6;
+    cols.forEach(c => {
+      doc.text(c.label, x, y2 + 12);
+      x += c.width;
+    });
+    y2 += rowH;
+
+    // Data rows
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    rows.forEach((r, i) => {
+      // Page-break: leave room for at least one more row + footer
+      if (y2 > H - 50) {
+        drawFooter();
+        doc.addPage();
+        y2 = 40;
+        // Re-draw header row on new page
+        doc.setFillColor(235, 238, 242);
+        doc.rect(startX, y2, W - 72, rowH, 'F');
+        doc.setTextColor(...NAVY);
+        doc.setFont('helvetica', 'bold');
+        let hx = startX + 6;
+        cols.forEach(c => { doc.text(c.label, hx, y2 + 12); hx += c.width; });
+        y2 += rowH;
+        doc.setFont('helvetica', 'normal');
+      }
+      // Zebra striping
+      if (i % 2 === 1) {
+        doc.setFillColor(248, 249, 251);
+        doc.rect(startX, y2, W - 72, rowH, 'F');
+      }
+      // Status color (if column applies)
+      let rowColor = [26, 41, 64];
+      if (statusKey && r[statusKey]) {
+        const st = equipCalStatus(r[statusKey]);
+        rowColor = st.color;
+      }
+      x = startX + 6;
+      cols.forEach(c => {
+        let val = typeof c.key === 'function' ? c.key(r) : r[c.key];
+        val = String(val == null || val === '' ? '—' : val);
+        // Truncate to fit the column. splitTextToSize wraps but we want
+        // single-line rows for scannability.
+        const maxChars = Math.floor(c.width / 4.5); // rough heuristic at 9pt
+        if (val.length > maxChars) val = val.substring(0, maxChars - 1) + '…';
+        // Color the status column differently from other cells
+        if (c.key === statusKey) {
+          doc.setTextColor(...rowColor);
+          doc.setFont('helvetica', 'bold');
+        } else {
+          doc.setTextColor(26, 41, 64);
+          doc.setFont('helvetica', 'normal');
+        }
+        doc.text(val, x, y2 + 12);
+        x += c.width;
+      });
+      y2 += rowH;
+    });
+
+    return y2;
+  }
+
+  // SHARED? — navy footer bar with IH/timestamp (same visual style
+  // as buildPDFDoc's footer). Parameterless version; takes generation
+  // stamp from new Date() and doesn't know about IH like the surveys
+  // report does.
+  function drawFooter() {
+    const footY = H - 32;
+    doc.setFillColor(...NAVY);
+    doc.rect(0, footY - 6, W, 38, 'F');
+    doc.setTextColor(180, 200, 220);
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text(PDF_BRAND.footerLabel + ' — Equipment Library', 36, footY + 8);
+    doc.setTextColor(...TEAL);
+    doc.text('Generated: ' + new Date().toLocaleString(), W - 36, footY + 8, { align: 'right' });
+  }
+
+  // Split equipment by type
+  const dosimeters  = equipment.filter(e => e.type === 'dosimeter')
+    .sort((a, b) => (a.make + a.model).localeCompare(b.make + b.model));
+  const calibrators = equipment.filter(e => e.type === 'calibrator')
+    .sort((a, b) => (a.make + a.model).localeCompare(b.make + b.model));
+
+  // ───── Dosimeters table ─────
+  y = sectionBar('Dosimeters (' + dosimeters.length + ')', y);
+  if (dosimeters.length === 0) {
+    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
+    doc.text('No dosimeters in library.', 40, y + 8);
+    y += 24;
+  } else {
+    y = drawTable(y, [
+      { label: 'Make / Model',   width: 150, key: r => (r.make || '') + ' ' + (r.model || '') },
+      { label: 'Serial',          width: 100, key: 'serial' },
+      { label: 'Asset Tag',       width:  80, key: 'asset' },
+      { label: 'Factory Cal',     width:  75, key: 'factoryCal' },
+      { label: 'Cal Due',         width:  75, key: 'calDue' },
+      { label: 'Exchange',        width:  60, key: r => r.exchange ? r.exchange + ' dB' : '' },
+      { label: 'Criterion',       width:  65, key: r => r.criterion ? r.criterion + ' dB' : '' },
+      { label: 'Condition',       width:  65, key: 'condition' },
+      { label: 'Notes',           width:  50, key: 'notes' },
+    ], dosimeters, 'calDue');
+    y += 14;
+  }
+
+  // ───── Calibrators table ─────
+  // Force page break if we don't have room for at least a header + 2 rows
+  if (y > H - 120) { drawFooter(); doc.addPage(); y = 40; }
+
+  y = sectionBar('Calibrators (' + calibrators.length + ')', y);
+  if (calibrators.length === 0) {
+    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
+    doc.text('No calibrators in library.', 40, y + 8);
+    y += 24;
+  } else {
+    y = drawTable(y, [
+      { label: 'Make / Model',    width: 150, key: r => (r.make || '') + ' ' + (r.model || '') },
+      { label: 'Serial',          width: 100, key: 'serial' },
+      { label: 'Asset Tag',       width:  80, key: 'asset' },
+      { label: 'Last NIST Cal',   width:  85, key: 'lastNistCal' },
+      { label: 'NIST Due',        width:  85, key: 'nistDue' },
+      { label: 'Ref Level',       width:  70, key: r => r.refLevel ? r.refLevel + ' dB' : '' },
+      { label: 'Condition',       width:  75, key: 'condition' },
+      { label: 'Notes',           width:  75, key: 'notes' },
+    ], calibrators, 'nistDue');
+    y += 14;
+  }
+
+  // Legend for color coding
+  if (y > H - 60) { drawFooter(); doc.addPage(); y = 40; }
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...GRAY);
+  doc.text('CAL DUE LEGEND:', 40, y + 10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(29, 122, 69);  doc.text('● current (>90 days)',   130, y + 10);
+  doc.setTextColor(184, 134, 11); doc.text('● ≤ 90 days out',        250, y + 10);
+  doc.setTextColor(184,  48,  48); doc.text('● past due',             350, y + 10);
+  doc.setTextColor(120, 120, 120); doc.text('● no date on file',      420, y + 10);
+
+  drawFooter();
+  return doc;
+}
+
+function exportEquipmentLibraryPDF() {
+  try {
+    if (!window.jspdf) {
+      if (confirm('PDF library not loaded. This usually means a cached version of the page is being served.\n\nClick OK to reload, or Cancel to dismiss.')) {
+        window.location.reload(true);
+      }
+      return;
+    }
+    if (!equipment.length) { showToast('No equipment in library — add items first', 'error'); return; }
+    const doc = buildEquipmentLibraryPDF();
+    doc.save('EquipmentLibrary_' + new Date().toISOString().split('T')[0] + '.pdf');
+    showToast('Equipment library PDF exported (' + equipment.length + ' items)', 'success');
+  } catch(e) { showToast('PDF export failed: ' + e.message, 'error'); console.error(e); }
+}

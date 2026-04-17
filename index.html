@@ -1219,6 +1219,7 @@ body { padding: 20px 18px; }
     <select id="equipIHFilter" onchange="renderEquipmentLists()" style="flex:1; max-width:280px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
       <option value="">All field IHs</option>
     </select>
+    <button class="btn btn-outline btn-sm" onclick="exportEquipmentLibraryPDF()" title="Export the full equipment library as a PDF" style="color:var(--teal); white-space:nowrap;">Export Library PDF</button>
   </div>
 
   <!-- ── SECTION 1: INVENTORY CHECK-IN ── -->
@@ -1719,6 +1720,19 @@ body { padding: 20px 18px; }
         <button class="btn btn-outline btn-sm" onclick="exportFilteredPDF()">PDF</button>
         <button class="btn btn-outline btn-sm" onclick="exportFilteredExcel()">Excel</button>
         <button class="btn btn-teal btn-sm" onclick="exportFilteredSummary()">Summary Table</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="export-group">
+    <div class="export-group-header">Equipment Library</div>
+    <div class="export-row">
+      <div>
+        <div class="export-label">Export equipment library as PDF</div>
+        <div class="export-sub">Full library listing — dosimeters & calibrators with cal-due status</div>
+      </div>
+      <div class="export-actions">
+        <button class="btn btn-outline btn-sm" onclick="exportEquipmentLibraryPDF()">PDF</button>
       </div>
     </div>
   </div>
