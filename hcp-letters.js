@@ -311,7 +311,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
         return;
       }
       var before = p2.slice(0, segIdx);
-      var after  = p2.slice(segIdx + boldToken.length);
+      var after  = ' ' + p2.slice(segIdx + boldToken.length).trimStart();
 
       // Split full paragraph to get total line count for y advance
       doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
