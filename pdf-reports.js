@@ -190,7 +190,7 @@ function buildPDFDoc(surveysArr) {
       doc.setTextColor(255,255,255);
       doc.setFontSize(11); doc.setFont('helvetica','bold');
       doc.text(title.toUpperCase(), 40, y2 + 12);
-      return y2 + 24;
+      return y2 + 36;
     }
 
     function row(label, value, x, y2, w) {
