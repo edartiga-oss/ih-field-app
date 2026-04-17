@@ -176,7 +176,7 @@ function buildPDFDoc(surveysArr) {
     doc.text('NOISE DOSIMETRY FIELD RECORD', 36, 24);
     doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.setTextColor(...TEAL);
-    doc.text('Industrial Hygiene Field Data — Confidential', 36, 38);
+    doc.text('Industrial Hygiene Field Data', 36, 38);
     doc.setTextColor(180,200,220);
     doc.text('Survey ID: ' + s.id, W - 36, 38, { align: 'right' });
 
@@ -188,19 +188,19 @@ function buildPDFDoc(surveysArr) {
       doc.setFillColor(...NAVY);
       doc.rect(36, y2, W - 72, 18, 'F');
       doc.setTextColor(255,255,255);
-      doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.setFontSize(11); doc.setFont('helvetica','bold');
       doc.text(title.toUpperCase(), 40, y2 + 12);
       return y2 + 24;
     }
 
     function row(label, value, x, y2, w) {
-      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
       doc.text(label, x, y2);
       doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
       const valStr = String(value || '—');
       const maxW = (w || colW) - 6;
       const wrapped = doc.splitTextToSize(valStr, maxW);
-      doc.text(wrapped[0], x, y2 + 10);
+      doc.text(wrapped[0], x, y2 + 12);
       return y2;
     }
 
@@ -223,8 +223,16 @@ function buildPDFDoc(surveysArr) {
 
     // Employee
     y = sectionHead('Employee & Sample Information', y);
+
+    // Employee Name — rendered prominently above the grid because this is
+    // the single most-important field on the form (per stakeholder review).
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+    doc.text('Employee Name', 36, y);
+    doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(26,41,64);
+    doc.text(String(s.employee?.name || '—'), 36, y + 18);
+    y += 32;
+
     y = grid3([
-      ['Employee Name', s.employee?.name],
       ['Employee ID', s.employee?.empId],
       ['Employer / Company', s.employee?.company],
       ['Job Title', s.employee?.title],
@@ -232,7 +240,7 @@ function buildPDFDoc(surveysArr) {
       ['Location / Facility', s.employee?.location],
     ], y);
     if (s.employee?.task) {
-      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
       doc.text('Task Description', 36, y + 8);
       doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
       const lines = doc.splitTextToSize(s.employee.task, W - 72);
@@ -377,7 +385,7 @@ function buildPDFDoc(surveysArr) {
       doc.text('LASmax > 140 dBA — Sound Level Meter Follow-Up Protocol', 40, y + 11);
       y += 20;
       if (s.results?.lasmax140CorrectiveNotes) {
-        doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(139, 26, 26);
+        doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(139, 26, 26);
         doc.text('(a) Corrective Measures / Action Taken', 36, y + 8);
         doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
         const cLines = doc.splitTextToSize(s.results.lasmax140CorrectiveNotes, W - 72);
@@ -385,7 +393,7 @@ function buildPDFDoc(surveysArr) {
         y += 18 + cLines.length * 10 + 6;
       }
       if (s.results?.lasmax140InvestigationNotes) {
-        doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(74, 92, 114);
+        doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(74, 92, 114);
         doc.text('(b) Investigation Documentation — No Source Found Above 140 dBA', 36, y + 8);
         doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
         const dLines = doc.splitTextToSize(s.results.lasmax140InvestigationNotes, W - 72);
@@ -395,7 +403,7 @@ function buildPDFDoc(surveysArr) {
       y += 4;
     }
     if (s.results?.notes) {
-      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
       doc.text('Sampling Notes', 36, y + 8);
       doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
       const lines = doc.splitTextToSize(s.results.notes, W - 72);
@@ -415,7 +423,7 @@ function buildPDFDoc(surveysArr) {
       y = sectionHead('Controls & PPE in Place During Sampling', y);
       controlFields.forEach(f => {
         if (y > 680) { doc.addPage(); y = 40; }
-        doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+        doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
         doc.text(f.label, 36, y + 8);
         doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
         const lines = doc.splitTextToSize(f.val, W - 72);
@@ -434,7 +442,7 @@ function buildPDFDoc(surveysArr) {
       y = sectionHead('Hourly Field Observations', y);
       hourlyNotes.forEach(h => {
         if (y > 680) { doc.addPage(); y = 40; }
-        doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+        doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
         doc.text(h.label, 36, y + 8);
         doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
         const lines = doc.splitTextToSize(h.val, W - 72);
