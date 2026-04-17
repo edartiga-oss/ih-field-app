@@ -1289,27 +1289,56 @@ function printRAC() {
       });
       y += 38;
 
-      // Method provenance line — shows how GM / UCL / UTL were derived,
-      // with the relevant constants pulled from the stats object so
-      // reviewers can audit the math. Rendered at caption size below the
-      // metrics strip. For single-sample SEGs, stats is null — show a
-      // reduced note; for zero-sample SEGs, skip entirely.
-      if (twas.length >= 2 && stats) {
-        y = checkY(y, 14);
-        var methodLine =
-          'n=' + stats.n + ' TWAs'
-          + '   \u00b7   GM: exp(mean ln TWA) = ' + stats.gm.toFixed(1) + ' dBA'
-          + '   \u00b7   UCL: Land\'s Exact, H(delta=' + stats.delta.toFixed(2) + ')=' + stats.t.toFixed(3)
-          + '   \u00b7   UTL: Hahn-Meeker, K=' + stats.K.toFixed(3);
-        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
-        // Wrap if it exceeds content width (narrow pages or long values).
-        var methodLines = doc.splitTextToSize(methodLine, CW);
-        methodLines.forEach(function(line) { doc.text(line, L, y + 8); y += 10; });
+      // Method detail block — formula + reference + plugged-in constants
+      // + result for each of GM / UCL / UTL, matching the footnote style
+      // of the Statistics tab. Rendered at caption size below the metrics
+      // strip. Bold label prefix on each line for scannability.
+      //
+      // Character safety: uses only WinAnsi-safe glyphs. ASCII variable
+      // names (logMean, delta, sqrt) stand in for the Stats tab's Greek
+      // symbols (ȳ, δ, √) which jsPDF's default Helvetica cannot render.
+      // The superscript ² (U+00B2), middle dot · (U+00B7), and em-dash
+      // — (U+2014) are all in WinAnsi and render correctly.
+      //
+      // Helper: draws "<bold label> <normal body>" on one line and
+      // returns the new y. Falls back to a single splitTextToSize call
+      // if the body exceeds content width.
+      function methodLine(y2, label, body) {
+        doc.setFontSize(7.5); doc.setTextColor(...GRAY);
+        doc.setFont('helvetica','bold');
+        doc.text(label, L, y2 + 8);
+        var lblW = doc.getTextWidth(label) + 3;
         doc.setFont('helvetica','normal');
-        y += 2;
+        var avail = CW - lblW;
+        var wrapped = doc.splitTextToSize(body, avail);
+        wrapped.forEach(function(line, i) {
+          // First wrapped line sits next to the label; subsequent lines
+          // align under the body (indented past the label).
+          doc.text(line, L + lblW, y2 + 8 + i * 10);
+        });
+        return y2 + 10 * wrapped.length;
+      }
+
+      if (twas.length >= 2 && stats) {
+        y = checkY(y, 40);
+        y = methodLine(y,
+          'GM:',
+          'exp(mean ln TWA) \u2014 geometric mean of log-transformed TWAs. GM = '
+            + stats.gm.toFixed(1) + ' dBA.');
+        y = methodLine(y,
+          'UCL:',
+          'exp(logMean + s\u00b2/2 + H(n,delta)\u00b7s/sqrt(n)) \u2014 Land\'s Exact (1971/1975). '
+            + 'H(n=' + stats.n + ', delta=' + stats.delta.toFixed(2) + ')=' + stats.t.toFixed(3)
+            + '. UCL = ' + stats.ucl95.toFixed(1) + ' dBA.');
+        y = methodLine(y,
+          'UTL:',
+          'exp(logMean + K\u00b7s) \u2014 Hahn-Meeker K-factor. '
+            + 'K(n=' + stats.n + ')=' + stats.K.toFixed(3)
+            + '. UTL = ' + stats.utl95_95.toFixed(1) + ' dBA.');
+        y += 4;
       } else if (twas.length === 1) {
         y = checkY(y, 12);
-        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
+        doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
         doc.text('n=1 \u2014 single sample; no UCL/UTL computed (TWA used directly as UTL).', L, y + 8);
         doc.setFont('helvetica','normal');
         y += 12;
