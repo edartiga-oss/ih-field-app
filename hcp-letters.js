@@ -229,11 +229,12 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.text(titleComp, c2, y + 27, { maxWidth: CW * 0.46 });
 
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
-    doc.text('SEG',              c1, y + 43);
+    doc.text('SIMILAR EXPOSURE GROUP (SEG)', c1, y + 43);
     doc.text('SURVEY LOCATION',  c2, y + 43);
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); setC(BLACK);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); setC(BLACK);
     doc.text(seg, c1, y + 55, { maxWidth: CW * 0.46 });
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); setC(BLACK);
     doc.text(loc, c2, y + 55, { maxWidth: CW * 0.46 });
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
@@ -245,7 +246,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
     var p1a = '1.  Department of the Army (DA) regulations require employees to be notified of their exposure '
             + 'results from Industrial Hygiene surveys. The following results are from the noise survey '
-            + 'performed at the:';
+            + 'performed on:';
     var p1aLines = doc.splitTextToSize(p1a, CW);
     doc.text(p1aLines, ML, y);
     y += p1aLines.length * LH + 4;
@@ -263,7 +264,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.rect(ML, y, CW, twaBoxH, 'S');
 
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
-    doc.text('EMPLOYEE PERSONAL NOISE EXPOSURE -- 8-HR TWA', ML + 10, y + 13);
+    doc.text('EMPLOYEE PERSONAL NOISE EXPOSURE -- 8-HOUR TIME WEIGHTED AVERAGE (TWA)', ML + 10, y + 13);
 
     doc.setFont('helvetica','bold'); doc.setFontSize(13.5); setC(twaColor);
     doc.text(empName + '     ' + twaStr, ML + 10, y + 31);
@@ -295,7 +296,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
          + 'confidence level to a result of ' + utlStr + ". The employee's exposure "
          + 'indicates levels ' + aboveBelow + ' the Department of the Army, Department of '
          + 'Defense Instruction (DoDI) 6055.12 noise standard of 85 dBA. '
-         + however + capB + 'ased on this result and the SEG UTL calculation result of '
+         + (however ? 'However, based on the SEG UTL calculation result of ' : 'Based on this result and the SEG UTL calculation result of ')
          + utlStr + ', you ' + doDoNot + ' to be included in the Hearing Conservation Program.';
     }
     var p2Lines = doc.splitTextToSize(p2, CW);
@@ -307,16 +308,40 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.text('3.  As a precaution you should continue to:', ML, y);
     y += LH + 2;
 
-    var BIND = ML + 10;  // bullet indent x
-    var BWRAP = CW - 10; // wrap width for bullets
-    [
+    var BIND  = ML + 10;  // bullet first-line x
+    var BHANG = ML + 30;  // hanging indent x for wrapped lines (aligns with text after "b.  ")
+
+    // Bullets a, c, d — simple wrap at BIND
+    var simpleBullets = [
       'a.  Wear either earplugs or muffs whenever noise levels are greater than or equal to 85 dBA.',
-      'b.  Obey warning signs throughout the installation in noise hazardous areas and on equipment which require personnel to wear hearing protection.',
       'c.  Have a copy of this notification letter placed in your employee file.',
       'd.  If you have any questions regarding this matter, contact the State Occupational Health Office.'
-    ].forEach(function(bullet) {
+    ];
+
+    // Bullet b — hanging indent so wrapped line aligns under "Obey"
+    var bulletB     = 'b.  Obey warning signs throughout the installation in noise hazardous areas and on equipment which require personnel to wear hearing protection.';
+    var bulletBFirst = doc.splitTextToSize(bulletB, CW - 10)[0];
+    var bulletBRest  = doc.splitTextToSize(bulletB, CW - 10).slice(1);
+
+    // Render a, then b, then c, d in order
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+    var aLines = doc.splitTextToSize(simpleBullets[0], CW - 10);
+    doc.text(aLines, BIND, y);
+    y += aLines.length * LH + 3;
+
+    // Bullet b with hanging indent
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+    var bAllLines = doc.splitTextToSize(bulletB, CW - 10);
+    doc.text(bAllLines[0], BIND, y);
+    if (bAllLines.length > 1) {
+      doc.text(bAllLines.slice(1), BHANG, y + LH);
+    }
+    y += bAllLines.length * LH + 3;
+
+    // Bullets c and d
+    [simpleBullets[1], simpleBullets[2]].forEach(function(bullet) {
       doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
-      var bLines = doc.splitTextToSize(bullet, BWRAP);
+      var bLines = doc.splitTextToSize(bullet, CW - 10);
       doc.text(bLines, BIND, y);
       y += bLines.length * LH + 3;
     });
@@ -337,8 +362,9 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       labels.forEach(function(h, i) { doc.text(h, cols[i], y + 26); });
 
       doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
+      var utlColor = utl >= 85 ? [163,45,45] : [8,80,65];
       setC(BLACK);    doc.text(String(n),         cols[0], y + 42);
-      setC(twaColor); doc.text(utlStr,             cols[1], y + 42);
+      setC(utlColor); doc.text(utlStr,             cols[1], y + 42);
       setC(BLACK);    doc.text(String(personnel),  cols[2], y + 42);
       setC(racColor); doc.text(racStr,              cols[3], y + 42);
       doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
