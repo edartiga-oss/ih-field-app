@@ -1333,18 +1333,46 @@ function printRAC() {
       // Survey results table header
       y = checkY(y, 22);
       var dc = [L, L+CW*0.22, L+CW*0.40, L+CW*0.56, L+CW*0.72, L+CW*0.86];
-      doc.setFillColor(235,238,243); doc.rect(L, y, CW, 16, 'F');
-      doc.setTextColor(...GRAY); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-      ['Employee','IH','Date','Location','TWA','Dose %'].forEach(function(h, i) {
-        doc.text(h, dc[i] + 4, y + 11);
-      });
-      y += 16;
+      // Draws the Employee/IH/Date/Location/TWA/Dose% column header.
+      // Factored out so it can be re-drawn on continuation pages when a
+      // SEG's employee rows span a page break.
+      function drawColumnHeader(y2) {
+        doc.setFillColor(235,238,243); doc.rect(L, y2, CW, 16, 'F');
+        doc.setTextColor(...GRAY); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        ['Employee','IH','Date','Location','TWA','Dose %'].forEach(function(h, i) {
+          doc.text(h, dc[i] + 4, y2 + 11);
+        });
+        return y2 + 16;
+      }
+      // Draws a lightweight "continuation" banner at the top of a new
+      // page when the employee rows wrap: the SEG name with a
+      // "(continued)" suffix + RAC badge, followed by the column header.
+      // Deliberately lighter than the full SEG block above — no metrics
+      // strip, no method line — because the reader can flip back one
+      // page for those. Just enough context to identify the rows.
+      function drawSEGContinuation(y2) {
+        doc.setFillColor(...NAVY); doc.rect(L, y2, CW, 20, 'F');
+        doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        doc.text(seg + ' (continued)', L + 8, y2 + 14);
+        if (rac !== null) {
+          doc.setFillColor(...rc.bg); doc.roundedRect(R - 100, y2 + 4, 92, 12, 3, 3, 'F');
+          doc.setTextColor(...rc.txt); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+          doc.text(racLabel(rac), R - 54, y2 + 12, { align: 'center' });
+        }
+        y2 += 20;
+        return drawColumnHeader(y2);
+      }
+      y = drawColumnHeader(y);
 
       // Survey rows
       group.slice().sort(function(a,b){
         return (parseFloat(b.results && b.results.twa)||0) - (parseFloat(a.results && a.results.twa)||0);
       }).forEach(function(s, ri) {
+        // Detect whether checkY triggered a page break; if so, redraw
+        // the SEG continuation header so orphaned rows stay identified.
+        var yBefore = y;
         y = checkY(y, 16);
+        if (y < yBefore) y = drawSEGContinuation(y);
         var twa  = parseFloat(s.results && s.results.twa);
         var dose = parseFloat(s.results && s.results.dose);
         var date = (s.calibration && s.calibration.surveyStart)
