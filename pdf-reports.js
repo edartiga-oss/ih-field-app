@@ -1081,6 +1081,19 @@ function printRAC() {
 
     var fmtDb = function(v) { return (v === null || v === undefined || isNaN(v)) ? '\u2014' : v.toFixed(1) + ' dBA'; };
 
+    // TWA warning threshold per the project's standard (per stakeholder
+    // review: TWA coloring follows the standard's criterion, independent
+    // of the group's RAC). Pulls from STATS_STANDARDS in stats.js so that
+    // adding a new standard there automatically updates this report.
+    function getWarningThreshold() {
+      var ss = (typeof STATS_STANDARDS !== 'undefined') ? STATS_STANDARDS : null;
+      if (!ss) return 85;
+      var std = projectMeta && projectMeta.standard;
+      if (std && ss[std]) return ss[std].pel;
+      return ss.ACGIH.pel;  // 85 dBA — default / most conservative
+    }
+    var twaWarnAt = getWarningThreshold();
+
     // ── Collect filtered data ──────────────────────────────
     var allIHs  = [...new Set(surveys.map(function(s){ return (s.ih && s.ih.name) || s.deviceNickname || ''; }).filter(Boolean))].sort();
     var allLocs = [...new Set(surveys.map(function(s){ return (s.employee && s.employee.location) || ''; }).filter(Boolean))].sort();
@@ -1129,8 +1142,20 @@ function printRAC() {
     doc.text('FILTERS APPLIED', L, y + 10); y += 18;
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(30,30,30);
     doc.text('IH: '       + ihLabels.join(', '),  L, y); y += 13;
+    // Site / Company — bolded for prominence (per stakeholder review).
+    // Only rendered when set; falls back silently otherwise.
+    if (projectMeta && projectMeta.name) {
+      doc.setFont('helvetica','bold');
+      doc.text('Site / Company: ' + projectMeta.name, L, y);
+      doc.setFont('helvetica','normal');
+      y += 13;
+    }
     doc.text('Location: ' + locLabels.join(', '), L, y); y += 13;
-    doc.text('SEG: '      + segLabels.join(', '), L, y); y += 20;
+    // SEG line: may be long — wrap with splitTextToSize so no truncation.
+    var segText = 'SEG: ' + segLabels.join(', ');
+    var segLines = doc.splitTextToSize(segText, CW);
+    segLines.forEach(function(line) { doc.text(line, L, y); y += 13; });
+    y += 7;
 
     // ── RAC Reference table ───────────────────────────────
     y = checkY(y, 120);
@@ -1293,7 +1318,10 @@ function printRAC() {
         var dose = parseFloat(s.results && s.results.dose);
         var date = (s.calibration && s.calibration.surveyStart)
           ? new Date(s.calibration.surveyStart).toLocaleDateString() : '\u2014';
-        var twaColor = isNaN(twa) ? GRAY : twa >= 90 ? RED : twa >= 85 ? AMBER : GREEN;
+        // Binary TWA coloring per stakeholder review: warning (red) at
+        // or above the standard's threshold, neutral below. Independent
+        // of the SEG's RAC tint.
+        var twaColor = isNaN(twa) ? GRAY : twa >= twaWarnAt ? RED : [20,20,20];
 
         doc.setFillColor(...(ri % 2 === 0 ? [251,252,254] : WHITE));
         doc.rect(L, y, CW, 16, 'F');
