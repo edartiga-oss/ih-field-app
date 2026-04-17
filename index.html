@@ -1696,21 +1696,24 @@ body { padding: 20px 18px; }
   </div>
 
   <div class="export-group">
-    <div class="export-group-header">Batch Export — Single Field IH</div>
+    <div class="export-group-header">Batch Export — Filtered</div>
     <div class="export-row">
       <div style="flex:1;">
-        <div class="export-label">Export one IH's surveys only</div>
-        <div class="export-sub">Select a field IH then export their surveys</div>
-        <div style="margin-top:8px;">
-          <select id="exportIHFilter" onchange="updateExportIHCount()" style="padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px; width:100%; max-width:280px;">
-            <option value="">Select a field IH...</option>
+        <div class="export-label">Export by field IH and/or location</div>
+        <div class="export-sub">Pick a field IH, a location, or both — surveys matching the selection(s) are exported together</div>
+        <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:10px;">
+          <select id="exportIHFilter" onchange="updateExportIHCount()" style="padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px; flex:1; min-width:200px; max-width:280px;">
+            <option value="">All field IHs</option>
+          </select>
+          <select id="exportLocFilter" onchange="updateExportIHCount()" style="padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px; flex:1; min-width:200px; max-width:280px;">
+            <option value="">All locations</option>
           </select>
         </div>
       </div>
     </div>
     <div class="export-row">
       <div>
-        <div id="exportIHCount" style="font-size:12px; color:var(--text3);">Select a name above to see survey count</div>
+        <div id="exportIHCount" style="font-size:12px; color:var(--text3);">Select an IH and/or location above to see survey count</div>
       </div>
       <div class="export-actions">
         <button class="btn btn-outline btn-sm" onclick="exportFilteredPDF()">PDF</button>
@@ -2979,6 +2982,7 @@ function renderSurveyList() {
         <div style="display:flex; gap:6px; margin-top:4px;">
           <button class="btn btn-outline btn-sm" onclick="editSurvey('${s.id}')">Edit</button>
           <button class="btn btn-outline btn-sm" onclick="verifySingleSurvey('${s.id}')" title="Verify against instrument report" style="color:var(--teal);">Verify</button>
+          ${(s.status === 'complete' || s.status === 'qa-fail') ? `<button class="btn btn-outline btn-sm" onclick="exportSinglePDF('${s.id}')" title="Export this survey as PDF" style="color:var(--teal);">PDF</button>` : ''}
           <button class="btn btn-danger btn-sm" onclick="deleteSurvey('${s.id}')">Del</button>
         </div>
       </div>
@@ -3546,9 +3550,17 @@ function renderExportList() {
   if (sel) {
     const names = [...new Set(surveys.map(s => s.ih?.name || s.deviceNickname || '').filter(Boolean))].sort();
     const current = sel.value;
-    sel.innerHTML = '<option value="">Select a field IH...</option>' +
+    sel.innerHTML = '<option value="">All field IHs</option>' +
       names.map(n => `<option value="${esc(n)}" ${n === current ? 'selected' : ''}>${esc(n)}</option>`).join('');
     updateExportIHCount();
+  }
+  // Populate location filter dropdown for filtered batch export
+  const locFilterSel = document.getElementById('exportLocFilter');
+  if (locFilterSel) {
+    const locs = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
+    const curFilterLoc = locFilterSel.value;
+    locFilterSel.innerHTML = '<option value="">All locations</option>' +
+      locs.map(l => `<option value="${esc(l)}" ${l === curFilterLoc ? 'selected' : ''}>${esc(l)}</option>`).join('');
   }
   // Populate HCP Letters location dropdown
   const hcpSel = document.getElementById('hcpLettersLocFilter');
@@ -3625,13 +3637,25 @@ function exportHCPLettersByLocation() {
 }
 
 function updateExportIHCount() {
-  const sel = document.getElementById('exportIHFilter');
+  const ihSel  = document.getElementById('exportIHFilter');
+  const locSel = document.getElementById('exportLocFilter');
   const countEl = document.getElementById('exportIHCount');
-  if (!sel || !countEl) return;
-  const name = sel.value;
-  if (!name) { countEl.textContent = 'Select a name above to see survey count'; return; }
-  const count = surveys.filter(s => (s.ih?.name || s.deviceNickname || '') === name).length;
-  countEl.textContent = count + ' survey' + (count !== 1 ? 's' : '') + ' for ' + name;
+  if (!countEl) return;
+  const name = ihSel ? ihSel.value : '';
+  const loc  = locSel ? locSel.value : '';
+  if (!name && !loc) {
+    countEl.textContent = 'Select an IH and/or location above to see survey count';
+    return;
+  }
+  const count = surveys.filter(s => {
+    if (name && (s.ih?.name || s.deviceNickname || '') !== name) return false;
+    if (loc  && (s.employee?.location || '') !== loc) return false;
+    return true;
+  }).length;
+  const parts = [];
+  if (name) parts.push(name);
+  if (loc)  parts.push(loc);
+  countEl.textContent = count + ' survey' + (count !== 1 ? 's' : '') + ' matching ' + parts.join(' + ');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4242,12 +4266,32 @@ function flushDeleteQueue() {
 //  FILTERED BATCH EXPORT (single IH)
 // ═══════════════════════════════════════════════════════════
 function getFilteredSurveys() {
-  const sel = document.getElementById('exportIHFilter');
-  const name = sel ? sel.value : '';
-  if (!name) { showToast('Please select a field IH first', 'error'); return null; }
-  const filtered = surveys.filter(s => (s.ih?.name || s.deviceNickname || '') === name);
-  if (!filtered.length) { showToast('No surveys found for ' + name, 'error'); return null; }
-  return { surveys: filtered, name: name };
+  const ihSel  = document.getElementById('exportIHFilter');
+  const locSel = document.getElementById('exportLocFilter');
+  const ihName = ihSel  ? ihSel.value  : '';
+  const loc    = locSel ? locSel.value : '';
+  if (!ihName && !loc) {
+    showToast('Please select an IH and/or location first', 'error');
+    return null;
+  }
+  const filtered = surveys.filter(s => {
+    if (ihName && (s.ih?.name || s.deviceNickname || '') !== ihName) return false;
+    if (loc    && (s.employee?.location || '') !== loc) return false;
+    return true;
+  });
+  // Human-readable label (used for toasts and Excel sheet names).
+  // Slug is used in filenames — underscore-joined so the downstream
+  // /\s+/ → '-' replace produces clean output without stray '+' chars.
+  const labelParts = [];
+  if (ihName) labelParts.push(ihName);
+  if (loc)    labelParts.push(loc);
+  const name = labelParts.join(' + ');
+  const slug = labelParts.join('_');
+  if (!filtered.length) {
+    showToast('No surveys found for ' + name, 'error');
+    return null;
+  }
+  return { surveys: filtered, name: name, slug: slug };
 }
 
 function exportFilteredPDF() {
@@ -4256,7 +4300,7 @@ function exportFilteredPDF() {
     const res = getFilteredSurveys();
     if (!res) return;
     const doc = buildPDFDoc(res.surveys);
-    doc.save('NoiseDosimetry_' + res.name.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+    doc.save('NoiseDosimetry_' + res.slug.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.pdf');
     showToast('PDF exported — ' + res.surveys.length + ' surveys for ' + res.name, 'success');
   } catch(e) { showToast('PDF export failed: ' + e.message, 'error'); }
 }
@@ -4274,7 +4318,7 @@ function exportFilteredExcel() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(buildExcelData(res.surveys));
     XLSX.utils.book_append_sheet(wb, ws, res.name.substring(0, 31));
-    XLSX.writeFile(wb, 'NoiseDosimetry_' + res.name.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+    XLSX.writeFile(wb, 'NoiseDosimetry_' + res.slug.replace(/\s+/g,'-') + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
     showToast('Excel exported — ' + res.surveys.length + ' surveys for ' + res.name, 'success');
   } catch(e) { showToast('Excel export failed: ' + e.message, 'error'); }
 }
@@ -4299,7 +4343,7 @@ function exportFilteredSummary() {
       const blob = new Blob([tsv], {type: 'text/plain'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url;
-      a.download = 'Summary_' + res.name.replace(/\s+/g,'-') + '.txt'; a.click();
+      a.download = 'Summary_' + res.slug.replace(/\s+/g,'-') + '.txt'; a.click();
       URL.revokeObjectURL(url);
     });
   } catch(e) { showToast('Export failed: ' + e.message, 'error'); }
