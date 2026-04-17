@@ -1628,6 +1628,24 @@ body { padding: 20px 18px; }
         <div class="empty-sub">No finalized surveys yet — save a survey to export it.</div>
       </div>
     </div>
+    <div id="exportSinglePicker" style="display:none;">
+      <div class="export-row">
+        <div style="flex:1;">
+          <div class="export-label">Select an employee</div>
+          <div class="export-sub">Pick from finalized surveys to export their individual report</div>
+          <div style="margin-top:8px;">
+            <select id="exportSingleSelect" onchange="updateExportSingleSelection()" style="padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px; width:100%; max-width:420px;">
+              <option value="">Select an employee...</option>
+            </select>
+          </div>
+          <div id="exportSingleDetail" style="font-size:12px; color:var(--text3); margin-top:8px; min-height:16px;"></div>
+        </div>
+        <div class="export-actions">
+          <button class="btn btn-outline btn-sm" onclick="exportSingleFromPicker('pdf')">PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportSingleFromPicker('excel')">Excel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="export-group">
@@ -3490,23 +3508,38 @@ function importJSON(e) {
 //  RENDER EXPORT LIST
 // ═══════════════════════════════════════════════════════════
 function renderExportList() {
-  const container = document.getElementById('exportSingleList');
+  const listContainer = document.getElementById('exportSingleList');
+  const picker        = document.getElementById('exportSinglePicker');
+  const singleSel     = document.getElementById('exportSingleSelect');
   const fin = surveys.filter(s => s.status !== 'draft');
+
   if (!fin.length) {
-    container.innerHTML = '<div class="empty-state" style="padding:30px 16px;"><div class="empty-sub">No finalized surveys yet.</div></div>';
+    // No finalized surveys — show empty state, hide picker
+    listContainer.style.display = '';
+    listContainer.innerHTML = '<div class="empty-state" style="padding:30px 16px;"><div class="empty-sub">No finalized surveys yet — save a survey to export it.</div></div>';
+    if (picker) picker.style.display = 'none';
   } else {
-    container.innerHTML = fin.map(s => `
-      <div class="export-row">
-        <div>
-          <div class="export-label">${esc(s.employee?.name || 'Unnamed')}</div>
-          <div class="export-sub">${esc(s.employee?.title || '')} · ${s.calibration?.surveyStart?.split('T')[0] || ''} · S/N: ${esc(s.dosimeter?.serial || '')}</div>
-        </div>
-        <div class="export-actions">
-          <button class="btn btn-outline btn-sm" onclick="exportSinglePDF('${s.id}')">PDF</button>
-          <button class="btn btn-outline btn-sm" onclick="exportSingleExcel('${s.id}')">Excel</button>
-        </div>
-      </div>
-    `).join('');
+    // Have finalized surveys — hide empty list, show picker dropdown
+    listContainer.style.display = 'none';
+    if (picker) picker.style.display = '';
+    if (singleSel) {
+      // Sort alphabetically by name for the dropdown. Include date in the
+      // label so duplicate names (re-survey of same employee) stay distinct.
+      const sorted = fin.slice().sort((a, b) => {
+        const an = (a.employee?.name || 'Unnamed').toLowerCase();
+        const bn = (b.employee?.name || 'Unnamed').toLowerCase();
+        return an.localeCompare(bn);
+      });
+      const current = singleSel.value;
+      singleSel.innerHTML = '<option value="">Select an employee...</option>' +
+        sorted.map(s => {
+          const name = esc(s.employee?.name || 'Unnamed');
+          const date = s.calibration?.surveyStart?.split('T')[0] || '';
+          const label = date ? `${name} — ${date}` : name;
+          return `<option value="${esc(s.id)}" ${s.id === current ? 'selected' : ''}>${label}</option>`;
+        }).join('');
+      updateExportSingleSelection();
+    }
   }
   // Populate IH filter dropdown for filtered batch export
   const sel = document.getElementById('exportIHFilter');
@@ -3526,6 +3559,38 @@ function renderExportList() {
       locs.map(l => `<option value="${esc(l)}" ${l === curLoc ? 'selected' : ''}>${esc(l)}</option>`).join('');
     updateHCPLettersCount();
   }
+}
+
+// Update the detail panel under the Single Survey Export dropdown when
+// the user picks a different employee. Shows title / date / serial so
+// they can confirm they've selected the right survey before exporting.
+function updateExportSingleSelection() {
+  const sel = document.getElementById('exportSingleSelect');
+  const detail = document.getElementById('exportSingleDetail');
+  if (!sel || !detail) return;
+  const id = sel.value;
+  if (!id) { detail.textContent = ''; return; }
+  const s = surveys.find(x => x.id === id);
+  if (!s) { detail.textContent = ''; return; }
+  const parts = [
+    s.employee?.title || '',
+    s.calibration?.surveyStart?.split('T')[0] || '',
+    s.dosimeter?.serial ? 'S/N: ' + s.dosimeter.serial : '',
+  ].filter(Boolean);
+  detail.textContent = parts.join(' · ');
+}
+
+// Dispatch PDF or Excel export for whoever is currently selected in the
+// Single Survey Export dropdown. No-ops with a friendly toast if nothing
+// is selected yet.
+function exportSingleFromPicker(kind) {
+  const sel = document.getElementById('exportSingleSelect');
+  if (!sel || !sel.value) {
+    showToast('Select an employee first', 'error');
+    return;
+  }
+  if (kind === 'pdf')  exportSinglePDF(sel.value);
+  else if (kind === 'excel') exportSingleExcel(sel.value);
 }
 
 function updateHCPLettersCount() {
