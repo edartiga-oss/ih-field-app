@@ -730,26 +730,34 @@ function buildEquipmentLibraryPDF() {
 
   // Legend for color coding. Use filled rectangles as color swatches
   // (rather than a bullet glyph) because jsPDF's default Helvetica font
-  // doesn't include U+25CF ● or U+2022 • in its WinAnsi glyph set —
+  // doesn't include U+25CF or U+2022 in its WinAnsi glyph set —
   // printing them produces garbage bytes. "<=" is used instead of the
-  // unicode ≤ for the same reason.
+  // unicode less-than-or-equal sign for the same reason.
   if (y > H - 60) { drawFooter(); doc.addPage(); y = 40; }
   doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...GRAY);
   doc.text('CAL DUE LEGEND:', 40, y + 10);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(26, 41, 64);
 
-  // Draws a small color swatch + label. Returns the x-coord after the
-  // text so the next entry can position itself.
-  function legendEntry(x, swatchColor, label) {
-    doc.setFillColor(...swatchColor);
-    doc.rect(x, y + 4, 8, 8, 'F');
-    doc.setTextColor(26, 41, 64);
-    doc.text(label, x + 12, y + 10);
-  }
-  legendEntry(130, [ 29, 122,  69], 'current (>90 days)');
-  legendEntry(260, [184, 134,  11], '<= 90 days out');
-  legendEntry(370, [184,  48,  48], 'past due');
-  legendEntry(445, [120, 120, 120], 'no date on file');
+  // Entry 1: current
+  doc.setFillColor(29, 122, 69);
+  doc.rect(130, y + 4, 8, 8, 'F');
+  doc.text('current (>90 days)', 142, y + 10);
+
+  // Entry 2: <= 90 days
+  doc.setFillColor(184, 134, 11);
+  doc.rect(260, y + 4, 8, 8, 'F');
+  doc.text('<= 90 days out', 272, y + 10);
+
+  // Entry 3: past due
+  doc.setFillColor(184, 48, 48);
+  doc.rect(370, y + 4, 8, 8, 'F');
+  doc.text('past due', 382, y + 10);
+
+  // Entry 4: no date
+  doc.setFillColor(120, 120, 120);
+  doc.rect(445, y + 4, 8, 8, 'F');
+  doc.text('no date on file', 457, y + 10);
 
   drawFooter();
   return doc;
