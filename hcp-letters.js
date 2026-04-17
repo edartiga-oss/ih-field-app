@@ -232,9 +232,8 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     doc.text('SIMILAR EXPOSURE GROUP (SEG)', c1, y + 45);
     doc.text('SURVEY LOCATION',  c2, y + 45);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); setC(BLACK);
-    doc.text(seg, c1, y + 60, { maxWidth: CW * 0.46 });
     doc.setFont('helvetica','normal'); doc.setFontSize(10); setC(BLACK);
+    doc.text(seg, c1, y + 60, { maxWidth: CW * 0.46 });
     doc.text(loc, c2, y + 60, { maxWidth: CW * 0.46 });
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
 
@@ -299,9 +298,73 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
          + (however ? 'However, based on the SEG UTL calculation result of ' : 'Based on this result and the SEG UTL calculation result of ')
          + utlStr + ', you ' + doDoNot + ' to be included in the Hearing Conservation Program.';
     }
-    var p2Lines = doc.splitTextToSize(p2, CW);
-    doc.text(p2Lines, ML, y);
-    y += p2Lines.length * LH + 8;
+    // Render p2 with SEG name bolded inline
+    (function() {
+      var segIdx = p2.indexOf(seg);
+      if (segIdx === -1) {
+        doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+        var lines = doc.splitTextToSize(p2, CW);
+        doc.text(lines, ML, y);
+        y += lines.length * LH + 8;
+        return;
+      }
+      var before = p2.slice(0, segIdx);
+      var after  = p2.slice(segIdx + seg.length);
+
+      // Split full paragraph to get total line count for y advance
+      doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+      var fullLines    = doc.splitTextToSize(p2, CW);
+      var beforeLines  = doc.splitTextToSize(before, CW);
+      var segLineIdx   = beforeLines.length - 1;
+      var lastBefore   = beforeLines[segLineIdx];
+      var curY         = y;
+
+      // Lines before the seg line
+      if (segLineIdx > 0) {
+        doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+        doc.text(beforeLines.slice(0, segLineIdx), ML, curY);
+        curY += segLineIdx * LH;
+      }
+
+      // The seg line: normal prefix + bold seg name + normal suffix
+      doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+      if (lastBefore) doc.text(lastBefore, ML, curY);
+      var segX = ML + doc.getTextWidth(lastBefore);
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5); setC(BLACK);
+      doc.text(seg, segX, curY);
+      var afterX    = segX + doc.getTextWidth(seg);
+      var spaceLeft = CW - (afterX - ML);
+
+      // Fit as many words of 'after' onto the same line as possible
+      doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
+      var words     = after.split(' ');
+      var sameLine  = '';
+      var restStart = words.length;
+      var testLine  = '';
+      for (var wi = 0; wi < words.length; wi++) {
+        var test = testLine ? testLine + ' ' + words[wi] : words[wi];
+        if (doc.getTextWidth(test) <= spaceLeft) {
+          testLine = test;
+        } else {
+          restStart = wi;
+          break;
+        }
+      }
+      sameLine = testLine;
+      if (sameLine) doc.text(sameLine, afterX, curY);
+      curY += LH;
+
+      // Remaining words on new lines
+      var rest = words.slice(restStart).join(' ').trim();
+      if (rest) {
+        var restLines = doc.splitTextToSize(rest, CW);
+        doc.text(restLines, ML, curY);
+        curY += restLines.length * LH;
+      }
+
+      y = curY + 8;
+    }());
 
     // ── PARAGRAPH 3 ────────────────────────────────────────────────
     doc.setFont('helvetica','normal'); doc.setFontSize(10.5); setC(BLACK);
