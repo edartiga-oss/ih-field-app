@@ -539,7 +539,7 @@ function equipCalStatus(dueDateStr) {
   var msPerDay = 86400000;
   var daysOut = Math.floor((due - now) / msPerDay);
   if (daysOut < 0)  return { color: [184,  48,  48], label: 'past due'  };  // red
-  if (daysOut <= 90) return { color: [184, 134,  11], label: '≤ 90 days' };  // amber
+  if (daysOut <= 90) return { color: [184, 134,  11], label: '<= 90 days' };  // amber
   return { color: [ 29, 122,  69], label: 'current' };                       // green
 }
 
@@ -728,15 +728,28 @@ function buildEquipmentLibraryPDF() {
     y += 14;
   }
 
-  // Legend for color coding
+  // Legend for color coding. Use filled rectangles as color swatches
+  // (rather than a bullet glyph) because jsPDF's default Helvetica font
+  // doesn't include U+25CF ● or U+2022 • in its WinAnsi glyph set —
+  // printing them produces garbage bytes. "<=" is used instead of the
+  // unicode ≤ for the same reason.
   if (y > H - 60) { drawFooter(); doc.addPage(); y = 40; }
   doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...GRAY);
   doc.text('CAL DUE LEGEND:', 40, y + 10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(29, 122, 69);  doc.text('● current (>90 days)',   130, y + 10);
-  doc.setTextColor(184, 134, 11); doc.text('● ≤ 90 days out',        250, y + 10);
-  doc.setTextColor(184,  48,  48); doc.text('● past due',             350, y + 10);
-  doc.setTextColor(120, 120, 120); doc.text('● no date on file',      420, y + 10);
+
+  // Draws a small color swatch + label. Returns the x-coord after the
+  // text so the next entry can position itself.
+  function legendEntry(x, swatchColor, label) {
+    doc.setFillColor(...swatchColor);
+    doc.rect(x, y + 4, 8, 8, 'F');
+    doc.setTextColor(26, 41, 64);
+    doc.text(label, x + 12, y + 10);
+  }
+  legendEntry(130, [ 29, 122,  69], 'current (>90 days)');
+  legendEntry(260, [184, 134,  11], '<= 90 days out');
+  legendEntry(370, [184,  48,  48], 'past due');
+  legendEntry(445, [120, 120, 120], 'no date on file');
 
   drawFooter();
   return doc;
