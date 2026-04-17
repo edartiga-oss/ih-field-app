@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  IH FIELD — NOISE DOSIMETRY  |  stats.js
+//  STATISTICS
 // ═══════════════════════════════════════════════════════════
 //  LOGNORMAL STATISTICS — The Noise Manual 6th Ed. / AIHA Strategy
 //
@@ -98,10 +98,6 @@ function lognormalStats(twas) {
   };
 }
 
-// ═══════════════════════════════════════════════════════════
-//  STATS TAB STATE
-// ═══════════════════════════════════════════════════════════
-
 var statsSelectedSEGs       = null; // null = all
 var statsSelectedIHs        = null; // null = all
 var statsSelectedLocations  = null; // null = all
@@ -130,10 +126,6 @@ function statsSetStandard(std) {
   renderStats();
 }
 
-// ═══════════════════════════════════════════════════════════
-//  RENDER STATS
-// ═══════════════════════════════════════════════════════════
-
 function renderStats() {
   const chipsEl   = document.getElementById('statsSegChips');
   const ihChipsEl = document.getElementById('statsIHChips');
@@ -145,7 +137,7 @@ function renderStats() {
   const showIndividual = showInd && showInd.checked;
 
   // ── All IH names ──
-  const allIHs = [...new Set(surveys.map(s => s.deviceNickname || s.ih?.name || '').filter(Boolean))].sort();
+  const allIHs = [...new Set(surveys.map(s => s.ih?.name || s.deviceNickname || '').filter(Boolean))].sort();
   if (statsSelectedIHs === null) statsSelectedIHs = new Set(allIHs);
 
   // ── Render IH chips ──
@@ -202,7 +194,7 @@ function renderStats() {
 
   // ── Filter surveys by IH, Location, and SEG ──
   const sel = surveys.filter(function(s) {
-    var ih  = s.deviceNickname || s.ih?.name || '';
+    var ih  = s.ih?.name || s.deviceNickname || '';
     var loc = s.employee?.location || '';
     var seg = s.employee?.seg || '';
     var ihOk  = statsSelectedIHs === null || !allIHs.length || statsSelectedIHs.has(ih);
@@ -331,11 +323,14 @@ function renderStats() {
         + '</div>';
     }).join('');
 
+    // ── Per-SEG standard thresholds (needed by indTable and lognormal blocks) ──
+    var _segStdOuter = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
+    var _segPEL = _segStdOuter.pel;
+    var _segAL  = _segStdOuter.al;
+
     // ── Individual results table ──
     var indTable = '';
     if (showIndividual) {
-      var _segStdInd = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
-      var _segPELInd = _segStdInd.pel, _segALInd = _segStdInd.al;
       var sorted = group.slice().sort(function(a,b) {
         var ta = parseFloat(a.results?.twa)||0; var tb = parseFloat(b.results?.twa)||0;
         return tb - ta; // highest TWA first
@@ -344,12 +339,13 @@ function renderStats() {
         var twa   = parseFloat(s.results?.twa);
         var dose  = parseFloat(s.results?.dose);
         var date  = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '—';
-        var ih    = s.deviceNickname || s.ih?.name || '—';
+        var ih    = s.ih?.name || s.deviceNickname || '—';
         var loc   = s.employee?.location || '—';
         var proc  = s.employee?.process  || '—';
+        var qaOk  = s.qa?.allPass;
         var status= s.status;
-        var twaColor = isNaN(twa) ? 'var(--text3)' : twa >= _segPELInd ? '#a32d2d' : twa >= _segALInd ? '#7a4f00' : '#085041';
-        var twaBg    = isNaN(twa) ? '' : twa >= _segPELInd ? 'background:#fcebeb;' : twa >= _segALInd ? 'background:#fff8e6;' : '';
+        var twaColor = isNaN(twa) ? 'var(--text3)' : twa >= _segPEL ? '#a32d2d' : twa >= _segAL ? '#7a4f00' : '#085041';
+        var twaBg    = isNaN(twa) ? '' : twa >= _segPEL ? 'background:#fcebeb;' : twa >= _segAL ? 'background:#fff8e6;' : '';
         var statusBadge = status === 'complete'
           ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#e1f5ee;color:#085041;">Pass</span>'
           : status === 'qa-fail'
@@ -385,75 +381,6 @@ function renderStats() {
         + '</table></div></div>';
     }
 
-    var stats = lognormalStats(gTWAs);
-    var statsBlock = '';
-    if (!stats) {
-      statsBlock = '<div style="background:var(--surface); border-radius:var(--radius); padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--text3);">Insufficient data for UCL/UTL (need ≥2 TWA values).</div>';
-    } else {
-      var fmtDb = function(v) { return isNaN(v) ? '—' : v.toFixed(1) + ' dBA'; };
-      var fmtX  = function(v) { return isNaN(v) ? '—' : v.toFixed(2) + 'x'; };
-      var _segStd = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
-      var _segPEL = _segStd.pel, _segAL = _segStd.al;
-      var pelUCL = stats.ucl95    >= _segPEL;
-      var pelUTL = stats.utl95_95 >= _segPEL;
-      var alUCL  = !pelUCL && stats.ucl95    >= _segAL;
-      var alUTL  = !pelUTL && stats.utl95_95 >= _segAL;
-
-      function statCell(label, value, isPEL, isAL) {
-        var bg  = isPEL ? 'background:#fcebeb;' : isAL ? 'background:#fff8e6;' : 'background:var(--surface);';
-        var col = isPEL ? 'color:#a32d2d;'      : isAL ? 'color:#7a4f00;'      : 'color:var(--text);';
-        var badge = isPEL
-          ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;margin-left:5px;background:#fcebeb;color:#a32d2d;border:1px solid #f09595;">≥ PEL</span>'
-          : isAL
-          ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;margin-left:5px;background:#fff8e6;color:#7a4f00;border:1px solid #f0a500;">≥ AL</span>'
-          : '';
-        return '<div style="padding:10px 14px; border-radius:8px; ' + bg + '">'
-          + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">' + label + '</div>'
-          + '<div style="font-size:18px; font-weight:700; ' + col + '">' + value + badge + '</div>'
-          + '</div>';
-      }
-
-      var gsdColor = stats.gsd < 1.5 ? 'var(--teal)' : stats.gsd < 2.0 ? '#e08800' : 'var(--red)';
-      var gsdNote  = stats.gsd < 1.5 ? 'Homogeneous SEG' : stats.gsd < 2.0 ? 'Moderate spread' : 'Consider splitting SEG';
-
-      var smallNote = stats.smallSample
-        ? '<div style="margin-top:8px; padding:7px 10px; background:#fff8e6; border:1px solid #f0a500; border-radius:6px; font-size:11px; color:#7a4f00; display:flex; gap:6px;">'
-          + '<span>&#9651;</span><span><strong>Small sample (n=' + stats.n + ', &lt;6):</strong> UCL and UTL estimates are imprecise with fewer than 6 results. Collect additional samples to improve reliability.</span>'
-          + '</div>'
-        : '';
-
-      statsBlock = '<div style="border:1.5px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:16px;">'
-        + '<div style="font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Lognormal Statistics — Noise Manual 6th Ed. (95% Conf.)</div>'
-        + '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; margin-bottom:8px;">'
-        + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
-          + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">n (TWA values)</div>'
-          + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + stats.n + '</div>'
-        + '</div>'
-        + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
-          + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Geom. Mean <span style="font-weight:400;">(50th pct)</span></div>'
-          + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtDb(stats.gm) + '</div>'
-        + '</div>'
-        + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
-          + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">GSD <span style="font-weight:400;">(SEG spread)</span></div>'
-          + '<div style="font-size:18px; font-weight:700; color:' + gsdColor + ';line-height:1.1;">' + fmtX(stats.gsd) + '</div>'
-          + '<div style="font-size:9px; color:' + gsdColor + '; margin-top:3px;">' + gsdNote + '</div>'
-        + '</div>'
-        + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
-          + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Arith. Mean <span style="font-weight:400;">(AM)</span></div>'
-          + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtDb(stats.am || stats.gm) + '</div>'
-        + '</div>'
-        + statCell('95% UCL on AM', fmtDb(stats.ucl95), pelUCL, alUCL)
-        + statCell('95th/95% UTL',  fmtDb(stats.utl95_95), pelUTL, alUTL)
-        + '</div>'
-        + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
-          + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(\u0233 + s\u00B2/2 + t(n\u22121,\u00A00.95)\u00B7s/\u221An). t(' + (stats.n-1) + ',\u00A00.95)\u00A0=\u00A0' + (stats.t ? stats.t.toFixed(4) : '\u2014') + '. '
-          + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(\u0233 + K\u00B7s). Hahn-Meeker K(n=' + stats.n + ')\u00A0=\u00A0' + (stats.K ? stats.K.toFixed(3) : '\u2014') + '. '
-          + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD\u00A0<\u00A01.5\u25CF\u00A0=\u00A0homogeneous SEG; 1.5\u20132.0\u25CF\u00A0=\u00A0moderate spread; >\u00A02.0\u25CF\u00A0=\u00A0consider splitting the SEG. Lognormal on TWA dBA \u2014 AIHA Strategy / Noise Manual 6th\u00A0Ed. | Standard: <strong>' + _segStd.label + '</strong> (PEL ' + _segPEL + ' dBA, AL ' + _segAL + ' dBA)'
-        + '</div>'
-        + smallNote
-        + '</div>';
-    }
-
     return '<div class="card" style="margin-bottom:18px;">'
       + '<div class="card-header" style="font-size:14px;">' + esc(seg)
       + '<span style="margin-left:8px; font-size:11px; font-weight:400; color:rgba(255,255,255,0.55);">' + group.length + ' survey' + (group.length!==1?'s':'') + '</span>'
@@ -470,10 +397,76 @@ function renderStats() {
         }).join('')
       + '</div>'
 
-      + statsBlock
+      + (function() {
+          var stats = lognormalStats(gTWAs);
+          if (!stats) {
+            return '<div style="background:var(--surface); border-radius:var(--radius); padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--text3);">Insufficient data for UCL/UTL (need ≥2 TWA values).</div>';
+          }
+          var fmtDb = function(v) { return isNaN(v) ? '—' : v.toFixed(1) + ' dBA'; };
+          var fmtX  = function(v) { return isNaN(v) ? '—' : v.toFixed(2) + 'x'; };
+          // _segPEL and _segAL are defined in the outer per-SEG scope
+          var pelUCL = stats.ucl95    >= _segPEL;
+          var pelUTL = stats.utl95_95 >= _segPEL;
+          var alUCL  = !pelUCL && stats.ucl95    >= _segAL;
+          var alUTL  = !pelUTL && stats.utl95_95 >= _segAL;
+          function statCell(label, value, isPEL, isAL) {
+            var bg  = isPEL ? 'background:#fcebeb;' : isAL ? 'background:#fff8e6;' : 'background:var(--surface);';
+            var col = isPEL ? 'color:#a32d2d;'      : isAL ? 'color:#7a4f00;'      : 'color:var(--text);';
+            var badge = isPEL
+              ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;margin-left:5px;background:#fcebeb;color:#a32d2d;border:1px solid #f09595;">≥ PEL</span>'
+              : isAL
+              ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;margin-left:5px;background:#fff8e6;color:#7a4f00;border:1px solid #f0a500;">≥ AL</span>'
+              : '';
+            return '<div style="padding:10px 14px; border-radius:8px; ' + bg + '">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">' + label + '</div>'
+              + '<div style="font-size:18px; font-weight:700; ' + col + '">' + value + badge + '</div>'
+              + '</div>';
+          }
+          var smallNote = stats.smallSample
+            ? '<div style="margin-top:8px; padding:7px 10px; background:#fff8e6; border:1px solid #f0a500; border-radius:6px; font-size:11px; color:#7a4f00; display:flex; gap:6px;">'
+              + '<span>&#9651;</span><span><strong>Small sample (n=' + stats.n + ', &lt;6):</strong> UCL and UTL estimates are imprecise with fewer than 6 results. Collect additional samples to improve reliability.</span>'
+              + '</div>'
+            : '';
+          return '<div style="border:1.5px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:16px;">'
+            + '<div style="font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Lognormal Statistics — Noise Manual 6th Ed. (95% Conf.)</div>'
+            + '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; margin-bottom:8px;">'
+            + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">n (TWA values)</div>'
+              + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + stats.n + '</div>'
+            + '</div>'
+            + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Geom. Mean <span style="font-weight:400;">(50th pct)</span></div>'
+              + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtDb(stats.gm) + '</div>'
+            + '</div>'
+            + (function(){
+              var gsd = stats.gsd || 1;
+              var gsdColor = gsd < 1.5 ? 'var(--teal)' : gsd < 2.0 ? '#e08800' : 'var(--red)';
+              var gsdNote = gsd < 1.5 ? 'Homogeneous SEG' : gsd < 2.0 ? 'Moderate spread' : 'Consider splitting SEG';
+              return '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+                + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">GSD <span style="font-weight:400;">(SEG spread)</span></div>'
+                + '<div style="font-size:18px; font-weight:700; color:' + gsdColor + ';line-height:1.1;">' + fmtX(gsd) + '</div>'
+                + '<div style="font-size:9px; color:' + gsdColor + '; margin-top:3px;">' + gsdNote + '</div>'
+              + '</div>';
+            })()
+            + '<div style="padding:10px 14px; border-radius:8px; background:var(--surface);">'
+              + '<div style="font-size:10px; color:var(--text3); margin-bottom:3px;">Arith. Mean <span style="font-weight:400;">(AM)</span></div>'
+              + '<div style="font-size:18px; font-weight:700; color:var(--text);">' + fmtDb(stats.am || stats.gm) + '</div>'
+            + '</div>'
+            + statCell('95% UCL on AM', fmtDb(stats.ucl95), pelUCL, alUCL)
+            + statCell('95th/95% UTL',  fmtDb(stats.utl95_95), pelUTL, alUTL)
+            + '</div>'
+            + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
+              + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + t(n−1, 0.95)·s/√n). t(' + (stats.n-1) + ', 0.95) = ' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
+              + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Hahn-Meeker K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
+              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed. | Standard: <strong>' + _segStdOuter.label + '</strong> (PEL ' + _segPEL + ' dBA, AL ' + _segAL + ' dBA)'
+            + '</div>'
+            + smallNote
+            + '</div>';
+        })()
 
       // Charts row
       + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">'
+
       + '<div><div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Exposure Categories</div>'
       + '<table style="width:100%; border-collapse:collapse;"><thead><tr>'
       + '<th style="font-size:10px; color:var(--text3); font-weight:500; text-align:left; padding:4px 10px;">Category</th>'
@@ -483,6 +476,7 @@ function renderStats() {
 
       + '<div><div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">TWA Distribution (dBA)</div>'
       + (gTWAs.length ? binBars : '<div style="font-size:12px;color:var(--text3);">No TWA data</div>') + '</div>'
+
       + '</div>'
 
       // Process + Location row
@@ -499,10 +493,6 @@ function renderStats() {
       + '</div></div>';
   }).join('');
 }
-
-// ═══════════════════════════════════════════════════════════
-//  STATS FILTER TOGGLES
-// ═══════════════════════════════════════════════════════════
 
 function statsToggleSEG(seg) {
   if (!statsSelectedSEGs) statsSelectedSEGs = new Set();
@@ -544,3 +534,4 @@ function statsSelectAllLocations() {
   statsSelectedLocations = null;
   renderStats();
 }
+
