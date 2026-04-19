@@ -1451,33 +1451,31 @@ body { padding: 20px 18px; }
     </div>
   </div>
 
-  <!-- Filter row: IH + SEG selectors -->
+  <!-- Filter row: IH + Location + SEG selectors -->
   <div style="display:flex; align-items:flex-start; gap:16px; margin-bottom:14px; flex-wrap:wrap;">
 
     <!-- IH filter -->
-    <div>
+    <div style="flex:1; min-width:200px;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by IH</div>
-      <div id="statsIHChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-        <button class="btn btn-outline btn-sm" onclick="statsSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>
-      </div>
+      <select id="statsIHSelect" onchange="statsSetFilter('ih', this.value)" style="width:100%; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+        <option value="">All IHs</option>
+      </select>
     </div>
 
     <!-- Location filter -->
-    <div>
+    <div style="flex:1; min-width:200px;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by Location</div>
-      <div id="statsLocationChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-        <button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>
-      </div>
+      <select id="statsLocationSelect" onchange="statsSetFilter('location', this.value)" style="width:100%; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+        <option value="">All Locations</option>
+      </select>
     </div>
 
     <!-- SEG filter -->
-    <div style="flex:1;">
+    <div style="flex:1; min-width:200px;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by SEG</div>
-      <div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-        <div id="statsSegChips" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-        <button class="btn btn-outline btn-sm" onclick="statsSelectAll()" style="padding:3px 9px; font-size:10px;">All</button>
-        <button class="btn btn-outline btn-sm" onclick="statsSelectNone()" style="padding:3px 9px; font-size:10px;">None</button>
-      </div>
+      <select id="statsSegSelect" onchange="statsSetFilter('seg', this.value)" style="width:100%; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+        <option value="">All SEGs</option>
+      </select>
     </div>
 
     <!-- Toggle individual results -->

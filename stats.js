@@ -207,70 +207,55 @@ function statsSetStandard(std) {
 }
 
 function renderStats() {
-  const chipsEl   = document.getElementById('statsSegChips');
-  const ihChipsEl = document.getElementById('statsIHChips');
+  const segSelectEl = document.getElementById('statsSegSelect');
+  const ihSelectEl  = document.getElementById('statsIHSelect');
+  const locSelectEl = document.getElementById('statsLocationSelect');
   const metricsEl = document.getElementById('statsMetrics');
   const bodyEl    = document.getElementById('statsBody');
   const showInd   = document.getElementById('statsShowIndividual');
-  if (!chipsEl || !metricsEl || !bodyEl) return;
+  if (!metricsEl || !bodyEl) return;
 
   const showIndividual = showInd && showInd.checked;
+
+  // Shared helpers for mapping Set<string> filter state to a single
+  // dropdown value, and for populating a <select> with options while
+  // preserving the current selection across re-renders. Mirrors the
+  // pattern used by the Noise RAC tab's filter dropdowns.
+  function currentValue(allList, selectedSet) {
+    if (!allList.length) return '';
+    if (selectedSet.size === allList.length) return '';      // All
+    if (selectedSet.size === 1) return [...selectedSet][0];  // Single
+    return '';                                                // Mixed -> All
+  }
+  function populateSelect(el, defaultLabel, values, currentVal) {
+    if (!el) return;
+    var effectiveVal = (currentVal && values.indexOf(currentVal) !== -1) ? currentVal : '';
+    el.innerHTML = '<option value="">' + defaultLabel + '</option>' +
+      values.map(function(v) {
+        return '<option value="' + esc(v) + '"' + (v === effectiveVal ? ' selected' : '') + '>' + esc(v) + '</option>';
+      }).join('');
+  }
 
   // ── All IH names ──
   const allIHs = [...new Set(surveys.map(s => s.ih?.name || s.deviceNickname || '').filter(Boolean))].sort();
   if (statsSelectedIHs === null) statsSelectedIHs = new Set(allIHs);
-
-  // ── Render IH chips ──
-  if (ihChipsEl) {
-    ihChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="statsSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>' +
-      allIHs.map(function(ih) {
-        var active = statsSelectedIHs.has(ih);
-        return '<button onclick="statsToggleIH(\'' + esc(ih) + '\')" style="'
-          + 'padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
-          + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
-          + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
-          + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';'
-          + '">' + esc(ih) + '</button>';
-      }).join('');
-  }
+  populateSelect(ihSelectEl, 'All IHs', allIHs, currentValue(allIHs, statsSelectedIHs));
 
   // ── All Locations ──
   const allLocations = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
   if (statsSelectedLocations === null) statsSelectedLocations = new Set(allLocations);
-  const locChipsEl = document.getElementById('statsLocationChips');
-  if (locChipsEl) {
-    locChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="statsSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>' +
-      allLocations.map(function(loc) {
-        var active = statsSelectedLocations.has(loc);
-        return '<button onclick="statsToggleLocation(\'' + esc(loc) + '\')" style="'
-          + 'padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
-          + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
-          + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
-          + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';'
-          + '">' + esc(loc) + '</button>';
-      }).join('');
-  }
+  populateSelect(locSelectEl, 'All Locations', allLocations, currentValue(allLocations, statsSelectedLocations));
 
   // ── All SEGs ──
   const allSEGs = [...new Set(surveys.map(s => s.employee?.seg || '').filter(Boolean))].sort();
   if (!allSEGs.length) {
     metricsEl.innerHTML = '';
     bodyEl.innerHTML = '<div class="empty-state"><div class="empty-title">No surveys with SEG data yet</div><div class="empty-sub">Assign a SEG when entering survey data to see statistics here</div></div>';
-    chipsEl.innerHTML = '';
+    populateSelect(segSelectEl, 'All SEGs', [], '');
     return;
   }
   if (statsSelectedSEGs === null) statsSelectedSEGs = new Set(allSEGs);
-
-  // ── Render SEG chips ──
-  chipsEl.innerHTML = allSEGs.map(function(seg) {
-    var active = statsSelectedSEGs.has(seg);
-    return '<button onclick="statsToggleSEG(\'' + esc(seg) + '\')" style="'
-      + 'padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
-      + 'border:1.5px solid ' + (active ? '#00b8a0' : 'var(--border)') + ';'
-      + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
-      + 'color:' + (active ? '#00b8a0' : 'var(--text2)') + ';'
-      + '">' + esc(seg) + '</button>';
-  }).join('');
+  populateSelect(segSelectEl, 'All SEGs', allSEGs, currentValue(allSEGs, statsSelectedSEGs));
 
   // ── Filter surveys by IH, Location, and SEG ──
   const sel = surveys.filter(function(s) {
@@ -612,6 +597,27 @@ function statsToggleLocation(loc) {
 
 function statsSelectAllLocations() {
   statsSelectedLocations = null;
+  renderStats();
+}
+
+// Handler for the dropdown-based filter UI (IH / Location / SEG).
+// Empty string means "All" — sets the filter to include every known
+// value so the downstream filter block treats it as no filter.
+// A specific value creates a single-item Set; the filter block
+// matches only surveys with that exact value. Mirrors the pattern
+// used by racSetFilter() in pdf-reports.js.
+function statsSetFilter(kind, value) {
+  var all;
+  if (kind === 'ih') {
+    all = [...new Set(surveys.map(function(s){ return s.ih?.name || s.deviceNickname || ''; }).filter(Boolean))];
+    statsSelectedIHs = value ? new Set([value]) : new Set(all);
+  } else if (kind === 'location') {
+    all = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))];
+    statsSelectedLocations = value ? new Set([value]) : new Set(all);
+  } else if (kind === 'seg') {
+    all = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))];
+    statsSelectedSEGs = value ? new Set([value]) : new Set(all);
+  }
   renderStats();
 }
 
