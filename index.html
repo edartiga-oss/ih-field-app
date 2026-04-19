@@ -626,6 +626,8 @@ body { padding: 20px 18px; }
       </span>
     </div>
     <div class="card-body">
+      <!-- Shared instrument fields (Make/Model/Serial/FactoryCal are properties
+           of the physical dosimeter; all setups of this instrument share them). -->
       <div class="form-grid">
         <div class="field">
           <label>Make / Manufacturer <span class="req">*</span></label>
@@ -643,37 +645,20 @@ body { padding: 20px 18px; }
           <label>Last Factory Cal. Date</label>
           <input type="date" id="dosFactoryCal" oninput="autosave()">
         </div>
-        <div class="field">
-          <label>Exchange Rate</label>
-          <select id="dosExchange" oninput="calcResults(); autosave()">
-            <option value="5">5 dB (OSHA)</option>
-            <option value="3">3 dB (ACGIH/NIOSH)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Criterion Level (dB)</label>
-          <select id="dosCriterion" oninput="calcResults(); autosave()">
-            <option value="90">90 dB — OSHA PEL</option>
-            <option value="85">85 dB — OSHA AL / ACGIH TLV</option>
-            <option value="80">80 dB</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Frequency Weighting</label>
-          <select id="dosWeighting" oninput="autosave()">
-            <option value="A">A-weighting (dBA) — Standard</option>
-            <option value="C">C-weighting (dBC)</option>
-            <option value="Z">Z-weighting / Flat (dBZ)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Detector Response</label>
-          <select id="dosResponse" oninput="autosave()">
-            <option value="Slow">Slow (1,000 ms)</option>
-            <option value="Fast">Fast (125 ms)</option>
-            <option value="Impulse">Impulse (35 ms / 1,500 ms decay)</option>
-          </select>
-        </div>
+      </div>
+
+      <div class="section-spacer"></div>
+
+      <!-- Setup blocks — up to 3 per-setup configurations of this instrument.
+           Setup 1 is always visible (the primary by default). Setups 2 and 3
+           appear/disappear via the Add/Remove controls below.
+           Per-setup fields: Exchange Rate, Criterion Level, Weighting, Response.
+           Primary toggle selects which setup feeds Stats/RAC/HCP by default. -->
+      <div id="setupBlocks"></div>
+
+      <div id="setupControls" style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+        <button type="button" id="addSetup2Btn" class="btn btn-outline btn-sm" onclick="addSetup(1)" style="font-size:12px;">+ Add 2nd Setup</button>
+        <button type="button" id="addSetup3Btn" class="btn btn-outline btn-sm" onclick="addSetup(2)" style="font-size:12px; display:none;">+ Add 3rd Setup</button>
       </div>
     </div>
   </div>
@@ -2430,6 +2415,11 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
   renderExportList();
   // set today's date as default
   document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
+  // Render Setup 1 (primary) block before syncExchangeRate touches it.
+  // Multi-setup data model: setupCount starts at 1, primarySetupIndex at 0,
+  // so Setup 1 is always present on a fresh page; Setups 2/3 are added on
+  // demand via the "+ Add Setup" buttons.
+  renderSetupBlocks();
   // default exchange rate based on standard
   syncExchangeRate();
   // Pull latest surveys from Google Sheets on startup
@@ -2498,11 +2488,162 @@ function loadProjectMeta() {
 }
 
 function syncExchangeRate() {
+  // Apply the top-bar standard hint to the primary setup's exchange rate.
+  // With multi-setup data model, there may be 1-3 setups; we only touch
+  // the primary (setup 1) here since the user picks Exchange explicitly
+  // on each additional setup they add.
   const std = document.getElementById('standardSelect').value;
-  const ex = document.getElementById('dosExchange');
+  const ex = document.getElementById('setup1_exchange');
   if (!ex) return;
   if (std === 'OSHA') ex.value = '5';
   else if (std === 'ACGIH') ex.value = '3';
+}
+
+// ── Dosimeter setups (per-setup config: exchange/criterion/weighting/response) ──
+// Data model: s.dosimeter.setups = [{exchange, criterion, weighting, response}, ...]
+// Up to 3 setups per survey. setupCount tracks the number currently rendered
+// on the form. Setup 1 is always present (primary by default).
+// primarySetupIndex (0-based) indicates which setup feeds Stats/RAC/HCP when
+// multiple setups coexist.
+var setupCount = 1;
+var primarySetupIndex = 0;
+
+function setupBlockHtml(i) {
+  // i is 0-based index; user-facing label is i+1.
+  // Setup 1 (i=0) cannot be removed; Setups 2-3 show a Remove button.
+  // The "★ Primary" toggle sets primarySetupIndex; only one can be primary.
+  var n = i + 1;
+  var removeBtn = i === 0 ? '' :
+    '<button type="button" class="btn btn-outline btn-sm" onclick="removeSetup(' + i + ')" ' +
+    'style="font-size:11px; padding:3px 9px;">Remove</button>';
+  return (
+    '<div class="setup-block" data-setup-index="' + i + '" ' +
+    'style="border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:10px; background:var(--surface);">' +
+      '<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;">' +
+        '<div style="display:flex; align-items:center; gap:10px;">' +
+          '<div style="font-size:12px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">Setup ' + n + '</div>' +
+          '<label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:11px; color:var(--text2);">' +
+            '<input type="radio" name="setupPrimary" id="setup' + n + '_primary" value="' + i + '" ' +
+            'onchange="setPrimarySetup(' + i + ')" style="cursor:pointer;">' +
+            '<span>\u2605 Primary</span>' +
+          '</label>' +
+        '</div>' +
+        removeBtn +
+      '</div>' +
+      '<div class="form-grid">' +
+        '<div class="field">' +
+          '<label>Exchange Rate</label>' +
+          '<select id="setup' + n + '_exchange" oninput="onPrimaryConfigChange(' + i + '); autosave()">' +
+            '<option value="5">5 dB (OSHA)</option>' +
+            '<option value="3">3 dB (ACGIH/NIOSH)</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Criterion Level (dB)</label>' +
+          '<select id="setup' + n + '_criterion" oninput="onPrimaryConfigChange(' + i + '); autosave()">' +
+            '<option value="90">90 dB \u2014 OSHA PEL</option>' +
+            '<option value="85">85 dB \u2014 OSHA AL / ACGIH TLV</option>' +
+            '<option value="80">80 dB</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Frequency Weighting</label>' +
+          '<select id="setup' + n + '_weighting" oninput="autosave()">' +
+            '<option value="A">A-weighting (dBA) \u2014 Standard</option>' +
+            '<option value="C">C-weighting (dBC)</option>' +
+            '<option value="Z">Z-weighting / Flat (dBZ)</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Detector Response</label>' +
+          '<select id="setup' + n + '_response" oninput="autosave()">' +
+            '<option value="Slow">Slow (1,000 ms)</option>' +
+            '<option value="Fast">Fast (125 ms)</option>' +
+            '<option value="Impulse">Impulse (35 ms / 1,500 ms decay)</option>' +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+// Render the current setupCount number of setup blocks into #setupBlocks.
+// Preserves existing values by reading them before teardown and writing back
+// after rebuild — avoids losing in-progress input if a user adds/removes
+// a setup while editing.
+function renderSetupBlocks() {
+  var container = document.getElementById('setupBlocks');
+  if (!container) return;
+  // Snapshot current values to restore post-rebuild.
+  var snapshot = [];
+  for (var i = 0; i < 3; i++) {
+    var n = i + 1;
+    var ex = document.getElementById('setup' + n + '_exchange');
+    if (!ex) { snapshot.push(null); continue; }
+    snapshot.push({
+      exchange: ex.value,
+      criterion: document.getElementById('setup' + n + '_criterion').value,
+      weighting: document.getElementById('setup' + n + '_weighting').value,
+      response:  document.getElementById('setup' + n + '_response').value
+    });
+  }
+  // Rebuild markup.
+  var html = '';
+  for (var j = 0; j < setupCount; j++) html += setupBlockHtml(j);
+  container.innerHTML = html;
+  // Restore snapshot values where setup still exists.
+  for (var k = 0; k < setupCount; k++) {
+    var nn = k + 1;
+    if (snapshot[k]) {
+      document.getElementById('setup' + nn + '_exchange').value  = snapshot[k].exchange;
+      document.getElementById('setup' + nn + '_criterion').value = snapshot[k].criterion;
+      document.getElementById('setup' + nn + '_weighting').value = snapshot[k].weighting;
+      document.getElementById('setup' + nn + '_response').value  = snapshot[k].response;
+    }
+  }
+  // Check the primary radio.
+  var primaryRadio = document.getElementById('setup' + (primarySetupIndex + 1) + '_primary');
+  if (primaryRadio) primaryRadio.checked = true;
+  // Update +Add buttons visibility.
+  var add2 = document.getElementById('addSetup2Btn');
+  var add3 = document.getElementById('addSetup3Btn');
+  if (add2) add2.style.display = setupCount < 2 ? '' : 'none';
+  if (add3) add3.style.display = setupCount === 2 ? '' : 'none';
+}
+
+function addSetup(newIndex) {
+  // newIndex is 0-based, should be 1 (adding 2nd) or 2 (adding 3rd).
+  if (setupCount >= 3) return;
+  setupCount = Math.max(setupCount, newIndex + 1);
+  renderSetupBlocks();
+  autosave();
+}
+
+function removeSetup(i) {
+  // i is 0-based. Cannot remove Setup 1 (i=0). Removes this setup and any
+  // above it — simpler than mid-array delete, and matches progressive
+  // disclosure (user shouldn't have a Setup 3 without a Setup 2).
+  if (i === 0 || i >= setupCount) return;
+  setupCount = i;
+  // If primary was the removed one or beyond, reset to Setup 1.
+  if (primarySetupIndex >= setupCount) primarySetupIndex = 0;
+  renderSetupBlocks();
+  autosave();
+}
+
+function setPrimarySetup(i) {
+  if (i < 0 || i >= setupCount) return;
+  primarySetupIndex = i;
+  // Changing primary may change the exchange/criterion used for TWA math.
+  calcResults();
+  autosave();
+}
+
+function onPrimaryConfigChange(i) {
+  // Called when a setup's exchange or criterion changes. Only the primary
+  // setup's values drive the calculated TWA in the single Results section,
+  // so we recompute only when the primary changed.
+  if (i === primarySetupIndex) calcResults();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2552,10 +2693,13 @@ function startNewSurvey() {
 function clearFormFields(keepInstruments) {
   // Instrument/IH fields preserved when keepInstruments=true (after Save & Finalize)
   const instrumentIds = [
-    'dosMake','dosModel','dosSerial','dosFactoryCal','dosExchange','dosCriterion','dosWeighting','dosResponse',
+    'dosMake','dosModel','dosSerial','dosFactoryCal',
     'calMake','calModel','calSerial','calLastNistCal','calNistDue','calRefLevel',
     'ihName','ihCreds','ihFirm','ihPhone'
   ];
+  // Per-setup fields are managed via setupCount + renderSetupBlocks (below).
+  // When keepInstruments=true we preserve the primary setup's config and drop
+  // setups 2 & 3; when false we reset everything to a single empty setup.
   const ids = [
     'preCalTime','preCalReading','preCalInitials',
     'surveyStart','surveyEnd',
@@ -2574,6 +2718,30 @@ function clearFormFields(keepInstruments) {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  // Setup blocks: snapshot primary-setup config if keepInstruments; always
+  // collapse to a single setup block.
+  var keepPrimary = null;
+  if (keepInstruments) {
+    var pn = primarySetupIndex + 1;
+    var ex = document.getElementById('setup' + pn + '_exchange');
+    if (ex) {
+      keepPrimary = {
+        exchange:  ex.value,
+        criterion: document.getElementById('setup' + pn + '_criterion').value,
+        weighting: document.getElementById('setup' + pn + '_weighting').value,
+        response:  document.getElementById('setup' + pn + '_response').value
+      };
+    }
+  }
+  setupCount = 1;
+  primarySetupIndex = 0;
+  renderSetupBlocks();
+  if (keepPrimary) {
+    document.getElementById('setup1_exchange').value  = keepPrimary.exchange;
+    document.getElementById('setup1_criterion').value = keepPrimary.criterion;
+    document.getElementById('setup1_weighting').value = keepPrimary.weighting;
+    document.getElementById('setup1_response').value  = keepPrimary.response;
+  }
   // Reset SEG select + hide free-write input
   var segSel = document.getElementById('empSegSelect');
   var segOth = document.getElementById('empSegOther');
@@ -2614,11 +2782,38 @@ function getFormData() {
       return (existing && existing.deviceNickname) ? existing.deviceNickname : (deviceNickname || '');
     })(),
     project: { ...projectMeta },
-    dosimeter: {
-      make: g('dosMake'), model: g('dosModel'), serial: g('dosSerial'),
-      factoryCal: g('dosFactoryCal'), exchange: g('dosExchange'), criterion: g('dosCriterion'),
-      weighting: g('dosWeighting'), response: g('dosResponse')
-    },
+    dosimeter: (function() {
+      // Build the new multi-setup schema: shared instrument fields + an
+      // array of up to 3 setups. primarySetupIndex flags the one whose
+      // exchange/criterion drove the Results-section TWA calc.
+      var setups = [];
+      for (var i = 0; i < setupCount; i++) {
+        var n = i + 1;
+        var ex = document.getElementById('setup' + n + '_exchange');
+        if (!ex) continue;
+        setups.push({
+          exchange:  ex.value,
+          criterion: document.getElementById('setup' + n + '_criterion').value,
+          weighting: document.getElementById('setup' + n + '_weighting').value,
+          response:  document.getElementById('setup' + n + '_response').value
+        });
+      }
+      // Legacy flat fields (exchange/criterion/weighting/response at top
+      // level of dosimeter) mirror the primary setup, so any downstream
+      // consumer that hasn't been migrated yet (PDFs, Sheets sync, Stats,
+      // RAC) keeps working until it's explicitly updated.
+      var primary = setups[primarySetupIndex] || setups[0] || {};
+      return {
+        make: g('dosMake'), model: g('dosModel'), serial: g('dosSerial'),
+        factoryCal: g('dosFactoryCal'),
+        setups: setups,
+        primarySetupIndex: primarySetupIndex,
+        exchange:  primary.exchange  || '',
+        criterion: primary.criterion || '',
+        weighting: primary.weighting || '',
+        response:  primary.response  || ''
+      };
+    })(),
     calibrator: {
       make: g('calMake'), model: g('calModel'), serial: g('calSerial'),
       lastNistCal: g('calLastNistCal'), nistDue: g('calNistDue'), refLevel: g('calRefLevel')
@@ -2663,8 +2858,31 @@ function getFormData() {
 function populateForm(s) {
   const sv = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val || ''; };
   sv('dosMake', s.dosimeter?.make); sv('dosModel', s.dosimeter?.model); sv('dosSerial', s.dosimeter?.serial);
-  sv('dosFactoryCal', s.dosimeter?.factoryCal); sv('dosExchange', s.dosimeter?.exchange); sv('dosCriterion', s.dosimeter?.criterion);
-  sv('dosWeighting', s.dosimeter?.weighting); sv('dosResponse', s.dosimeter?.response);
+  sv('dosFactoryCal', s.dosimeter?.factoryCal);
+  // Setup block reconstruction: prefer new setups[] schema; migrate
+  // legacy flat fields (exchange/criterion/weighting/response at the
+  // dosimeter root) to a single-setup array if setups[] is absent.
+  var savedSetups = (s.dosimeter && Array.isArray(s.dosimeter.setups) && s.dosimeter.setups.length > 0)
+    ? s.dosimeter.setups
+    : [{
+        exchange:  s.dosimeter?.exchange,
+        criterion: s.dosimeter?.criterion,
+        weighting: s.dosimeter?.weighting,
+        response:  s.dosimeter?.response
+      }];
+  setupCount = Math.min(3, Math.max(1, savedSetups.length));
+  primarySetupIndex = (typeof s.dosimeter?.primarySetupIndex === 'number')
+    ? Math.min(setupCount - 1, Math.max(0, s.dosimeter.primarySetupIndex))
+    : 0;
+  renderSetupBlocks();
+  for (var i = 0; i < setupCount; i++) {
+    var n = i + 1;
+    var st = savedSetups[i] || {};
+    sv('setup' + n + '_exchange',  st.exchange);
+    sv('setup' + n + '_criterion', st.criterion);
+    sv('setup' + n + '_weighting', st.weighting);
+    sv('setup' + n + '_response',  st.response);
+  }
   sv('calMake', s.calibrator?.make); sv('calModel', s.calibrator?.model); sv('calSerial', s.calibrator?.serial);
   sv('calLastNistCal', s.calibrator?.lastNistCal); sv('calNistDue', s.calibrator?.nistDue); sv('calRefLevel', s.calibrator?.refLevel);
   sv('preCalTime', s.calibration?.preTime); sv('preCalReading', s.calibration?.preReading); sv('preCalInitials', s.calibration?.preInitials);
@@ -2852,7 +3070,14 @@ function saveSurvey() {
   saveToStorage();
   syncToSheets(data);
   renderExportList();
-  showToast(qa.allPass ? 'Survey saved — all QA checks passed!' : 'Survey saved — review QA flags', qa.allPass ? 'success' : '');
+  showToast(
+    qa.allPass
+      ? 'Survey saved \u2014 all QA checks passed!'
+      : (qa.qaPass && qa.checks && qa.checks.segPresent === false)
+        ? 'Survey saved \u2014 assign a SEG to finalize'
+        : 'Survey saved \u2014 review QA flags',
+    qa.allPass ? 'success' : ''
+  );
   // Reset form for the next survey — keep dosimeter/calibrator/IH fields populated
   clearFormFields(true);
   currentSurveyId = generateId();
@@ -3068,10 +3293,24 @@ function getQAResult() {
     checks.twaMatch     = twaDiff <= 0.5;
   }
 
-  const results = [checks.preBefore, checks.postAfter, checks.preWithin1hr, checks.postWithin1hr, checks.calWithin5pct, checks.twaMatch];
-  const allPass = results.filter(r => r !== undefined).every(r => r === true);
+  // SEG required on finalize (not on draft). Read the live form the same
+  // way saveSurvey does: dropdown value, or the free-text if "Other" is
+  // selected. If blank, the survey can still be saved as a draft, but
+  // allPass is forced false so the status falls back to 'qa-fail' rather
+  // than 'complete' — matching the reviewer's ask that a survey must
+  // have a SEG assigned before it is considered finalized.
+  const segSel = document.getElementById('empSegSelect');
+  const segOth = document.getElementById('empSegOther');
+  const segVal = segSel && segSel.value === 'Other'
+    ? (segOth ? segOth.value.trim() : '')
+    : (segSel ? segSel.value : '');
+  checks.segPresent = !!segVal;
 
-  return { checks, allPass, anyRun };
+  const results = [checks.preBefore, checks.postAfter, checks.preWithin1hr, checks.postWithin1hr, checks.calWithin5pct, checks.twaMatch];
+  const qaPass = results.filter(r => r !== undefined).every(r => r === true);
+  const allPass = qaPass && checks.segPresent;
+
+  return { checks, allPass, anyRun, qaPass };
 }
 
 function checkTWAMatch() {
@@ -3196,10 +3435,10 @@ function runQA() {
   } else setCheck('qa6','qa6val', null);
 
   // Update badge
-  const { allPass, anyRun } = getQAResult();
+  const { qaPass, anyRun } = getQAResult();
   const badge = document.getElementById('calBadge');
   if (!anyRun) { badge.textContent = 'PENDING'; badge.style.background = ''; badge.style.color = ''; }
-  else if (allPass) { badge.textContent = 'ALL PASS'; badge.style.background = '#3ec97a'; badge.style.color = '#0f2235'; }
+  else if (qaPass) { badge.textContent = 'ALL PASS'; badge.style.background = '#3ec97a'; badge.style.color = '#0f2235'; }
   else { badge.textContent = 'QA FLAG'; badge.style.background = '#e05252'; badge.style.color = '#fff'; }
 }
 
@@ -3209,15 +3448,21 @@ function runQA() {
 function calcResults() {
   const dose      = parseFloat(document.getElementById('resDose').value);
   const runTime   = parseFloat(document.getElementById('resRunTime').value);
-  const criterion = parseFloat(document.getElementById('dosCriterion').value) || 90;
-  const exchange  = parseFloat(document.getElementById('dosExchange').value) || 5;
+  // Primary setup drives the single Results-section TWA. With multi-setup
+  // data model, the four config fields are per-setup; the Results section
+  // is unchanged and reflects the primary setup's exchange/criterion.
+  const pn = (primarySetupIndex || 0) + 1;
+  const critEl = document.getElementById('setup' + pn + '_criterion');
+  const exEl   = document.getElementById('setup' + pn + '_exchange');
+  const criterion = critEl ? (parseFloat(critEl.value) || 90) : 90;
+  const exchange  = exEl ? (parseFloat(exEl.value) || 5) : 5;
 
   if (!isNaN(dose) && !isNaN(runTime) && runTime > 0) {
     // TWA = criterion + (exchange/log10(2)) * log10(dose/100 * 8/runTime)
     const twa = criterion + (exchange / Math.log10(2)) * Math.log10((dose / 100) * (8 / runTime));
     document.getElementById('resTWA').value = twa.toFixed(1);
-    document.getElementById('twaHint').textContent = 'Normalized to 8-hr · Criterion ' + criterion +
-      ' dB · ' + exchange + ' dB ER';
+    document.getElementById('twaHint').textContent = 'Normalized to 8-hr \u00b7 Criterion ' + criterion +
+      ' dB \u00b7 ' + exchange + ' dB ER';
   }
   checkTWAMatch();
   syncStandardResults();
@@ -3251,8 +3496,14 @@ function calcDoseFromLavg(lavg, runTime, exchange, criterion) {
 }
 
 function syncStandardResults(forceOverwrite) {
-  var exchange  = parseFloat(document.getElementById('dosExchange').value);
-  var criterion = parseFloat(document.getElementById('dosCriterion').value);
+  // Primary setup drives the "active slot" detection (ACGIH / OSHA_HC /
+  // OSHA_PEL) since the Multi-standard results section mirrors the
+  // Results section, which reflects primary config.
+  var pn = (primarySetupIndex || 0) + 1;
+  var exEl = document.getElementById('setup' + pn + '_exchange');
+  var crEl = document.getElementById('setup' + pn + '_criterion');
+  var exchange  = exEl ? parseFloat(exEl.value) : NaN;
+  var criterion = crEl ? parseFloat(crEl.value) : NaN;
   var doseRaw   = document.getElementById('resDose').value;
   var lavgRaw   = document.getElementById('resLavg').value;
   var runTimeRaw = document.getElementById('resRunTime').value;
@@ -4036,8 +4287,14 @@ function loadEquipById(id) {
     document.getElementById('dosModel').value = eq.model || '';
     document.getElementById('dosSerial').value = eq.serial || '';
     document.getElementById('dosFactoryCal').value = eq.factoryCal || '';
-    document.getElementById('dosExchange').value = eq.exchange || '5';
-    document.getElementById('dosCriterion').value = eq.criterion || '90';
+    // Library dosimeter config populates the primary setup (setup 1 by
+    // default). Per-setup IDs replaced the legacy flat dosExchange /
+    // dosCriterion IDs when multi-setup support was added.
+    var pn = (typeof primarySetupIndex === 'number' ? primarySetupIndex : 0) + 1;
+    var exEl = document.getElementById('setup' + pn + '_exchange');
+    var crEl = document.getElementById('setup' + pn + '_criterion');
+    if (exEl) exEl.value = eq.exchange || '5';
+    if (crEl) crEl.value = eq.criterion || '90';
     showToast('Dosimeter loaded: ' + eq.make + ' ' + eq.model, 'success');
   } else {
     document.getElementById('calMake').value        = eq.make        || '';
