@@ -3635,7 +3635,51 @@ function autosave() {
 //  EXPORT — EXCEL
 // ═══════════════════════════════════════════════════════════
 function buildExcelData(surveysArr) {
-  const rows = surveysArr.map(s => ({
+  // Helper: normalize multi-setup data. If setups[] missing (legacy surveys),
+  // synthesize a single-setup array from the flat mirror so callers can
+  // treat every survey uniformly.
+  function getSetups(dos) {
+    if (!dos) return { setups: [], primary: 0 };
+    if (Array.isArray(dos.setups) && dos.setups.length > 0) {
+      return { setups: dos.setups, primary: dos.primarySetupIndex || 0 };
+    }
+    // Legacy: build one synthetic setup from flat fields
+    return {
+      setups: [{
+        exchange:  dos.exchange  || '',
+        criterion: dos.criterion || '',
+        weighting: dos.weighting || '',
+        response:  dos.response  || '',
+        threshold: dos.threshold || ''
+      }],
+      primary: 0
+    };
+  }
+
+  function setupCols(dos, idx) {
+    var norm = getSetups(dos);
+    var setup = norm.setups[idx];
+    if (!setup) {
+      return {
+        exchange: '', criterion: '', weighting: '',
+        response: '', threshold: ''
+      };
+    }
+    return {
+      exchange:  setup.exchange  || '',
+      criterion: setup.criterion || '',
+      weighting: setup.weighting ? setup.weighting + '-weighting' : '',
+      response:  setup.response  || '',
+      threshold: setup.threshold || ''
+    };
+  }
+
+  const rows = surveysArr.map(s => {
+    var s1 = setupCols(s.dosimeter, 0);
+    var s2 = setupCols(s.dosimeter, 1);
+    var s3 = setupCols(s.dosimeter, 2);
+    var norm = getSetups(s.dosimeter);
+    return {
     'Survey ID': s.id,
     'Date': s.calibration?.surveyStart?.split('T')[0] || '',
     'Project': s.project?.name || '',
@@ -3654,6 +3698,23 @@ function buildExcelData(surveysArr) {
     'Criterion Level (dB)': s.dosimeter?.criterion || '',
     'Frequency Weighting': s.dosimeter?.weighting ? s.dosimeter.weighting + '-weighting' : '',
     'Detector Response': s.dosimeter?.response || '',
+    'Threshold': s.dosimeter?.threshold || '',
+    'Primary Setup Index': norm.primary,
+    'Setup 1 — Exchange Rate (dB)': s1.exchange,
+    'Setup 1 — Criterion Level (dB)': s1.criterion,
+    'Setup 1 — Frequency Weighting': s1.weighting,
+    'Setup 1 — Detector Response': s1.response,
+    'Setup 1 — Threshold': s1.threshold,
+    'Setup 2 — Exchange Rate (dB)': s2.exchange,
+    'Setup 2 — Criterion Level (dB)': s2.criterion,
+    'Setup 2 — Frequency Weighting': s2.weighting,
+    'Setup 2 — Detector Response': s2.response,
+    'Setup 2 — Threshold': s2.threshold,
+    'Setup 3 — Exchange Rate (dB)': s3.exchange,
+    'Setup 3 — Criterion Level (dB)': s3.criterion,
+    'Setup 3 — Frequency Weighting': s3.weighting,
+    'Setup 3 — Detector Response': s3.response,
+    'Setup 3 — Threshold': s3.threshold,
     'Calibrator Make': s.calibrator?.make || '',
     'Calibrator Model': s.calibrator?.model || '',
     'Calibrator Serial': s.calibrator?.serial || '',
@@ -3702,7 +3763,8 @@ function buildExcelData(surveysArr) {
     'IH Credentials': s.ih?.creds || '',
     'IH Firm': s.ih?.firm || '',
     'Status': s.status || '',
-  }));
+    };
+  });
   return rows;
 }
 
