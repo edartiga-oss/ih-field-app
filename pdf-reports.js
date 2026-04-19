@@ -160,6 +160,7 @@ function buildPDFDoc(surveysArr) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
   const NAVY = [15, 34, 53];
   const TEAL = [0, 184, 160];
   const GRAY = [74, 92, 114];
@@ -213,6 +214,17 @@ function buildPDFDoc(surveysArr) {
       return y2 + Math.ceil(fields.length / 3) * 38;
     }
 
+    // Page-break guard: if there isn't at least `needed` pt of vertical room
+    // left before the footer reserve, start a new page. Used for content
+    // blocks (e.g., setup blocks) that shouldn't straddle a page.
+    function checkY(y2, needed) {
+      if (y2 + needed > H - 50) {
+        doc.addPage();
+        return 40;
+      }
+      return y2;
+    }
+
     // Project info
     y = sectionHead('Project Information', y);
     y = grid3([
@@ -251,21 +263,73 @@ function buildPDFDoc(surveysArr) {
 
     // Instrument
     y = sectionHead('Instrument Information', y);
+
+    // Dosimeter (shared instrument fields — make/model/serial/factory cal
+    // are properties of the physical dosimeter; all setups share them).
     y = grid3([
       ['Dosimeter Make', s.dosimeter?.make],
       ['Dosimeter Model', s.dosimeter?.model],
       ['Dosimeter Serial', s.dosimeter?.serial],
       ['Factory Cal. Date', s.dosimeter?.factoryCal],
-      ['Exchange Rate', s.dosimeter?.exchange ? s.dosimeter.exchange + ' dB' : ''],
-      ['Criterion Level', s.dosimeter?.criterion ? s.dosimeter.criterion + ' dB' : ''],
-      ['Frequency Weighting', s.dosimeter?.weighting ? s.dosimeter.weighting + '-weighting' : ''],
-      ['Detector Response', s.dosimeter?.response || ''],
+      ['Placement', s.placement?.location],
+    ], y) + 6;
+
+    // Dosimeter setups — up to 3 per-setup config blocks. Multi-setup schema:
+    //   s.dosimeter.setups = [{exchange, criterion, weighting, response, threshold}, ...]
+    // Legacy surveys predating multi-setup have flat exchange/criterion/weighting/
+    // response/threshold at dosimeter root; fall through to a single-setup array
+    // derived from those flat fields so old surveys print identically to before
+    // (plus a Threshold row, which will be blank on pre-threshold surveys).
+    var savedSetups = (s.dosimeter && Array.isArray(s.dosimeter.setups) && s.dosimeter.setups.length > 0)
+      ? s.dosimeter.setups
+      : [{
+          exchange:  s.dosimeter?.exchange,
+          criterion: s.dosimeter?.criterion,
+          weighting: s.dosimeter?.weighting,
+          response:  s.dosimeter?.response,
+          threshold: s.dosimeter?.threshold
+        }];
+    var primaryIdx = (typeof s.dosimeter?.primarySetupIndex === 'number')
+      ? s.dosimeter.primarySetupIndex : 0;
+
+    // Mini-subheader bar for each setup block. Lighter / thinner than the
+    // main navy section bar so the visual hierarchy stays clear: section >
+    // setup subheader > field rows.
+    function setupBar(title, y2) {
+      doc.setFillColor(234, 238, 244);  // light neutral
+      doc.rect(36, y2, W - 72, 14, 'F');
+      doc.setTextColor(...NAVY);
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+      doc.text(title, 40, y2 + 10);
+      return y2 + 22;
+    }
+
+    for (var setupI = 0; setupI < savedSetups.length && setupI < 3; setupI++) {
+      var setup = savedSetups[setupI] || {};
+      var isPrimary = (setupI === primaryIdx);
+      var label = 'SETUP ' + (setupI + 1) + (isPrimary ? '  \u2014  PRIMARY' : '');
+      // Reserve enough vertical space for the subheader + 2 rows of grid3 so
+      // a setup block never straddles a page boundary. 22 (bar) + 38*2 (rows)
+      // + a small pad = ~100pt.
+      y = checkY(y, 100);
+      y = setupBar(label, y);
+      y = grid3([
+        ['Exchange Rate', setup.exchange ? setup.exchange + ' dB' : ''],
+        ['Criterion Level', setup.criterion ? setup.criterion + ' dB' : ''],
+        ['Frequency Weighting', setup.weighting ? setup.weighting + '-weighting' : ''],
+        ['Detector Response', setup.response || ''],
+        ['Threshold', setup.threshold ? setup.threshold + ' dB' : ''],
+      ], y) + 6;
+    }
+
+    // Calibrator (shared — one physical calibration applies to all setups).
+    y += 4;
+    y = grid3([
       ['Calibrator Make', s.calibrator?.make],
       ['Calibrator Model', s.calibrator?.model],
       ['Calibrator Serial', s.calibrator?.serial],
       ['NIST Cal. Due', s.calibrator?.nistDue],
       ['Calibrator Ref. Level', s.calibrator?.refLevel ? s.calibrator.refLevel + ' dB' : ''],
-      ['Placement', s.placement?.location],
     ], y) + 10;
 
     // Calibration checks
