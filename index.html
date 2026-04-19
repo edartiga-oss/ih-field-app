@@ -2562,6 +2562,15 @@ function setupBlockHtml(i) {
             '<option value="Impulse">Impulse (35 ms / 1,500 ms decay)</option>' +
           '</select>' +
         '</div>' +
+        '<div class="field">' +
+          '<label>Threshold (dB)</label>' +
+          '<select id="setup' + n + '_threshold" oninput="autosave()">' +
+            '<option value="80">80 dB \u2014 ACGIH/NIOSH</option>' +
+            '<option value="90">90 dB \u2014 OSHA PEL</option>' +
+            '<option value="70">70 dB</option>' +
+            '<option value="">None / Off</option>' +
+          '</select>' +
+        '</div>' +
       '</div>' +
     '</div>'
   );
@@ -2584,7 +2593,8 @@ function renderSetupBlocks() {
       exchange: ex.value,
       criterion: document.getElementById('setup' + n + '_criterion').value,
       weighting: document.getElementById('setup' + n + '_weighting').value,
-      response:  document.getElementById('setup' + n + '_response').value
+      response:  document.getElementById('setup' + n + '_response').value,
+      threshold: document.getElementById('setup' + n + '_threshold').value
     });
   }
   // Rebuild markup.
@@ -2599,6 +2609,7 @@ function renderSetupBlocks() {
       document.getElementById('setup' + nn + '_criterion').value = snapshot[k].criterion;
       document.getElementById('setup' + nn + '_weighting').value = snapshot[k].weighting;
       document.getElementById('setup' + nn + '_response').value  = snapshot[k].response;
+      document.getElementById('setup' + nn + '_threshold').value = snapshot[k].threshold;
     }
   }
   // Check the primary radio.
@@ -2729,7 +2740,8 @@ function clearFormFields(keepInstruments) {
         exchange:  ex.value,
         criterion: document.getElementById('setup' + pn + '_criterion').value,
         weighting: document.getElementById('setup' + pn + '_weighting').value,
-        response:  document.getElementById('setup' + pn + '_response').value
+        response:  document.getElementById('setup' + pn + '_response').value,
+        threshold: document.getElementById('setup' + pn + '_threshold').value
       };
     }
   }
@@ -2741,6 +2753,7 @@ function clearFormFields(keepInstruments) {
     document.getElementById('setup1_criterion').value = keepPrimary.criterion;
     document.getElementById('setup1_weighting').value = keepPrimary.weighting;
     document.getElementById('setup1_response').value  = keepPrimary.response;
+    document.getElementById('setup1_threshold').value = keepPrimary.threshold;
   }
   // Reset SEG select + hide free-write input
   var segSel = document.getElementById('empSegSelect');
@@ -2795,7 +2808,8 @@ function getFormData() {
           exchange:  ex.value,
           criterion: document.getElementById('setup' + n + '_criterion').value,
           weighting: document.getElementById('setup' + n + '_weighting').value,
-          response:  document.getElementById('setup' + n + '_response').value
+          response:  document.getElementById('setup' + n + '_response').value,
+          threshold: document.getElementById('setup' + n + '_threshold').value
         });
       }
       // Legacy flat fields (exchange/criterion/weighting/response at top
@@ -2811,7 +2825,8 @@ function getFormData() {
         exchange:  primary.exchange  || '',
         criterion: primary.criterion || '',
         weighting: primary.weighting || '',
-        response:  primary.response  || ''
+        response:  primary.response  || '',
+        threshold: primary.threshold || ''
       };
     })(),
     calibrator: {
@@ -2868,7 +2883,8 @@ function populateForm(s) {
         exchange:  s.dosimeter?.exchange,
         criterion: s.dosimeter?.criterion,
         weighting: s.dosimeter?.weighting,
-        response:  s.dosimeter?.response
+        response:  s.dosimeter?.response,
+        threshold: s.dosimeter?.threshold
       }];
   setupCount = Math.min(3, Math.max(1, savedSetups.length));
   primarySetupIndex = (typeof s.dosimeter?.primarySetupIndex === 'number')
@@ -2882,6 +2898,7 @@ function populateForm(s) {
     sv('setup' + n + '_criterion', st.criterion);
     sv('setup' + n + '_weighting', st.weighting);
     sv('setup' + n + '_response',  st.response);
+    sv('setup' + n + '_threshold', st.threshold);
   }
   sv('calMake', s.calibrator?.make); sv('calModel', s.calibrator?.model); sv('calSerial', s.calibrator?.serial);
   sv('calLastNistCal', s.calibrator?.lastNistCal); sv('calNistDue', s.calibrator?.nistDue); sv('calRefLevel', s.calibrator?.refLevel);
