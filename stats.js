@@ -237,13 +237,30 @@ function renderStats() {
   }
 
   // ── All IH names ──
+  // Filter-state resync on every render — mirrors the pattern used by
+  // renderRAC in pdf-reports.js. The Sets are preserved so a user's
+  // explicit narrowing sticks, but a Set that was "All at the time" can
+  // become stale when new surveys arrive between renders. See renderRAC
+  // for the rule; behavior:
+  //   - null                                  -> init to current all
+  //   - size === 1, value still in allList    -> preserve
+  //   - otherwise                             -> resync to current all
+  function resyncFilter(selected, allList) {
+    if (selected === null) return new Set(allList);
+    if (selected.size === 1) {
+      const v = [...selected][0];
+      return allList.indexOf(v) !== -1 ? selected : new Set(allList);
+    }
+    return new Set(allList);
+  }
+
   const allIHs = [...new Set(surveys.map(s => s.ih?.name || s.deviceNickname || '').filter(Boolean))].sort();
-  if (statsSelectedIHs === null) statsSelectedIHs = new Set(allIHs);
+  statsSelectedIHs = resyncFilter(statsSelectedIHs, allIHs);
   populateSelect(ihSelectEl, 'All IHs', allIHs, currentValue(allIHs, statsSelectedIHs));
 
   // ── All Locations ──
   const allLocations = [...new Set(surveys.map(s => s.employee?.location || '').filter(Boolean))].sort();
-  if (statsSelectedLocations === null) statsSelectedLocations = new Set(allLocations);
+  statsSelectedLocations = resyncFilter(statsSelectedLocations, allLocations);
   populateSelect(locSelectEl, 'All Locations', allLocations, currentValue(allLocations, statsSelectedLocations));
 
   // ── All SEGs ──
@@ -254,7 +271,7 @@ function renderStats() {
     populateSelect(segSelectEl, 'All SEGs', [], '');
     return;
   }
-  if (statsSelectedSEGs === null) statsSelectedSEGs = new Set(allSEGs);
+  statsSelectedSEGs = resyncFilter(statsSelectedSEGs, allSEGs);
   populateSelect(segSelectEl, 'All SEGs', allSEGs, currentValue(allSEGs, statsSelectedSEGs));
 
   // ── Filter surveys by IH, Location, and SEG ──

@@ -892,11 +892,28 @@ function renderRAC() {
   var allLocs = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))].sort();
   var allSEGs = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))].sort();
 
-  // Default: select all (null is interpreted as "no filter" by the
-  // filter block below and by printRAC's consumer of these sets).
-  if (racSelectedIHs       === null) racSelectedIHs       = new Set(allIHs);
-  if (racSelectedLocations === null) racSelectedLocations = new Set(allLocs);
-  if (racSelectedSEGs      === null) racSelectedSEGs      = new Set(allSEGs);
+  // Filter-state resync on every render. The Sets (racSelected*) are
+  // preserved across renders so the user's choice "stick" when they
+  // click around; but if new surveys arrive (Sheets sync, another tab
+  // saving, etc.) between renders, a Set that was "All at the time"
+  // becomes stale and silently excludes the new values. Guard rule:
+  //   - null                                  -> init to current all (first render)
+  //   - size === 1, value still in allList    -> preserve (user's explicit pick)
+  //   - size === 1, value no longer in data   -> resync to current all
+  //   - anything else                         -> resync to current all
+  // The Set acts as a cache of the user's narrowing, not a snapshot
+  // of the data shape.
+  function resyncFilter(selected, allList) {
+    if (selected === null) return new Set(allList);
+    if (selected.size === 1) {
+      var v = [...selected][0];
+      return allList.indexOf(v) !== -1 ? selected : new Set(allList);
+    }
+    return new Set(allList);
+  }
+  racSelectedIHs       = resyncFilter(racSelectedIHs,       allIHs);
+  racSelectedLocations = resyncFilter(racSelectedLocations, allLocs);
+  racSelectedSEGs      = resyncFilter(racSelectedSEGs,      allSEGs);
 
   // Derive the current single-select value for each dropdown from the
   // Set state. If the Set contains every option (i.e., "All"), show
