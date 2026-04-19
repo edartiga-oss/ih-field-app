@@ -844,6 +844,26 @@ function racToggleSEG(seg) {
 function racSelectAllSEGs() { racSelectedSEGs = null; renderRAC(); }
 function racSelectNoSEGs()  { racSelectedSEGs = new Set(); renderRAC(); }
 
+// Handler for the dropdown-based filter UI (IH / Location / SEG).
+// Empty string means "All" — sets the filter to include every known
+// value so the downstream filter block treats it as no filter.
+// A specific value creates a single-item Set; the filter block
+// matches only surveys with that exact value.
+function racSetFilter(kind, value) {
+  var all;
+  if (kind === 'ih') {
+    all = [...new Set(surveys.map(function(s){ return s.ih?.name || s.deviceNickname || ''; }).filter(Boolean))];
+    racSelectedIHs = value ? new Set([value]) : new Set(all);
+  } else if (kind === 'location') {
+    all = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))];
+    racSelectedLocations = value ? new Set([value]) : new Set(all);
+  } else if (kind === 'seg') {
+    all = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))];
+    racSelectedSEGs = value ? new Set([value]) : new Set(all);
+  }
+  renderRAC();
+}
+
 function calcRAC(utl, personnel) {
   if (utl === null || isNaN(utl) || personnel < 1) return null;
   var lt82 = utl < 82, lt10 = personnel < 10;
@@ -862,30 +882,51 @@ function racBadge(rac) {
 }
 
 function renderRAC() {
-  var ihChipsEl  = document.getElementById('racIHChips');
-  var locChipsEl = document.getElementById('racLocationChips');
-  var segChipsEl = document.getElementById('racSegChips');
-  var resultsEl  = document.getElementById('racResults');
+  var ihSelectEl  = document.getElementById('racIHSelect');
+  var locSelectEl = document.getElementById('racLocationSelect');
+  var segSelectEl = document.getElementById('racSegSelect');
+  var resultsEl   = document.getElementById('racResults');
   if (!resultsEl) return;
 
   var allIHs  = [...new Set(surveys.map(function(s){ return s.ih?.name || s.deviceNickname || ''; }).filter(Boolean))].sort();
   var allLocs = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))].sort();
   var allSEGs = [...new Set(surveys.map(function(s){ return s.employee?.seg || ''; }).filter(Boolean))].sort();
 
+  // Default: select all (null is interpreted as "no filter" by the
+  // filter block below and by printRAC's consumer of these sets).
   if (racSelectedIHs       === null) racSelectedIHs       = new Set(allIHs);
   if (racSelectedLocations === null) racSelectedLocations = new Set(allLocs);
   if (racSelectedSEGs      === null) racSelectedSEGs      = new Set(allSEGs);
 
-  function chipHtml(label, active, onclick) {
-    return '<button onclick="' + onclick + '" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;'
-      + 'border:1.5px solid ' + (active ? 'var(--teal)' : 'var(--border)') + ';'
-      + 'background:' + (active ? 'rgba(0,184,160,0.12)' : 'var(--surface)') + ';'
-      + 'color:' + (active ? 'var(--teal)' : 'var(--text2)') + ';">' + esc(label) + '</button>';
+  // Derive the current single-select value for each dropdown from the
+  // Set state. If the Set contains every option (i.e., "All"), show
+  // the blank "All X" option; if it contains exactly one value, show
+  // that value selected. Mixed subsets collapse to "All" because the
+  // dropdown UI can't represent them — an acceptable consequence of
+  // the single-select design (multi-select subsets were possible with
+  // the old chip UI but not with dropdowns).
+  function currentValue(allList, selectedSet) {
+    if (!allList.length) return '';
+    if (selectedSet.size === allList.length) return '';     // All
+    if (selectedSet.size === 1) return [...selectedSet][0]; // Single
+    return '';                                               // Mixed -> All
   }
 
-  if (ihChipsEl)  ihChipsEl.innerHTML  = '<button class="btn btn-outline btn-sm" onclick="racSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>' + allIHs.map(function(ih) { return chipHtml(ih, racSelectedIHs.has(ih), "racToggleIH('" + esc(ih) + "')"); }).join('');
-  if (locChipsEl) locChipsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="racSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>' + allLocs.map(function(loc) { return chipHtml(loc, racSelectedLocations.has(loc), "racToggleLocation('" + esc(loc) + "')"); }).join('');
-  if (segChipsEl) segChipsEl.innerHTML = allSEGs.map(function(seg) { return chipHtml(seg, racSelectedSEGs.has(seg), "racToggleSEG('" + esc(seg) + "')"); }).join('');
+  // Populate a <select> with options, preserving the currently-picked
+  // value where possible. Falls back to "All" if the previously-picked
+  // value is no longer in the data (e.g., after a delete).
+  function populateSelect(el, defaultLabel, values, currentVal) {
+    if (!el) return;
+    var effectiveVal = (currentVal && values.indexOf(currentVal) !== -1) ? currentVal : '';
+    el.innerHTML = '<option value="">' + defaultLabel + '</option>' +
+      values.map(function(v) {
+        return '<option value="' + esc(v) + '"' + (v === effectiveVal ? ' selected' : '') + '>' + esc(v) + '</option>';
+      }).join('');
+  }
+
+  populateSelect(ihSelectEl,  'All IHs',       allIHs,  currentValue(allIHs,  racSelectedIHs));
+  populateSelect(locSelectEl, 'All Locations', allLocs, currentValue(allLocs, racSelectedLocations));
+  populateSelect(segSelectEl, 'All SEGs',      allSEGs, currentValue(allSEGs, racSelectedSEGs));
 
   var sel = surveys.filter(function(s) {
     var ih  = s.ih?.name || s.deviceNickname || '';

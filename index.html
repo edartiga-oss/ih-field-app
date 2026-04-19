@@ -1516,29 +1516,27 @@ body { padding: 20px 18px; }
   <div style="display:flex; gap:20px; margin-bottom:18px; flex-wrap:wrap; align-items:flex-start; padding:14px 16px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border);">
 
     <!-- IH filter -->
-    <div>
+    <div style="flex:1; min-width:200px;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by IH</div>
-      <div id="racIHChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-        <button class="btn btn-outline btn-sm" onclick="racSelectAllIH()" style="padding:3px 9px; font-size:10px;">All IHs</button>
-      </div>
+      <select id="racIHSelect" onchange="racSetFilter('ih', this.value)" style="width:100%; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+        <option value="">All IHs</option>
+      </select>
     </div>
 
     <!-- Location filter -->
-    <div>
+    <div style="flex:1; min-width:200px;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by Location</div>
-      <div id="racLocationChips" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-        <button class="btn btn-outline btn-sm" onclick="racSelectAllLocations()" style="padding:3px 9px; font-size:10px;">All Locations</button>
-      </div>
+      <select id="racLocationSelect" onchange="racSetFilter('location', this.value)" style="width:100%; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+        <option value="">All Locations</option>
+      </select>
     </div>
 
     <!-- SEG filter -->
-    <div style="flex:1; min-width:220px;">
+    <div style="flex:1; min-width:200px;">
       <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Filter by SEG</div>
-      <div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
-        <div id="racSegChips" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-        <button class="btn btn-outline btn-sm" onclick="racSelectAllSEGs()" style="padding:3px 9px; font-size:10px;">All</button>
-        <button class="btn btn-outline btn-sm" onclick="racSelectNoSEGs()" style="padding:3px 9px; font-size:10px;">None</button>
-      </div>
+      <select id="racSegSelect" onchange="racSetFilter('seg', this.value)" style="width:100%; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:13px;">
+        <option value="">All SEGs</option>
+      </select>
     </div>
 
   </div>
