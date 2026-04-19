@@ -4380,6 +4380,17 @@ function loadEquipmentOntoForm(type) {
 function loadEquipById(id) {
   const eq = equipment.find(e => e.id === id);
   if (!eq) return;
+  // Ensure form view is active and a survey is in progress BEFORE populating
+  // fields. startNewSurvey() calls clearFormFields() which tears down and
+  // rebuilds the setup blocks via renderSetupBlocks(), so any values written
+  // to setup{n}_* elements before this would be wiped. Likewise, instrument
+  // fields (dosMake/dosModel/...) are cleared by clearFormFields(), so we
+  // must populate after, not before.
+  const formView = document.getElementById('view-form');
+  if (!formView.classList.contains('active')) {
+    if (!currentSurveyId) startNewSurvey();
+    else showView('form');
+  }
   if (eq.type === 'dosimeter') {
     document.getElementById('dosMake').value = eq.make || '';
     document.getElementById('dosModel').value = eq.model || '';
@@ -4404,12 +4415,6 @@ function loadEquipById(id) {
     document.getElementById('calNistDue').value     = eq.nistDue     || '';
     document.getElementById('calRefLevel').value    = eq.refLevel    || '';
     showToast('Calibrator loaded: ' + eq.make + ' ' + eq.model, 'success');
-  }
-  // If not already on form view, switch to it
-  const formView = document.getElementById('view-form');
-  if (!formView.classList.contains('active')) {
-    if (!currentSurveyId) startNewSurvey();
-    else showView('form');
   }
   autosave();
 }
