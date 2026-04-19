@@ -1249,6 +1249,14 @@ body { padding: 20px 18px; }
                 <option value="80">80 dB</option>
               </select>
             </div>
+            <div class="field"><label>Threshold (dB)</label>
+              <select id="inv_dosThreshold">
+                <option value="80">80 dB — ACGIH/NIOSH</option>
+                <option value="90">90 dB — OSHA PEL</option>
+                <option value="70">70 dB</option>
+                <option value="">None / Off</option>
+              </select>
+            </div>
             <div class="field"><label>Condition</label>
               <select id="inv_dosCondition">
                 <option value="Good">Good</option>
@@ -1372,6 +1380,14 @@ body { padding: 20px 18px; }
               <option value="90">90 dB — OSHA PEL</option>
               <option value="85">85 dB — OSHA AL / ACGIH TLV</option>
               <option value="80">80 dB</option>
+            </select>
+          </div>
+          <div class="field"><label>Threshold (dB)</label>
+            <select id="eq_dosThreshold">
+              <option value="80">80 dB — ACGIH/NIOSH</option>
+              <option value="90">90 dB — OSHA PEL</option>
+              <option value="70">70 dB</option>
+              <option value="">None / Off</option>
             </select>
           </div>
           <div class="field"><label>Condition</label>
@@ -4062,6 +4078,7 @@ function openEquipModal(editId) {
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('eq_dosExchange').value = '5';
   document.getElementById('eq_dosCriterion').value = '90';
+  document.getElementById('eq_dosThreshold').value = '80';
   document.getElementById('eq_dosCondition').value = 'Good';
   document.getElementById('eq_calCondition').value = 'Good';
 
@@ -4079,6 +4096,7 @@ function openEquipModal(editId) {
       document.getElementById('eq_dosCalDue').value    = eq.calDue     || '';
       document.getElementById('eq_dosExchange').value  = eq.exchange   || '5';
       document.getElementById('eq_dosCriterion').value = eq.criterion  || '90';
+      document.getElementById('eq_dosThreshold').value = (eq.threshold !== undefined ? eq.threshold : '80');
       document.getElementById('eq_dosCondition').value = eq.condition  || 'Good';
       document.getElementById('eq_dosNotes').value     = eq.notes      || '';
     } else {
@@ -4127,6 +4145,7 @@ function saveEquipment() {
       calDue:           document.getElementById('eq_dosCalDue').value,
       exchange:         document.getElementById('eq_dosExchange').value,
       criterion:        document.getElementById('eq_dosCriterion').value,
+      threshold:        document.getElementById('eq_dosThreshold').value,
       condition:        newCondition,
       conditionHistory: condHistory,
       checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
@@ -4372,8 +4391,10 @@ function loadEquipById(id) {
     var pn = (typeof primarySetupIndex === 'number' ? primarySetupIndex : 0) + 1;
     var exEl = document.getElementById('setup' + pn + '_exchange');
     var crEl = document.getElementById('setup' + pn + '_criterion');
+    var thEl = document.getElementById('setup' + pn + '_threshold');
     if (exEl) exEl.value = eq.exchange || '5';
     if (crEl) crEl.value = eq.criterion || '90';
+    if (thEl && eq.threshold !== undefined) thEl.value = eq.threshold;
     showToast('Dosimeter loaded: ' + eq.make + ' ' + eq.model, 'success');
   } else {
     document.getElementById('calMake').value        = eq.make        || '';
@@ -4423,6 +4444,7 @@ function checkInItem() {
       calDue:     document.getElementById('inv_dosCalDue').value,
       exchange:   document.getElementById('inv_dosExchange').value,
       criterion:  document.getElementById('inv_dosCriterion').value,
+      threshold:  document.getElementById('inv_dosThreshold').value,
       condition:  document.getElementById('inv_dosCondition').value,
       notes:      document.getElementById('inv_dosNotes').value.trim(),
       checkedInBy: deviceNickname || '',
@@ -4537,6 +4559,7 @@ function clearInvForm() {
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const ex = document.getElementById('inv_dosExchange');   if (ex) ex.value = '5';
   const cr = document.getElementById('inv_dosCriterion');  if (cr) cr.value = '90';
+  const th = document.getElementById('inv_dosThreshold');  if (th) th.value = '80';
   const dc = document.getElementById('inv_dosCondition');  if (dc) dc.value = 'Good';
   const cc = document.getElementById('inv_calCondition');  if (cc) cc.value = 'Good';
 }
