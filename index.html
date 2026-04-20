@@ -932,57 +932,72 @@ body { padding: 20px 18px; }
       Dosimetry Results
     </div>
     <div class="card-body">
-      <div class="section-label">Measured values</div>
+      <div class="section-label">Shared measurements</div>
       <div class="form-grid">
         <div class="field">
-          <label>Dose % (instrument reading)</label>
-          <input type="number" id="resDose" placeholder="e.g., 42.5" step="0.1" oninput="calcResults(); autosave()">
-          <div class="hint">As displayed on instrument</div>
-        </div>
-        <div class="field">
-          <label>Lavg / LEQ (dB)</label>
-          <input type="number" id="resLavg" placeholder="e.g., 84.2" step="0.1" oninput="syncStandardResults(); autosave()">
+          <label>Run Time (hours)</label>
+          <input type="number" id="resRunTime" placeholder="e.g., 8.0" step="0.25" oninput="onSharedRunTimeChange(); autosave()">
+          <div class="hint">Actual dosimeter run time \u2014 same across all standards</div>
         </div>
         <div class="field">
           <label>LASmax (dBA)</label>
           <input type="number" id="resPeak" placeholder="e.g., 108.4" step="0.1" oninput="checkLASmax(); autosave()">
-        </div>
-        <div class="field">
-          <label>Run Time (hours)</label>
-          <input type="number" id="resRunTime" placeholder="e.g., 8.0" step="0.25" oninput="calcResults(); autosave()">
-          <div class="hint">Actual dosimeter run time</div>
+          <div class="hint">Peak A-weighted level \u2014 not standard-dependent</div>
         </div>
       </div>
 
-      <!-- LASmax impact/impulse alert — shown only when > 115 dBA -->
+      <div class="section-spacer"></div>
+      <div class="section-label">Measured values (per setup)</div>
+      <div class="hint" style="margin:-2px 0 10px 0;">One column per configured setup. Enter Dose %, Lavg, and Report TWA exactly as shown on the dosimeter report. Calc TWA updates automatically.</div>
+      <div id="measuredValuesGrid" style="display:grid; gap:10px; margin-bottom:4px;"></div>
+
+      <!-- Hidden legacy mirrors \u2014 keep existing code (PDF export, Stats, Sheet sync, etc.)
+           working without modification. Values are written whenever the primary setup's
+           corresponding new-model field changes. -->
+      <div style="display:none;" aria-hidden="true">
+        <input type="hidden" id="resDose">
+        <input type="hidden" id="resLavg">
+        <input type="hidden" id="resTWA">
+        <input type="hidden" id="resDosReportTWA">
+        <input type="hidden" id="resAcgihDose">
+        <input type="hidden" id="resAcgihLavg">
+        <input type="hidden" id="resOshaHcDose">
+        <input type="hidden" id="resOshaHcLavg">
+        <input type="hidden" id="resOshaPelDose">
+        <input type="hidden" id="resOshaPelLavg">
+        <span id="twaHint"></span>
+        <span id="twaMismatchHint"></span>
+      </div>
+
+      <!-- LASmax impact/impulse alert \u2014 shown only when > 115 dBA -->
       <div id="lasmaxAlert" style="display:none; margin-top:14px; background:#fff8e6; border:1.5px solid var(--amber); border-radius:var(--radius-lg); padding:14px 16px;">
         <div style="display:flex; gap:10px; align-items:flex-start;">
           <div style="flex-shrink:0; width:28px; height:28px; background:var(--amber); border-radius:50%; display:flex; align-items:center; justify-content:center;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f2235" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
           <div style="flex:1;">
-            <div style="font-size:13px; font-weight:600; color:#7a4f00; margin-bottom:4px;">LASmax exceeds 115 dBA — Interview SEG for impact/impulse noise</div>
+            <div style="font-size:13px; font-weight:600; color:#7a4f00; margin-bottom:4px;">LASmax exceeds 115 dBA \u2014 Interview SEG for impact/impulse noise</div>
             <div style="font-size:12px; color:#9a6500; line-height:1.6;">An LASmax &gt; 115 dBA may indicate the presence of impact or impulse noise sources not fully captured by the dosimeter. Interview the Similarly Exposed Group (SEG) to identify sources such as hammering, presses, pneumatic tools, gunshots, or explosive charges.</div>
             <div style="margin-top:10px;">
               <div style="font-size:11px; font-weight:600; color:#7a4f00; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">SEG Interview Notes</div>
-              <textarea id="lasmaxInterviewNotes" rows="3" placeholder="Document SEG responses — sources identified, frequency, duration, worker proximity, any existing controls for impact/impulse noise..." style="width:100%; resize:vertical; border:1.5px solid #d4a017; border-radius:var(--radius); padding:8px 10px; background:#fffdf5; color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea>
+              <textarea id="lasmaxInterviewNotes" rows="3" placeholder="Document SEG responses \u2014 sources identified, frequency, duration, worker proximity, any existing controls for impact/impulse noise..." style="width:100%; resize:vertical; border:1.5px solid #d4a017; border-radius:var(--radius); padding:8px 10px; background:#fffdf5; color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea>
             </div>
 
-            <!-- ── Nested 140 dBA protocol — shown only when > 140 dBA ── -->
+            <!-- \u2500\u2500 Nested 140 dBA protocol \u2014 shown only when > 140 dBA \u2500\u2500 -->
             <div id="lasmax140Alert" style="display:none; margin-top:14px; background:#fdf0f0; border:1.5px solid var(--red); border-radius:var(--radius-lg); padding:14px 16px;">
               <div style="display:flex; gap:10px; align-items:flex-start;">
                 <div style="flex-shrink:0; width:28px; height:28px; background:var(--red); border-radius:50%; display:flex; align-items:center; justify-content:center;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 </div>
                 <div style="flex:1;">
-                  <div style="font-size:13px; font-weight:600; color:#8b1a1a; margin-bottom:6px;">LASmax exceeds 140 dBA — Use a sound level meter to confirm impact/impulse source</div>
+                  <div style="font-size:13px; font-weight:600; color:#8b1a1a; margin-bottom:6px;">LASmax exceeds 140 dBA \u2014 Use a sound level meter to confirm impact/impulse source</div>
                   <div style="font-size:12px; color:#a03030; line-height:1.7; margin-bottom:12px;">Use a sound level meter to determine if the identified suspect impact or impulse sound exceeds 140 dBA.</div>
 
                   <!-- Option a -->
                   <div style="background:#fff; border:1px solid #e0a0a0; border-radius:var(--radius); padding:12px 14px; margin-bottom:10px;">
                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                       <div style="width:22px; height:22px; background:var(--red); border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:11px; font-weight:700; color:#fff;">a</div>
-                      <div style="font-size:12px; font-weight:600; color:#8b1a1a;">If impact/impulse sound exceeds 140 dBA — corrective measures required</div>
+                      <div style="font-size:12px; font-weight:600; color:#8b1a1a;">If impact/impulse sound exceeds 140 dBA \u2014 corrective measures required</div>
                     </div>
                     <div style="font-size:12px; color:#a03030; line-height:1.6; margin-bottom:8px;">Corrective measures must be taken to reduce the impact or impulse sound to below 140 dBA.</div>
                     <div style="font-size:11px; font-weight:600; color:#8b1a1a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Corrective Measures / Action Taken</div>
@@ -993,62 +1008,20 @@ body { padding: 20px 18px; }
                   <div style="background:#fff; border:1px solid #e0a0a0; border-radius:var(--radius); padding:12px 14px;">
                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                       <div style="width:22px; height:22px; background:#8096b0; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:11px; font-weight:700; color:#fff;">b</div>
-                      <div style="font-size:12px; font-weight:600; color:#4a5c72;">If no impact/impulse source found above 140 dBA — document investigation</div>
+                      <div style="font-size:12px; font-weight:600; color:#4a5c72;">If no impact/impulse source found above 140 dBA \u2014 document investigation</div>
                     </div>
                     <div style="font-size:12px; color:#4a5c72; line-height:1.6; margin-bottom:8px;">If no impact or impulse sound can be found above 140 dBA, document the investigation and no further action is required.</div>
                     <div style="font-size:11px; font-weight:600; color:#4a5c72; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Investigation Documentation</div>
-                    <textarea id="lasmax140InvestigationNotes" rows="2" placeholder="Document investigation findings — SLM readings taken, sources evaluated, measurement locations, conclusion that no source exceeded 140 dBA..." style="width:100%; resize:vertical; border:1.5px solid #c0ccd8; border-radius:var(--radius); padding:7px 10px; background:#f8fafc; color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea>
+                    <textarea id="lasmax140InvestigationNotes" rows="2" placeholder="Document investigation findings \u2014 SLM readings taken, sources evaluated, measurement locations, conclusion that no source exceeded 140 dBA..." style="width:100%; resize:vertical; border:1.5px solid #c0ccd8; border-radius:var(--radius); padding:7px 10px; background:#f8fafc; color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea>
                   </div>
 
                 </div>
               </div>
             </div>
-            <!-- ── end 140 dBA protocol ── -->
+            <!-- \u2500\u2500 end 140 dBA protocol \u2500\u2500 -->
 
           </div>
         </div>
-      </div>
-
-      <div class="section-spacer"></div>
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-        <div class="section-label" style="margin-bottom:0;">Multi-standard results <span style="font-size:10px; font-weight:400; color:var(--text3); text-transform:none; letter-spacing:0;">(from dosimeter report — D1 / D2 / D3)</span></div>
-        <button type="button" class="btn btn-outline btn-sm" onclick="forceSyncStandardResults()" style="font-size:11px; padding:4px 10px;">↻ Sync from measured values</button>
-      </div>
-      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px 14px; margin-bottom:4px;">
-
-        <div class="field">
-          <label style="color:var(--teal); font-weight:600;">ACGIH/NIOSH Dose %</label>
-          <input type="number" id="resAcgihDose" placeholder="e.g., 223.5" step="0.1" oninput="runMultiStandardVerification(); autosave()">
-          <div class="hint">D1 — Q3, C85, T80 · Dose% auto-calc when Lavg + Run Time entered</div>
-        </div>
-        <div class="field">
-          <label style="color:var(--teal); font-weight:600;">ACGIH/NIOSH Lavg (dBA)</label>
-          <input type="number" id="resAcgihLavg" placeholder="e.g., 88.5" step="0.1" oninput="syncStandardResults(); autosave()">
-          <div class="hint">D1 Lavg · from report (threshold-dependent)</div>
-        </div>
-
-        <div class="field">
-          <label style="color:#6b7fcf; font-weight:600;">OSHA HC Dose %</label>
-          <input type="number" id="resOshaHcDose" placeholder="e.g., 48.6" step="0.1" oninput="runMultiStandardVerification(); autosave()">
-          <div class="hint">D2 — Q5, C85, T80 · Dose% auto-calc when Lavg + Run Time entered</div>
-        </div>
-        <div class="field">
-          <label style="color:#6b7fcf; font-weight:600;">OSHA HC Lavg (dBA)</label>
-          <input type="number" id="resOshaHcLavg" placeholder="e.g., 84.7" step="0.1" oninput="syncStandardResults(); autosave()">
-          <div class="hint">D2 Lavg · from report (threshold-dependent)</div>
-        </div>
-
-        <div class="field">
-          <label style="color:#c07040; font-weight:600;">OSHA PEL Dose %</label>
-          <input type="number" id="resOshaPelDose" placeholder="e.g., 27.1" step="0.1" oninput="runMultiStandardVerification(); autosave()">
-          <div class="hint">D3 — Q5, C90, T90 · Dose% auto-calc when Lavg + Run Time entered</div>
-        </div>
-        <div class="field">
-          <label style="color:#c07040; font-weight:600;">OSHA PEL Lavg (dBA)</label>
-          <input type="number" id="resOshaPelLavg" placeholder="e.g., 80.5" step="0.1" oninput="syncStandardResults(); autosave()">
-          <div class="hint">D3 Lavg · from report (threshold-dependent)</div>
-        </div>
-
       </div>
 
       <div class="section-spacer"></div>
@@ -1062,12 +1035,14 @@ body { padding: 20px 18px; }
           <table style="width:100%; font-size:12px; border-collapse:collapse;">
             <thead>
               <tr style="border-bottom:1px solid var(--border); color:var(--text2);">
-                <th style="text-align:left; padding:6px 4px; font-weight:500;">Standard</th>
-                <th style="text-align:right; padding:6px 4px; font-weight:500;">Report Lavg</th>
+                <th style="text-align:left; padding:6px 4px; font-weight:500;">Setup</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">Lavg</th>
                 <th style="text-align:right; padding:6px 4px; font-weight:500;">Report Dose</th>
                 <th style="text-align:right; padding:6px 4px; font-weight:500;">Calc Dose</th>
                 <th style="text-align:right; padding:6px 4px; font-weight:500;">&Delta; Dose</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">Report TWA</th>
                 <th style="text-align:right; padding:6px 4px; font-weight:500;">Calc TWA</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">&Delta; TWA</th>
                 <th style="text-align:center; padding:6px 4px; font-weight:500;">Status</th>
               </tr>
             </thead>
@@ -1078,18 +1053,8 @@ body { padding: 20px 18px; }
       </div>
 
       <div class="section-spacer"></div>
-      <div class="section-label">Calculated / normalized values</div>
+      <div class="section-label">Exposure assessment</div>
       <div class="form-grid">
-        <div class="field">
-          <label>Calculated TWA (dB) — 8-hr</label>
-          <input type="number" id="resTWA" placeholder="Auto-calc or enter" step="0.1" oninput="checkTWAMatch(); autosave()">
-          <div id="twaHint" class="hint"></div>
-        </div>
-        <div class="field">
-          <label>Dosimeter Report TWA (dB) — 8-hr</label>
-          <input type="number" id="resDosReportTWA" placeholder="As shown on dosimeter report" step="0.1" oninput="checkTWAMatch(); runMultiStandardVerification(); autosave()">
-          <div id="twaMismatchHint" class="hint"></div>
-        </div>
         <div class="field">
           <label>Exposure Category</label>
           <select id="resCategory" oninput="autosave()">
@@ -2662,6 +2627,8 @@ function renderSetupBlocks() {
   var add3 = document.getElementById('addSetup3Btn');
   if (add2) add2.style.display = setupCount < 2 ? '' : 'none';
   if (add3) add3.style.display = setupCount === 2 ? '' : 'none';
+  // Rebuild the per-setup measured values grid to match current setup count.
+  if (typeof renderMeasuredValuesGrid === 'function') renderMeasuredValuesGrid();
 }
 
 function addSetup(newIndex) {
@@ -2689,6 +2656,8 @@ function setPrimarySetup(i) {
   primarySetupIndex = i;
   // Changing primary may change the exchange/criterion used for TWA math.
   calcResults();
+  // Update the primary-column highlight + refresh legacy mirror.
+  if (typeof renderMeasuredValuesGrid === 'function') renderMeasuredValuesGrid();
   autosave();
 }
 
@@ -2697,6 +2666,319 @@ function onPrimaryConfigChange(i) {
   // setup's values drive the calculated TWA in the single Results section,
   // so we recompute only when the primary changed.
   if (i === primarySetupIndex) calcResults();
+  // Column headers depend on (exchange, criterion) to infer standard name —
+  // rebuild the grid so labels stay in sync.
+  if (typeof renderMeasuredValuesGrid === 'function') renderMeasuredValuesGrid();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PER-SETUP MEASURED VALUES GRID
+//
+//  Renders one column per active setup in dosimeter.setups[]. Each column
+//  has Dose %, Lavg, Report TWA (all entered from the dosimeter report)
+//  plus a read-only Calc TWA with a pencil-icon override.
+//
+//  Shared inputs (Run Time, LASmax) live outside the grid.
+//
+//  Legacy IDs (resDose, resLavg, resTWA, resDosReportTWA, resAcgihDose,
+//  resAcgihLavg, resOshaHcDose, resOshaHcLavg, resOshaPelDose, resOshaPelLavg)
+//  are maintained as hidden mirrors. Whenever a per-column field changes,
+//  the corresponding legacy mirror is updated so all existing downstream
+//  code (PDF, Stats, Sheet sync, getFormData) keeps working unchanged.
+// ═══════════════════════════════════════════════════════════
+
+// Infer a human-readable standard name from a setup's (exchange, criterion).
+// Returns {name, slotKey, color}. slotKey identifies the legacy mirror
+// (acgih/oshaHc/oshaPel) or null for custom setups.
+function inferStandardForSetup(exchange, criterion) {
+  var ex = parseFloat(exchange);
+  var cr = parseFloat(criterion);
+  if (ex === 3 && cr === 85)  return { name: 'ACGIH / NIOSH', slotKey: 'acgih',   color: 'var(--teal)' };
+  if (ex === 5 && cr === 85)  return { name: 'OSHA HC',       slotKey: 'oshaHc',  color: '#6b7fcf'      };
+  if (ex === 5 && cr === 90)  return { name: 'OSHA PEL',      slotKey: 'oshaPel', color: '#c07040'      };
+  return {
+    name: 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex),
+    slotKey: null,
+    color: 'var(--text2)'
+  };
+}
+
+function measuredValueColHtml(i) {
+  var n = i + 1;
+  var exEl = document.getElementById('setup' + n + '_exchange');
+  var crEl = document.getElementById('setup' + n + '_criterion');
+  var exchange  = exEl ? exEl.value : '';
+  var criterion = crEl ? crEl.value : '';
+  var std = inferStandardForSetup(exchange, criterion);
+  var isPrimary = (i === primarySetupIndex);
+  var borderColor = isPrimary ? std.color : 'var(--border)';
+  var borderWidth = isPrimary ? '2px' : '1px';
+  var primaryBadge = isPrimary
+    ? '<span style="font-size:9px; background:' + std.color + '; color:#fff; padding:1px 6px; border-radius:8px; margin-left:6px; letter-spacing:0.5px;">PRIMARY</span>'
+    : '';
+
+  return (
+    '<div class="mv-col" data-setup-index="' + i + '" ' +
+    'style="border:' + borderWidth + ' solid ' + borderColor + '; border-radius:var(--radius); padding:10px 12px; background:var(--surface);">' +
+
+      '<div style="display:flex; align-items:center; margin-bottom:8px; min-height:22px;">' +
+        '<div style="font-size:11px; font-weight:700; color:' + std.color + '; text-transform:uppercase; letter-spacing:0.5px;">' +
+          'Setup ' + n + ' \u00b7 ' + std.name +
+        '</div>' +
+        primaryBadge +
+      '</div>' +
+
+      '<div class="field" style="margin-bottom:8px;">' +
+        '<label style="font-size:11px;">Dose %</label>' +
+        '<input type="number" id="mvDose_' + i + '" step="0.1" placeholder="e.g., 42.5" ' +
+        'oninput="onMeasuredValueChange(' + i + '); autosave()">' +
+      '</div>' +
+
+      '<div class="field" style="margin-bottom:8px;">' +
+        '<label style="font-size:11px;">Lavg / LEQ (dBA)</label>' +
+        '<input type="number" id="mvLavg_' + i + '" step="0.1" placeholder="e.g., 84.2" ' +
+        'oninput="onMeasuredValueChange(' + i + '); autosave()">' +
+      '</div>' +
+
+      '<div class="field" style="margin-bottom:8px;">' +
+        '<label style="font-size:11px;">Report TWA (dBA, 8-hr)</label>' +
+        '<input type="number" id="mvReportTWA_' + i + '" step="0.1" placeholder="As shown on report" ' +
+        'oninput="onMeasuredValueChange(' + i + '); autosave()">' +
+      '</div>' +
+
+      '<div style="border-top:1px dashed var(--border); padding-top:8px; margin-top:4px;">' +
+        '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">' +
+          '<span style="font-size:11px; color:var(--text2); font-weight:600; letter-spacing:0.3px; text-transform:uppercase;">Calc TWA (dBA)</span>' +
+          '<button type="button" id="mvCalcTwaEdit_' + i + '" ' +
+            'onclick="toggleCalcTwaOverride(' + i + ')" ' +
+            'style="background:none; border:none; cursor:pointer; padding:2px 4px; color:var(--text3); font-size:11px;" ' +
+            'title="Override calculated TWA">\u270e</button>' +
+        '</div>' +
+        '<div id="mvCalcTwaDisplay_' + i + '" style="font-size:16px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums;">\u2014</div>' +
+        '<input type="number" id="mvCalcTwaOverride_' + i + '" step="0.1" placeholder="Manual override" ' +
+          'style="display:none; margin-top:4px;" ' +
+          'oninput="onCalcTwaOverrideChange(' + i + '); autosave()">' +
+      '</div>' +
+
+    '</div>'
+  );
+}
+
+function renderMeasuredValuesGrid() {
+  var container = document.getElementById('measuredValuesGrid');
+  if (!container) return;
+  // Snapshot current values so a rebuild doesn't wipe in-progress input.
+  var snapshot = [];
+  for (var i = 0; i < 3; i++) {
+    var d = document.getElementById('mvDose_' + i);
+    if (!d) { snapshot.push(null); continue; }
+    var ov = document.getElementById('mvCalcTwaOverride_' + i);
+    snapshot.push({
+      dose:            d.value,
+      lavg:            (document.getElementById('mvLavg_' + i) || {}).value || '',
+      reportTWA:       (document.getElementById('mvReportTWA_' + i) || {}).value || '',
+      calcTWAOverride: ov ? ov.value : '',
+      overrideShown:   ov && ov.style.display !== 'none'
+    });
+  }
+
+  var cols = Math.max(1, Math.min(3, setupCount));
+  container.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+
+  var html = '';
+  for (var j = 0; j < setupCount; j++) html += measuredValueColHtml(j);
+  container.innerHTML = html;
+
+  for (var k = 0; k < setupCount; k++) {
+    if (!snapshot[k]) continue;
+    var d2 = document.getElementById('mvDose_' + k);
+    var l2 = document.getElementById('mvLavg_' + k);
+    var t2 = document.getElementById('mvReportTWA_' + k);
+    var o2 = document.getElementById('mvCalcTwaOverride_' + k);
+    if (d2) d2.value = snapshot[k].dose;
+    if (l2) l2.value = snapshot[k].lavg;
+    if (t2) t2.value = snapshot[k].reportTWA;
+    if (o2 && snapshot[k].overrideShown && snapshot[k].calcTWAOverride) {
+      o2.value = snapshot[k].calcTWAOverride;
+      o2.style.display = '';
+      var disp = document.getElementById('mvCalcTwaDisplay_' + k);
+      if (disp) disp.style.display = 'none';
+    }
+  }
+
+  updateAllCalcTWAs();
+  mirrorMeasuredValuesToLegacy();
+  if (typeof runMultiStandardVerification === 'function') runMultiStandardVerification();
+}
+
+function onMeasuredValueChange(i) {
+  updateCalcTWAForColumn(i);
+  mirrorMeasuredValuesToLegacy();
+  if (typeof checkTWAMatch === 'function') checkTWAMatch();
+  if (typeof runMultiStandardVerification === 'function') runMultiStandardVerification();
+}
+
+function onSharedRunTimeChange() {
+  updateAllCalcTWAs();
+  mirrorMeasuredValuesToLegacy();
+  if (typeof runMultiStandardVerification === 'function') runMultiStandardVerification();
+}
+
+function toggleCalcTwaOverride(i) {
+  var disp = document.getElementById('mvCalcTwaDisplay_' + i);
+  var inp  = document.getElementById('mvCalcTwaOverride_' + i);
+  if (!disp || !inp) return;
+  var showingOverride = inp.style.display !== 'none';
+  if (showingOverride) {
+    inp.style.display = 'none';
+    inp.value = '';
+    disp.style.display = '';
+    updateCalcTWAForColumn(i);
+    mirrorMeasuredValuesToLegacy();
+  } else {
+    disp.style.display = 'none';
+    inp.style.display = '';
+    if (!inp.value) {
+      var currentCalc = disp.textContent.trim();
+      if (currentCalc && currentCalc !== '\u2014') inp.value = currentCalc;
+    }
+    inp.focus();
+  }
+}
+
+function onCalcTwaOverrideChange(i) {
+  mirrorMeasuredValuesToLegacy();
+  if (typeof checkTWAMatch === 'function') checkTWAMatch();
+  if (typeof runMultiStandardVerification === 'function') runMultiStandardVerification();
+}
+
+function updateCalcTWAForColumn(i) {
+  var n = i + 1;
+  var exEl = document.getElementById('setup' + n + '_exchange');
+  var crEl = document.getElementById('setup' + n + '_criterion');
+  if (!exEl || !crEl) return;
+  var exchange  = parseFloat(exEl.value);
+  var criterion = parseFloat(crEl.value);
+  var runTime = parseFloat((document.getElementById('resRunTime') || {}).value);
+  var lavg    = parseFloat((document.getElementById('mvLavg_' + i) || {}).value);
+  var disp    = document.getElementById('mvCalcTwaDisplay_' + i);
+  var inpOver = document.getElementById('mvCalcTwaOverride_' + i);
+  if (!disp) return;
+
+  if (inpOver && inpOver.style.display !== 'none' && inpOver.value) {
+    var ov = parseFloat(inpOver.value);
+    disp.textContent = isNaN(ov) ? '\u2014' : ov.toFixed(1);
+    return;
+  }
+
+  if (!isNaN(lavg) && !isNaN(runTime) && runTime > 0 &&
+      !isNaN(exchange) && !isNaN(criterion)) {
+    var twa = calcTWAFromLavg(lavg, runTime, exchange, criterion);
+    disp.textContent = (twa === null || isNaN(twa)) ? '\u2014' : twa.toFixed(1);
+  } else {
+    disp.textContent = '\u2014';
+  }
+}
+
+function updateAllCalcTWAs() {
+  for (var i = 0; i < setupCount; i++) updateCalcTWAForColumn(i);
+}
+
+function setElVal(id, v) {
+  var el = document.getElementById(id);
+  if (el) el.value = v;
+}
+
+// Copy the primary column's values into legacy single-field IDs (resDose,
+// resLavg, resTWA, resDosReportTWA), and each column's Dose/Lavg into the
+// per-standard legacy IDs (resAcgihDose/Lavg etc.) matched by inferred
+// standard. Custom setups don't write to per-standard mirrors.
+function mirrorMeasuredValuesToLegacy() {
+  var perStdIds = [
+    'resAcgihDose', 'resAcgihLavg',
+    'resOshaHcDose', 'resOshaHcLavg',
+    'resOshaPelDose', 'resOshaPelLavg'
+  ];
+  perStdIds.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  for (var i = 0; i < setupCount; i++) {
+    var n = i + 1;
+    var exEl = document.getElementById('setup' + n + '_exchange');
+    var crEl = document.getElementById('setup' + n + '_criterion');
+    if (!exEl || !crEl) continue;
+    var std = inferStandardForSetup(exEl.value, crEl.value);
+    var dose = (document.getElementById('mvDose_' + i) || {}).value || '';
+    var lavg = (document.getElementById('mvLavg_' + i) || {}).value || '';
+
+    if (std.slotKey === 'acgih') {
+      setElVal('resAcgihDose', dose); setElVal('resAcgihLavg', lavg);
+    } else if (std.slotKey === 'oshaHc') {
+      setElVal('resOshaHcDose', dose); setElVal('resOshaHcLavg', lavg);
+    } else if (std.slotKey === 'oshaPel') {
+      setElVal('resOshaPelDose', dose); setElVal('resOshaPelLavg', lavg);
+    }
+  }
+
+  var pi = primarySetupIndex;
+  var pDose = (document.getElementById('mvDose_' + pi) || {}).value || '';
+  var pLavg = (document.getElementById('mvLavg_' + pi) || {}).value || '';
+  var pRTWA = (document.getElementById('mvReportTWA_' + pi) || {}).value || '';
+  setElVal('resDose', pDose);
+  setElVal('resLavg', pLavg);
+  setElVal('resDosReportTWA', pRTWA);
+
+  var pDisp = document.getElementById('mvCalcTwaDisplay_' + pi);
+  var pOver = document.getElementById('mvCalcTwaOverride_' + pi);
+  var twaVal = '';
+  if (pOver && pOver.style.display !== 'none' && pOver.value) {
+    twaVal = pOver.value;
+  } else if (pDisp && pDisp.textContent && pDisp.textContent !== '\u2014') {
+    twaVal = pDisp.textContent.trim();
+  }
+  setElVal('resTWA', twaVal);
+}
+
+// Migrate legacy single-field values into per-column inputs. Called from
+// populateForm. Only writes into empty cells — never overwrites user input.
+function migrateLegacyMeasuredValuesToColumns() {
+  for (var i = 0; i < setupCount; i++) {
+    var n = i + 1;
+    var exEl = document.getElementById('setup' + n + '_exchange');
+    var crEl = document.getElementById('setup' + n + '_criterion');
+    if (!exEl || !crEl) continue;
+    var std = inferStandardForSetup(exEl.value, crEl.value);
+
+    var mvDose = document.getElementById('mvDose_' + i);
+    var mvLavg = document.getElementById('mvLavg_' + i);
+    var mvRTWA = document.getElementById('mvReportTWA_' + i);
+    if (!mvDose || !mvLavg) continue;
+
+    if (!mvDose.value && !mvLavg.value) {
+      if (std.slotKey === 'acgih') {
+        mvDose.value = (document.getElementById('resAcgihDose') || {}).value || '';
+        mvLavg.value = (document.getElementById('resAcgihLavg') || {}).value || '';
+      } else if (std.slotKey === 'oshaHc') {
+        mvDose.value = (document.getElementById('resOshaHcDose') || {}).value || '';
+        mvLavg.value = (document.getElementById('resOshaHcLavg') || {}).value || '';
+      } else if (std.slotKey === 'oshaPel') {
+        mvDose.value = (document.getElementById('resOshaPelDose') || {}).value || '';
+        mvLavg.value = (document.getElementById('resOshaPelLavg') || {}).value || '';
+      } else if (i === primarySetupIndex) {
+        mvDose.value = (document.getElementById('resDose') || {}).value || '';
+        mvLavg.value = (document.getElementById('resLavg') || {}).value || '';
+      }
+    }
+
+    if (mvRTWA && !mvRTWA.value && i === primarySetupIndex) {
+      mvRTWA.value = (document.getElementById('resDosReportTWA') || {}).value || '';
+    }
+  }
+
+  updateAllCalcTWAs();
+  mirrorMeasuredValuesToLegacy();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2896,6 +3178,24 @@ function getFormData() {
       acgihDose: g('resAcgihDose'), acgihLavg: g('resAcgihLavg'),
       oshaHcDose: g('resOshaHcDose'), oshaHcLavg: g('resOshaHcLavg'),
       oshaPelDose: g('resOshaPelDose'), oshaPelLavg: g('resOshaPelLavg'),
+      // New schema: per-column measurements (one entry per active setup).
+      // Includes the user-entered Dose/Lavg/ReportTWA plus any manual
+      // override of the calculated TWA. Calc TWA itself is derivable from
+      // Lavg + Run Time + the setup's params so it is not stored.
+      measurements: (function() {
+        var arr = [];
+        for (var mi = 0; mi < setupCount; mi++) {
+          var ov = document.getElementById('mvCalcTwaOverride_' + mi);
+          var overrideActive = ov && ov.style.display !== 'none' && ov.value;
+          arr.push({
+            dose:            (document.getElementById('mvDose_' + mi) || {}).value || '',
+            lavg:            (document.getElementById('mvLavg_' + mi) || {}).value || '',
+            reportTWA:       (document.getElementById('mvReportTWA_' + mi) || {}).value || '',
+            calcTWAOverride: overrideActive ? ov.value : ''
+          });
+        }
+        return arr;
+      })(),
       category: g('resCategory'), hpd: g('resHPD'), notes: g('resNotes'),
       lasmaxInterviewNotes: g('lasmaxInterviewNotes'),
       lasmax140CorrectiveNotes: g('lasmax140CorrectiveNotes'),
@@ -2988,6 +3288,29 @@ function populateForm(s) {
   sv('resHour7', s.results?.hour7); sv('resHour8', s.results?.hour8); sv('resHour9', s.results?.hour9);
   sv('resHour10', s.results?.hour10);
   sv('ihName', s.ih?.name); sv('ihCreds', s.ih?.creds); sv('ihFirm', s.ih?.firm); sv('ihPhone', s.ih?.phone);
+
+  // Load per-column measured values if present on the saved survey (new
+  // schema), otherwise migrate from legacy single-field values into the
+  // per-column inputs so historic surveys open cleanly.
+  var savedMeasurements = (s.results && Array.isArray(s.results.measurements)) ? s.results.measurements : [];
+  for (var mi = 0; mi < setupCount; mi++) {
+    var m = savedMeasurements[mi] || null;
+    if (m) {
+      sv('mvDose_' + mi, m.dose);
+      sv('mvLavg_' + mi, m.lavg);
+      sv('mvReportTWA_' + mi, m.reportTWA);
+      if (m.calcTWAOverride) {
+        var inp = document.getElementById('mvCalcTwaOverride_' + mi);
+        var dsp = document.getElementById('mvCalcTwaDisplay_' + mi);
+        if (inp) { inp.value = m.calcTWAOverride; inp.style.display = ''; }
+        if (dsp) dsp.style.display = 'none';
+      }
+    }
+  }
+  if (typeof migrateLegacyMeasuredValuesToColumns === 'function') {
+    migrateLegacyMeasuredValuesToColumns();
+  }
+
   runQA();
   if (typeof runMultiStandardVerification === 'function') runMultiStandardVerification();
 }
@@ -3655,52 +3978,70 @@ function calcTWAFromLavg(lavg, runTime, exchange, criterion) {
   return criterion + (exchange / Math.log10(2)) * Math.log10(dose8hr / 100);
 }
 
-// Pure function: reads current multi-standard field values and returns
-// per-standard verification state. Does not touch DOM. Used both by the
-// render layer (runMultiStandardVerification) and by getQAResult() to
+// Pure function: reads per-setup column values + shared run time and
+// returns per-setup verification state. Does not touch DOM. Used both by
+// the render layer (runMultiStandardVerification) and by getQAResult() to
 // plumb the results into the saved survey object.
+//
+// Result shape (kept backward-compatible with the earlier per-standard
+// accessors acgih/oshaHc/oshaPel — first setup matching each standard is
+// surfaced under its named key, in addition to the full setups[] list).
 function computeMultiStandardVerification() {
-  var runTime   = parseFloat(document.getElementById('resRunTime').value);
-  var reportTWA = parseFloat(document.getElementById('resDosReportTWA').value);
+  var runTime = parseFloat((document.getElementById('resRunTime') || {}).value);
 
   var results = {
-    acgih:   null,
-    oshaHc:  null,
-    oshaPel: null,
+    setups: [],                                           // one entry per active setup
+    acgih: null, oshaHc: null, oshaPel: null,             // named aliases (first match wins)
     crossStandard: { pass: null, note: '', severity: 'ok', gap: null },
     allPass: null,
     anyPopulated: false
   };
 
-  var slots = {
-    acgih:   { params: STD_PARAMS.ACGIH,    label: 'ACGIH / NIOSH' },
-    oshaHc:  { params: STD_PARAMS.OSHA_HC,  label: 'OSHA HC'       },
-    oshaPel: { params: STD_PARAMS.OSHA_PEL, label: 'OSHA PEL'      }
-  };
+  for (var i = 0; i < setupCount; i++) {
+    var n = i + 1;
+    var exEl = document.getElementById('setup' + n + '_exchange');
+    var crEl = document.getElementById('setup' + n + '_criterion');
+    if (!exEl || !crEl) continue;
+    var exchange  = parseFloat(exEl.value);
+    var criterion = parseFloat(crEl.value);
+    var std = inferStandardForSetup(exchange, criterion);
 
-  Object.keys(slots).forEach(function(slotKey) {
-    var slot = slots[slotKey];
-    var p = slot.params;
-    var reportDose = parseFloat(document.getElementById(p.doseId).value);
-    var reportLavg = parseFloat(document.getElementById(p.lavgId).value);
+    var reportDose = parseFloat((document.getElementById('mvDose_' + i) || {}).value);
+    var reportLavg = parseFloat((document.getElementById('mvLavg_' + i) || {}).value);
+    var reportTWA  = parseFloat((document.getElementById('mvReportTWA_' + i) || {}).value);
+
+    // Honor override when computing calc TWA for comparison purposes
+    var ovEl = document.getElementById('mvCalcTwaOverride_' + i);
+    var overrideActive = ovEl && ovEl.style.display !== 'none' && ovEl.value;
+    var calcTWAOverride = overrideActive ? parseFloat(ovEl.value) : null;
 
     var out = {
-      label: slot.label,
-      params: p,
+      setupIndex: i,
+      label: 'Setup ' + n + ' \u00b7 ' + std.name,
+      standardName: std.name,
+      slotKey: std.slotKey,
+      color: std.color,
+      params: { exchange: exchange, criterion: criterion },
+      isPrimary: i === primarySetupIndex,
       reportLavg: !isNaN(reportLavg) ? reportLavg : null,
       reportDose: !isNaN(reportDose) ? reportDose : null,
+      reportTWA:  !isNaN(reportTWA)  ? reportTWA  : null,
       calcDose: null,
       calcTWA: null,
+      calcTWAOverridden: calcTWAOverride !== null && !isNaN(calcTWAOverride),
       doseDiff: null,
       dosePass: null,
       twaDiff: null,
       twaPass: null
     };
 
-    // Calc Dose & TWA from the report's Lavg
-    if (out.reportLavg !== null && !isNaN(runTime) && runTime > 0) {
-      out.calcDose = calcDoseFromLavg(out.reportLavg, runTime, p.exchange, p.criterion);
-      out.calcTWA  = calcTWAFromLavg(out.reportLavg, runTime, p.exchange, p.criterion);
+    // Calc Dose & TWA from the column's Lavg + shared run time + setup params
+    if (out.reportLavg !== null && !isNaN(runTime) && runTime > 0 &&
+        !isNaN(exchange) && !isNaN(criterion)) {
+      out.calcDose = calcDoseFromLavg(out.reportLavg, runTime, exchange, criterion);
+      var calcTWA  = calcTWAFromLavg(out.reportLavg, runTime, exchange, criterion);
+      // If user overrode, the override is what the app considers authoritative
+      out.calcTWA = out.calcTWAOverridden ? calcTWAOverride : calcTWA;
 
       if (out.reportDose !== null && out.calcDose !== null) {
         var absDelta = Math.abs(out.reportDose - out.calcDose);
@@ -3708,30 +4049,35 @@ function computeMultiStandardVerification() {
           ? (absDelta / out.reportDose) * 100
           : Infinity;
         out.doseDiff = absDelta;
-        // Pass if EITHER absolute OR relative tolerance met.
         out.dosePass = (absDelta <= MSV_DOSE_TOL_PCT) ||
                        (relDelta <= MSV_DOSE_TOL_REL_PCT);
       }
     }
 
-    // TWA check against Report TWA (only meaningful for the primary
-    // standard slot, but run for all three — a mismatch on a non-primary
-    // slot just means that standard's TWA differs from the report TWA,
-    // which is normal and not flagged here).
-    if (out.calcTWA !== null && !isNaN(reportTWA)) {
-      out.twaDiff = Math.abs(out.calcTWA - reportTWA);
+    // TWA check: each column's Calc TWA vs that SAME column's Report TWA
+    // (per-setup now, no longer a single shared Report TWA).
+    if (out.calcTWA !== null && out.reportTWA !== null) {
+      out.twaDiff = Math.abs(out.calcTWA - out.reportTWA);
       out.twaPass = out.twaDiff <= 0.5;
     }
 
-    results[slotKey] = out;
-    if (out.reportLavg !== null || out.reportDose !== null) {
+    results.setups.push(out);
+
+    // Expose first match per standard under named alias (for downstream code
+    // that wants e.g. results.acgih without iterating the array).
+    if (std.slotKey === 'acgih'   && !results.acgih)   results.acgih   = out;
+    if (std.slotKey === 'oshaHc'  && !results.oshaHc)  results.oshaHc  = out;
+    if (std.slotKey === 'oshaPel' && !results.oshaPel) results.oshaPel = out;
+
+    if (out.reportLavg !== null || out.reportDose !== null || out.reportTWA !== null) {
       results.anyPopulated = true;
     }
-  });
+  }
 
-  // Cross-standard sanity: ACGIH vs OSHA HC Lavg gap
-  var aLavg = results.acgih.reportLavg;
-  var hcLavg = results.oshaHc.reportLavg;
+  // Cross-standard sanity: ACGIH vs OSHA HC Lavg gap (same criterion & threshold,
+  // only exchange rate differs — so Lavg should be close for typical noise).
+  var aLavg = results.acgih ? results.acgih.reportLavg : null;
+  var hcLavg = results.oshaHc ? results.oshaHc.reportLavg : null;
   if (aLavg !== null && hcLavg !== null) {
     var gap = Math.abs(aLavg - hcLavg);
     results.crossStandard.gap = gap;
@@ -3755,79 +4101,126 @@ function computeMultiStandardVerification() {
     }
   }
 
-  // Overall pass
-  var populatedDoseChecks = ['acgih', 'oshaHc', 'oshaPel']
-    .map(function(k) { return results[k].dosePass; })
-    .filter(function(v) { return v !== null; });
+  // Overall pass: every populated per-setup dose AND twa check passed AND cross-std didn't fail
+  var populatedChecks = [];
+  results.setups.forEach(function(s) {
+    if (s.dosePass !== null) populatedChecks.push(s.dosePass);
+    if (s.twaPass !== null)  populatedChecks.push(s.twaPass);
+  });
 
   if (!results.anyPopulated) {
     results.allPass = null;
-  } else if (populatedDoseChecks.length === 0 && results.crossStandard.pass === null) {
+  } else if (populatedChecks.length === 0 && results.crossStandard.pass === null) {
     results.allPass = null;
   } else {
-    var doseAllPass = populatedDoseChecks.every(function(v) { return v === true; });
+    var allOk = populatedChecks.every(function(v) { return v === true; });
     var crossOk = results.crossStandard.pass !== false;
-    results.allPass = doseAllPass && crossOk;
+    results.allPass = allOk && crossOk;
   }
 
   return results;
 }
 
-// Render the verification panel.
+// Render the verification panel. One row per active setup.
 function runMultiStandardVerification() {
   var tbody = document.getElementById('msVerifyTbody');
   var badge = document.getElementById('msVerifyBadge');
   var note  = document.getElementById('msCrossStdNote');
+  var thead = tbody ? tbody.parentNode && tbody.parentNode.querySelector('thead') : null;
   if (!tbody) return;
 
-  var r = computeMultiStandardVerification();
+  // Update the column header set once — Report TWA / Calc TWA / ΔTWA columns
+  // are part of the new layout. We rebuild the thead defensively so the
+  // panel works cleanly whether the user is seeing it for the first time
+  // or has had it rendered under the earlier column set.
+  if (thead) {
+    thead.innerHTML =
+      '<tr style="border-bottom:1px solid var(--border); color:var(--text2);">' +
+        '<th style="text-align:left; padding:6px 4px; font-weight:500;">Setup</th>' +
+        '<th style="text-align:right; padding:6px 4px; font-weight:500;">Lavg</th>' +
+        '<th style="text-align:right; padding:6px 4px; font-weight:500;">Report Dose</th>' +
+        '<th style="text-align:right; padding:6px 4px; font-weight:500;">Calc Dose</th>' +
+        '<th style="text-align:right; padding:6px 4px; font-weight:500;">\u0394 Dose</th>' +
+        '<th style="text-align:right; padding:6px 4px; font-weight:500;">Report TWA</th>' +
+        '<th style="text-align:right; padding:6px 4px; font-weight:500;">Calc TWA</th>' +
+        '<th style="text-align:right; padding:6px 4px; font-weight:500;">\u0394 TWA</th>' +
+        '<th style="text-align:center; padding:6px 4px; font-weight:500;">Status</th>' +
+      '</tr>';
+  }
 
-  var rows = [
-    { key: 'acgih',   label: 'ACGIH / NIOSH', sub: 'C85 \u00b7 T80 \u00b7 Q3' },
-    { key: 'oshaHc',  label: 'OSHA HC',       sub: 'C85 \u00b7 T80 \u00b7 Q5' },
-    { key: 'oshaPel', label: 'OSHA PEL',      sub: 'C90 \u00b7 T90 \u00b7 Q5' }
-  ];
+  var r = computeMultiStandardVerification();
 
   var fmt = function(v, digits) {
     return (v === null || v === undefined || isNaN(v)) ? '\u2014' : Number(v).toFixed(digits);
   };
+
   var statusCell = function(out) {
-    if (out.reportLavg === null && out.reportDose === null) {
+    var anyEntered = out.reportLavg !== null || out.reportDose !== null || out.reportTWA !== null;
+    if (!anyEntered) {
       return '<span style="color:var(--text3); font-size:11px;">\u2014</span>';
     }
     if (out.dosePass === null && out.twaPass === null) {
       return '<span style="background:#fff8e6; color:#7a4f00; font-size:10px; padding:2px 6px; border-radius:10px;">Partial</span>';
     }
-    var ok = (out.dosePass !== false);
-    if (ok) {
-      return '<span style="background:#e6f5ee; color:#0f6e56; font-size:10px; padding:2px 6px; border-radius:10px;">Match</span>';
+    var anyFail = out.dosePass === false || out.twaPass === false;
+    if (anyFail) {
+      return '<span style="background:#fcebeb; color:#a32d2d; font-size:10px; padding:2px 6px; border-radius:10px;">Flag</span>';
     }
-    return '<span style="background:#fcebeb; color:#a32d2d; font-size:10px; padding:2px 6px; border-radius:10px;">Flag</span>';
+    return '<span style="background:#e6f5ee; color:#0f6e56; font-size:10px; padding:2px 6px; border-radius:10px;">Match</span>';
   };
 
-  tbody.innerHTML = rows.map(function(rowDef) {
-    var out = r[rowDef.key];
-    var doseDeltaDisplay = '\u2014';
-    if (out.doseDiff !== null) {
-      var color = out.dosePass ? 'var(--text2)' : '#a32d2d';
-      var deltaVal = out.reportDose - out.calcDose;
-      doseDeltaDisplay = '<span style="color:' + color + ';">'
-        + (deltaVal >= 0 ? '+' : '')
-        + deltaVal.toFixed(2) + '</span>';
-    }
-    return '<tr style="border-bottom:1px solid var(--border);">'
-      + '<td style="padding:8px 4px;">'
-        + '<div style="font-weight:500; color:var(--text);">' + rowDef.label + '</div>'
-        + '<div style="font-size:10px; color:var(--text3);">' + rowDef.sub + '</div>'
-      + '</td>'
-      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text);">' + fmt(out.reportLavg, 1) + '</td>'
-      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text);">' + fmt(out.reportDose, 1) + '</td>'
-      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text2);">' + fmt(out.calcDose, 1) + '</td>'
-      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums;">' + doseDeltaDisplay + '</td>'
-      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text2);">' + fmt(out.calcTWA, 1) + '</td>'
-      + '<td style="text-align:center; padding:8px 4px;">' + statusCell(out) + '</td>'
-    + '</tr>';
-  }).join('');
+  if (r.setups.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:10px 4px; text-align:center; color:var(--text3); font-size:11px;">Configure at least one setup to enable verification.</td></tr>';
+  } else {
+    tbody.innerHTML = r.setups.map(function(out) {
+      var n = out.setupIndex + 1;
+      var subtitle = out.standardName +
+        (out.params.criterion != null && !isNaN(out.params.criterion)
+          ? ' \u00b7 C' + out.params.criterion + ' Q' + out.params.exchange
+          : '');
+      var primaryTag = out.isPrimary
+        ? '<span style="font-size:9px; background:' + out.color + '; color:#fff; padding:1px 5px; border-radius:6px; margin-left:5px;">PRIMARY</span>'
+        : '';
+
+      // Dose delta cell
+      var doseDeltaDisplay = '\u2014';
+      if (out.doseDiff !== null && out.calcDose !== null && out.reportDose !== null) {
+        var dColor = out.dosePass ? 'var(--text2)' : '#a32d2d';
+        var dDelta = out.reportDose - out.calcDose;
+        doseDeltaDisplay = '<span style="color:' + dColor + ';">'
+          + (dDelta >= 0 ? '+' : '') + dDelta.toFixed(2) + '</span>';
+      }
+
+      // TWA delta cell (per-setup now)
+      var twaDeltaDisplay = '\u2014';
+      if (out.twaDiff !== null && out.calcTWA !== null && out.reportTWA !== null) {
+        var tColor = out.twaPass ? 'var(--text2)' : '#a32d2d';
+        var tDelta = out.reportTWA - out.calcTWA;
+        twaDeltaDisplay = '<span style="color:' + tColor + ';">'
+          + (tDelta >= 0 ? '+' : '') + tDelta.toFixed(2) + '</span>';
+      }
+
+      var calcTwaCell = fmt(out.calcTWA, 1);
+      if (out.calcTWAOverridden && calcTwaCell !== '\u2014') {
+        calcTwaCell += ' <span style="font-size:9px; color:var(--amber); letter-spacing:0.3px;">OVR</span>';
+      }
+
+      return '<tr style="border-bottom:1px solid var(--border);">'
+        + '<td style="padding:8px 4px;">'
+          + '<div style="font-weight:500; color:' + out.color + ';">Setup ' + n + primaryTag + '</div>'
+          + '<div style="font-size:10px; color:var(--text3);">' + subtitle + '</div>'
+        + '</td>'
+        + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text);">' + fmt(out.reportLavg, 1) + '</td>'
+        + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text);">' + fmt(out.reportDose, 1) + '</td>'
+        + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text2);">' + fmt(out.calcDose, 1) + '</td>'
+        + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums;">' + doseDeltaDisplay + '</td>'
+        + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text);">' + fmt(out.reportTWA, 1) + '</td>'
+        + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text2);">' + calcTwaCell + '</td>'
+        + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums;">' + twaDeltaDisplay + '</td>'
+        + '<td style="text-align:center; padding:8px 4px;">' + statusCell(out) + '</td>'
+      + '</tr>';
+    }).join('');
+  }
 
   // Overall badge
   if (r.allPass === null) {
