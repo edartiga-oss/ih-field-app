@@ -185,6 +185,33 @@ function buildPDFDoc(surveysArr) {
     const lineH = 16;
     const colW = (W - 72) / 3;
 
+    // jsPDF's default Helvetica is WinAnsi-encoded and cannot render
+    // many Unicode symbols that appear in our source data (>=, <=,
+    // warning triangle, micro sign, plus/minus, etc.). Unsupported
+    // glyphs render as wide-spaced individual letters of the escape
+    // sequence (e.g. "Significantly Above PEL (\u2265100 dBA)" comes
+    // out as "Significantly Above PEL ("e100"). Map the chars we
+    // actually see in field data (exposure categories, HPD labels,
+    // LASmax warning markers) to ASCII equivalents so values print
+    // cleanly without changing the underlying data model.
+    //
+    // Centralized in row() so every grid3() value gets sanitized. The
+    // LASmax cell in Dosimetry Results has its own hardcoded warning
+    // symbol which is sanitized at source below.
+    function pdfSafeText(v) {
+      if (v == null) return '';
+      return String(v)
+        .replace(/\u2265/g, '>=')   // >= (used in exposure categories)
+        .replace(/\u2264/g, '<=')   // <=
+        .replace(/\u26a0/g, '!')    // warning triangle
+        .replace(/\u00b5/g, 'u')    // micro sign (ug/m3 etc.)
+        .replace(/\u00b1/g, '+/-')  // +/-
+        .replace(/\u00b0/g, ' deg') // degree
+        .replace(/\u00d7/g, 'x')    // multiplication sign
+        .replace(/\u2013/g, '-')    // en-dash
+        .replace(/\u2212/g, '-');   // minus sign
+    }
+
     function sectionHead(title, y2) {
       doc.setFillColor(...NAVY);
       doc.rect(36, y2, W - 72, 18, 'F');
@@ -198,7 +225,7 @@ function buildPDFDoc(surveysArr) {
       doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
       doc.text(label, x, y2);
       doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
-      const valStr = String(value || '—');
+      const valStr = pdfSafeText(value) || '\u2014';
       const maxW = (w || colW) - 6;
       const wrapped = doc.splitTextToSize(valStr, maxW);
       doc.text(wrapped[0], x, y2 + 12);
@@ -432,7 +459,7 @@ function buildPDFDoc(surveysArr) {
     y = grid3([
       ['Dose %', s.results?.dose ? s.results.dose + ' %' : ''],
       ['Lavg / LEQ', s.results?.lavg ? s.results.lavg + ' dB' : ''],
-      ['LASmax', s.results?.peak ? s.results.peak + ' dBA' + (parseFloat(s.results.peak) > 115 ? ' ⚠ >115 dBA' : '') : ''],
+      ['LASmax', s.results?.peak ? s.results.peak + ' dBA' + (parseFloat(s.results.peak) > 115 ? ' ! >115 dBA' : '') : ''],
       ['Run Time', s.results?.runTime ? s.results.runTime + ' hr' : ''],
       ['TWA (8-hr)', s.results?.twa ? s.results.twa + ' dBA' : ''],
       ['Exposure Category', s.results?.category],
