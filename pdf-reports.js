@@ -228,7 +228,20 @@ function buildPDFDoc(surveysArr) {
       const valStr = pdfSafeText(value) || '\u2014';
       const maxW = (w || colW) - 6;
       const wrapped = doc.splitTextToSize(valStr, maxW);
+      // Render up to 2 lines. grid3() reserves 38pt per row which has
+      // room for a value-line plus one wrap line (~10-11pt each) without
+      // colliding with the next row. Previously only wrapped[0] was
+      // drawn, so long values like "Significantly Above PEL (>=100 dBA)"
+      // silently lost their tail (" dBA)"). A 3rd line would overflow
+      // into the next row visually, so we cap at 2 and append an ellipsis
+      // if more was truncated. In practice the known field values fit
+      // in 2 lines at this column width.
       doc.text(wrapped[0], x, y2 + 12);
+      if (wrapped.length > 1) {
+        var secondLine = wrapped[1];
+        if (wrapped.length > 2) secondLine = secondLine.replace(/\s*\S*$/, '') + ' \u2026';
+        doc.text(secondLine, x, y2 + 23);
+      }
       return y2;
     }
 
@@ -459,7 +472,7 @@ function buildPDFDoc(surveysArr) {
     y = grid3([
       ['Dose %', s.results?.dose ? s.results.dose + ' %' : ''],
       ['Lavg / LEQ', s.results?.lavg ? s.results.lavg + ' dB' : ''],
-      ['LASmax', s.results?.peak ? s.results.peak + ' dBA' + (parseFloat(s.results.peak) > 115 ? ' ! >115 dBA' : '') : ''],
+      ['LASmax', s.results?.peak ? s.results.peak + ' dBA' + (parseFloat(s.results.peak) > 115 ? ' (!) >115 dBA' : '') : ''],
       ['Run Time', s.results?.runTime ? s.results.runTime + ' hr' : ''],
       ['TWA (8-hr)', s.results?.twa ? s.results.twa + ' dBA' : ''],
       ['Exposure Category', s.results?.category],
