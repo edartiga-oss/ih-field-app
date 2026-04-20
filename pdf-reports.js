@@ -578,12 +578,20 @@ function buildPDFDoc(surveysArr) {
       // | Status.
       var tblL = 36;
       var tblW = W - 72;
-      var colWs = [0.14, 0.14, 0.09, 0.10, 0.10, 0.07, 0.10, 0.10, 0.07, 0.09]
+      // Column widths (fractions of content width). Setup + Standard
+      // are the widest because "Setup N \u2014 PRIMARY" and standard
+      // names like "ACGIH / NIOSH" need room or they collide. Numeric
+      // columns can stay narrow — the values are short (e.g. "13.0 %").
+      var colWs = [0.17, 0.15, 0.08, 0.10, 0.09, 0.07, 0.10, 0.09, 0.07, 0.08]
         .map(function(p) { return p * tblW; });
       var colXs = [];
       (function() { var x = tblL; colWs.forEach(function(w) { colXs.push(x); x += w; }); })();
+      // Use ASCII "d" prefix for delta instead of the U+0394 Greek
+      // character — jsPDF's default Helvetica is WinAnsi-encoded and
+      // renders U+0394 as garbled individual letters ("D o s e"). Same
+      // workaround used in the Stats tab methodLine above.
       var headers = ['Setup', 'Standard', 'Lavg', 'Report Dose', 'Calc Dose',
-                     '\u0394 Dose', 'Report TWA', 'Calc TWA', '\u0394 TWA', 'Status'];
+                     'd Dose', 'Report TWA', 'Calc TWA', 'd TWA', 'Status'];
       doc.setFillColor(245, 246, 248);
       doc.rect(tblL, y, tblW, 14, 'F');
       doc.setDrawColor(220, 223, 230); doc.setLineWidth(0.3);
