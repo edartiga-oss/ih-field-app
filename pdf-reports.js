@@ -398,6 +398,18 @@ function buildPDFDoc(surveysArr) {
       ];
 
       var rowH = 15;
+      // Page-break guard: keep the whole QA pass/fail strip on one page.
+      // Without this, rows near the bottom get clipped / written off the
+      // page because the forEach below has no per-row overflow check. If
+      // the block won't fit, push it to a fresh page and re-anchor the
+      // Calibration & QA section header there so the rows don't arrive
+      // orphaned from their context.
+      var qaBlockH = qaLabels.length * rowH + 4;
+      if (y + qaBlockH > H - 50) {
+        doc.addPage();
+        y = 40;
+        y = sectionHead('Calibration & QA Record (continued)', y);
+      }
       qaLabels.forEach(function(lbl, i) {
         var val = qaVals2[i];
         var bg = val === true ? [234,250,241] : val === false ? [253,240,240] : LGRAY;
@@ -426,6 +438,199 @@ function buildPDFDoc(surveysArr) {
       ['Exposure Category', s.results?.category],
       ['HPD Required?', s.results?.hpd],
     ], y);
+
+    // ── Multi-Standard Verification — Report vs Calculated ────────────
+    // Mirrors the app's "Report vs calculated" verification table under
+    // Dosimetry Results. One row per configured setup, showing Lavg and
+    // the round-trip check: the report Dose/TWA vs what the math says
+    // they should be given that Lavg + run time + the setup's exchange
+    // rate and criterion level.
+    //
+    // Data source: s.results.measurements[] (one entry per setup, saved
+    // from the Measured Values columns: dose, lavg, reportTWA, and an
+    // optional manual override of calc TWA). Calc Dose and Calc TWA are
+    // re-derived here using the same formulas the app uses at runtime
+    // (calcDoseFromLavg / calcTWAFromLavg in index.html) — they are not
+    // persisted because they are fully determined by inputs.
+    //
+    // Tolerances match the app (MSV_DOSE_TOL_PCT / MSV_DOSE_TOL_REL_PCT
+    // / 0.5 dB for TWA). Skipped entirely for legacy surveys that have
+    // no measurements array — those just show the primary grid above.
+    (function() {
+      var meas = (s.results && Array.isArray(s.results.measurements))
+        ? s.results.measurements : [];
+      if (meas.length === 0) return;
+
+      var runTime = parseFloat(s.results && s.results.runTime);
+      if (isNaN(runTime) || runTime <= 0) return;
+
+      // Tolerances — keep in sync with MSV_* constants in index.html.
+      var DOSE_TOL_ABS = 0.5;
+      var DOSE_TOL_REL = 5.0;
+      var TWA_TOL      = 0.5;
+
+      // Standard inference mirrors inferStandardForSetup() in index.html.
+      function inferStd(ex, cr) {
+        if (ex === 3 && cr === 85) return 'ACGIH / NIOSH';
+        if (ex === 5 && cr === 85) return 'OSHA HC';
+        if (ex === 5 && cr === 90) return 'OSHA PEL';
+        return 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex);
+      }
+      // Formulas match calcDoseFromLavg / calcTWAFromLavg in index.html.
+      function calcDose(lavg, rt, ex, cr) {
+        if (isNaN(lavg) || isNaN(rt) || rt <= 0 || isNaN(ex) || isNaN(cr)) return null;
+        return 100 * (rt / 8) * Math.pow(10, (lavg - cr) / (ex / Math.log10(2)));
+      }
+      function calcTWA(lavg, rt, ex, cr) {
+        if (isNaN(lavg) || isNaN(rt) || rt <= 0 || isNaN(ex) || isNaN(cr)) return null;
+        var doseSampled = 100 * Math.pow(10, (lavg - cr) * Math.log10(2) / ex);
+        var dose8hr = doseSampled * (rt / 8);
+        if (dose8hr <= 0) return null;
+        return cr + (ex / Math.log10(2)) * Math.log10(dose8hr / 100);
+      }
+
+      // Build rows. Guard against setups array being shorter/missing so
+      // legacy single-setup surveys or partially-configured records still
+      // render without crashing.
+      var setupsArr = (s.dosimeter && Array.isArray(s.dosimeter.setups) && s.dosimeter.setups.length > 0)
+        ? s.dosimeter.setups
+        : [{ exchange: s.dosimeter?.exchange, criterion: s.dosimeter?.criterion }];
+      var primaryIdx2 = (typeof s.dosimeter?.primarySetupIndex === 'number')
+        ? s.dosimeter.primarySetupIndex : 0;
+
+      var rows = [];
+      meas.forEach(function(m, i) {
+        var setup = setupsArr[i] || {};
+        var ex = parseFloat(setup.exchange);
+        var cr = parseFloat(setup.criterion);
+        var lavg = parseFloat(m.lavg);
+        var rDose = parseFloat(m.dose);
+        var rTWA  = parseFloat(m.reportTWA);
+        var ov    = parseFloat(m.calcTWAOverride);
+
+        // Skip entirely empty setup rows — keeps the PDF clean when the
+        // user only populated one column.
+        if (isNaN(lavg) && isNaN(rDose) && isNaN(rTWA)) return;
+
+        var cDose = !isNaN(lavg) ? calcDose(lavg, runTime, ex, cr) : null;
+        var cTWAraw = !isNaN(lavg) ? calcTWA(lavg, runTime, ex, cr) : null;
+        var cTWA = !isNaN(ov) ? ov : cTWAraw;
+
+        var doseDelta = (!isNaN(rDose) && cDose !== null) ? (rDose - cDose) : null;
+        var dosePass = null;
+        if (doseDelta !== null) {
+          var absD = Math.abs(doseDelta);
+          var relD = rDose > 0 ? (absD / rDose) * 100 : Infinity;
+          dosePass = (absD <= DOSE_TOL_ABS) || (relD <= DOSE_TOL_REL);
+        }
+        var twaDelta = (!isNaN(rTWA) && cTWA !== null) ? (rTWA - cTWA) : null;
+        var twaPass = (twaDelta !== null) ? Math.abs(twaDelta) <= TWA_TOL : null;
+
+        // Status: Match if both populated checks pass; Flag if any
+        // populated check fails; otherwise N/A (nothing to compare).
+        var checks = [];
+        if (dosePass !== null) checks.push(dosePass);
+        if (twaPass  !== null) checks.push(twaPass);
+        var status = checks.length === 0 ? 'N/A'
+          : checks.every(Boolean) ? 'Match' : 'Flag';
+
+        rows.push({
+          label: 'Setup ' + (i + 1) + (i === primaryIdx2 ? ' \u2014 PRIMARY' : ''),
+          std: inferStd(ex, cr),
+          lavg: !isNaN(lavg) ? lavg.toFixed(1) + ' dBA' : '\u2014',
+          rDose: !isNaN(rDose) ? rDose.toFixed(1) + ' %' : '\u2014',
+          cDose: cDose !== null ? cDose.toFixed(1) + ' %' : '\u2014',
+          dDose: doseDelta !== null
+            ? (doseDelta >= 0 ? '+' : '') + doseDelta.toFixed(1)
+            : '\u2014',
+          rTWA: !isNaN(rTWA) ? rTWA.toFixed(1) + ' dBA' : '\u2014',
+          cTWA: cTWA !== null ? cTWA.toFixed(1) + ' dBA' + (!isNaN(ov) ? '*' : '') : '\u2014',
+          dTWA: twaDelta !== null
+            ? (twaDelta >= 0 ? '+' : '') + twaDelta.toFixed(2)
+            : '\u2014',
+          status: status
+        });
+      });
+
+      if (rows.length === 0) return;
+
+      // Layout: 10pt padding from prior block, sub-header bar, column
+      // header strip, then rows. Reserve enough vertical room for the
+      // whole block so it doesn't orphan.
+      y += 10;
+      var headerH = 14;
+      var rowH2   = 16;
+      var blockH  = headerH + 14 + rows.length * rowH2 + 10;
+      if (y + blockH > H - 50) { doc.addPage(); y = 40; }
+
+      // Sub-header bar — lighter than main section bar (matches setupBar
+      // treatment above for visual hierarchy).
+      doc.setFillColor(234, 238, 244);
+      doc.rect(36, y, W - 72, headerH, 'F');
+      doc.setTextColor(...NAVY);
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+      doc.text('MULTI-STANDARD VERIFICATION \u2014 REPORT vs CALCULATED', 40, y + 10);
+      y += headerH + 4;
+
+      // Column header strip. Widths tuned for letter-portrait content
+      // area (W-72 pt). Order matches the app: Setup | Std | Lavg |
+      // Report Dose | Calc Dose | Δ Dose | Report TWA | Calc TWA | Δ TWA
+      // | Status.
+      var tblL = 36;
+      var tblW = W - 72;
+      var colWs = [0.14, 0.14, 0.09, 0.10, 0.10, 0.07, 0.10, 0.10, 0.07, 0.09]
+        .map(function(p) { return p * tblW; });
+      var colXs = [];
+      (function() { var x = tblL; colWs.forEach(function(w) { colXs.push(x); x += w; }); })();
+      var headers = ['Setup', 'Standard', 'Lavg', 'Report Dose', 'Calc Dose',
+                     '\u0394 Dose', 'Report TWA', 'Calc TWA', '\u0394 TWA', 'Status'];
+      doc.setFillColor(245, 246, 248);
+      doc.rect(tblL, y, tblW, 14, 'F');
+      doc.setDrawColor(220, 223, 230); doc.setLineWidth(0.3);
+      doc.rect(tblL, y, tblW, 14, 'S');
+      doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...GRAY);
+      headers.forEach(function(h, ci) {
+        doc.text(h, colXs[ci] + 3, y + 10);
+      });
+      y += 14;
+
+      // Body rows — zebra-striped, status colored green (Match) / red
+      // (Flag) / gray (N/A) to match the app's badge treatment.
+      rows.forEach(function(r, ri) {
+        doc.setFillColor(...(ri % 2 === 0 ? [251, 252, 254] : [255, 255, 255]));
+        doc.rect(tblL, y, tblW, rowH2, 'F');
+        doc.setDrawColor(235, 238, 243); doc.setLineWidth(0.2);
+        doc.rect(tblL, y, tblW, rowH2, 'S');
+
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(26, 41, 64);
+        var cells = [r.label, r.std, r.lavg, r.rDose, r.cDose,
+                     r.dDose, r.rTWA, r.cTWA, r.dTWA, r.status];
+        cells.forEach(function(val, ci) {
+          // Status column gets color-coded bold treatment.
+          if (ci === cells.length - 1) {
+            var sc = val === 'Match' ? [29, 122, 69]
+                   : val === 'Flag'  ? [184, 48, 48]
+                   : GRAY;
+            doc.setTextColor(...sc);
+            doc.setFont('helvetica', 'bold');
+            doc.text(val, colXs[ci] + 3, y + 11);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(26, 41, 64);
+          } else {
+            doc.text(String(val), colXs[ci] + 3, y + 11);
+          }
+        });
+        y += rowH2;
+      });
+
+      // Footnote for override indicator, only if any row used it.
+      if (rows.some(function(r) { return /\*$/.test(r.cTWA); })) {
+        doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
+        doc.text('* Calc TWA manually overridden by reviewer.', tblL, y + 8);
+        y += 10;
+      }
+      y += 6;
+    })();
 
     // LASmax SEG interview notes
     if (s.results?.lasmaxInterviewNotes) {
