@@ -1018,7 +1018,7 @@ body { padding: 20px 18px; }
 
         <div class="field">
           <label style="color:var(--teal); font-weight:600;">ACGIH/NIOSH Dose %</label>
-          <input type="number" id="resAcgihDose" placeholder="e.g., 223.5" step="0.1" oninput="autosave()">
+          <input type="number" id="resAcgihDose" placeholder="e.g., 223.5" step="0.1" oninput="runMultiStandardVerification(); autosave()">
           <div class="hint">D1 — Q3, C85, T80 · Dose% auto-calc when Lavg + Run Time entered</div>
         </div>
         <div class="field">
@@ -1029,7 +1029,7 @@ body { padding: 20px 18px; }
 
         <div class="field">
           <label style="color:#6b7fcf; font-weight:600;">OSHA HC Dose %</label>
-          <input type="number" id="resOshaHcDose" placeholder="e.g., 48.6" step="0.1" oninput="autosave()">
+          <input type="number" id="resOshaHcDose" placeholder="e.g., 48.6" step="0.1" oninput="runMultiStandardVerification(); autosave()">
           <div class="hint">D2 — Q5, C85, T80 · Dose% auto-calc when Lavg + Run Time entered</div>
         </div>
         <div class="field">
@@ -1040,7 +1040,7 @@ body { padding: 20px 18px; }
 
         <div class="field">
           <label style="color:#c07040; font-weight:600;">OSHA PEL Dose %</label>
-          <input type="number" id="resOshaPelDose" placeholder="e.g., 27.1" step="0.1" oninput="autosave()">
+          <input type="number" id="resOshaPelDose" placeholder="e.g., 27.1" step="0.1" oninput="runMultiStandardVerification(); autosave()">
           <div class="hint">D3 — Q5, C90, T90 · Dose% auto-calc when Lavg + Run Time entered</div>
         </div>
         <div class="field">
@@ -1049,6 +1049,32 @@ body { padding: 20px 18px; }
           <div class="hint">D3 Lavg · from report (threshold-dependent)</div>
         </div>
 
+      </div>
+
+      <div class="section-spacer"></div>
+      <div class="section-label">Multi-standard verification</div>
+      <div id="msVerifyPanel" style="border:1px solid var(--border); border-radius:8px; padding:12px 14px; background:var(--surface);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div style="font-size:12px; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em;">Report vs calculated</div>
+          <span id="msVerifyBadge" style="font-size:11px; padding:3px 10px; border-radius:20px; background:var(--surface2); color:var(--text3);">Pending</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; font-size:12px; border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border); color:var(--text2);">
+                <th style="text-align:left; padding:6px 4px; font-weight:500;">Standard</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">Report Lavg</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">Report Dose</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">Calc Dose</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">&Delta; Dose</th>
+                <th style="text-align:right; padding:6px 4px; font-weight:500;">Calc TWA</th>
+                <th style="text-align:center; padding:6px 4px; font-weight:500;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="msVerifyTbody"></tbody>
+          </table>
+        </div>
+        <div id="msCrossStdNote" style="margin-top:10px; padding:8px 10px; border-radius:6px; font-size:11px; display:none;"></div>
       </div>
 
       <div class="section-spacer"></div>
@@ -1061,7 +1087,7 @@ body { padding: 20px 18px; }
         </div>
         <div class="field">
           <label>Dosimeter Report TWA (dB) — 8-hr</label>
-          <input type="number" id="resDosReportTWA" placeholder="As shown on dosimeter report" step="0.1" oninput="checkTWAMatch(); autosave()">
+          <input type="number" id="resDosReportTWA" placeholder="As shown on dosimeter report" step="0.1" oninput="checkTWAMatch(); runMultiStandardVerification(); autosave()">
           <div id="twaMismatchHint" class="hint"></div>
         </div>
         <div class="field">
@@ -2963,6 +2989,7 @@ function populateForm(s) {
   sv('resHour10', s.results?.hour10);
   sv('ihName', s.ih?.name); sv('ihCreds', s.ih?.creds); sv('ihFirm', s.ih?.firm); sv('ihPhone', s.ih?.phone);
   runQA();
+  if (typeof runMultiStandardVerification === 'function') runMultiStandardVerification();
 }
 
 var SEG_PROCESSES = {
@@ -3339,6 +3366,22 @@ function getQAResult() {
     : (segSel ? segSel.value : '');
   checks.segPresent = !!segVal;
 
+  // Multi-standard verification — per-standard dose round-trip + cross-standard
+  // Lavg consistency. Exposed here so results flow into the saved survey and
+  // the Google Sheet sync. Does not gate finalize/allPass — a flag here is
+  // a reviewer aid, not a hard fail.
+  try {
+    if (typeof computeMultiStandardVerification === 'function') {
+      const msv = computeMultiStandardVerification();
+      checks.msAcgihDosePass   = msv.acgih   ? msv.acgih.dosePass   : null;
+      checks.msOshaHcDosePass  = msv.oshaHc  ? msv.oshaHc.dosePass  : null;
+      checks.msOshaPelDosePass = msv.oshaPel ? msv.oshaPel.dosePass : null;
+      checks.msCrossStdPass    = msv.crossStandard ? msv.crossStandard.pass : null;
+      checks.msCrossStdGap     = msv.crossStandard ? msv.crossStandard.gap  : null;
+      checks.msAllPass         = msv.allPass;
+    }
+  } catch(e) { /* no-op — never let MSV errors break QA */ }
+
   const results = [checks.preBefore, checks.postAfter, checks.preWithin1hr, checks.postWithin1hr, checks.calWithin5pct, checks.twaMatch];
   const qaPass = results.filter(r => r !== undefined).every(r => r === true);
   const allPass = qaPass && checks.segPresent;
@@ -3585,9 +3628,239 @@ function syncStandardResults(forceOverwrite) {
   });
 
   if (anyPopulated) autosave();
+  runMultiStandardVerification();
 }
 
-// Force-sync: recalculates all Dose% values where Lavg is present
+// ═══════════════════════════════════════════════════════════
+//  MULTI-STANDARD VERIFICATION
+//  Cross-checks the three per-standard Lavg/Dose pairs against
+//  what the math says they should be, plus ACGIH<->OSHA HC
+//  Lavg consistency (same criterion+threshold, different ER).
+// ═══════════════════════════════════════════════════════════
+
+// Tolerance constants — tweak if field experience suggests looser bands.
+var MSV_DOSE_TOL_PCT       = 0.5;   // |reported dose - calc dose| absolute tolerance (percentage points)
+var MSV_DOSE_TOL_REL_PCT   = 5.0;   // relative tolerance (5% of reported dose) for very small doses
+var MSV_CROSS_STD_WARN_DBA = 5.0;   // ACGIH<->OSHA_HC Lavg gap: warn
+var MSV_CROSS_STD_FLAG_DBA = 10.0;  // ACGIH<->OSHA_HC Lavg gap: flag (likely data-entry error)
+
+// Inverse of calcDoseFromLavg: given Lavg + run time + standard params,
+// return the 8-hr TWA. At T=8 this returns Lavg; at T!=8 it accounts
+// for the fact that unexposed time counts as zero energy.
+function calcTWAFromLavg(lavg, runTime, exchange, criterion) {
+  if (isNaN(lavg) || isNaN(runTime) || runTime <= 0) return null;
+  var doseSampled = 100 * Math.pow(10, (lavg - criterion) * Math.log10(2) / exchange);
+  var dose8hr = doseSampled * (runTime / 8);
+  if (dose8hr <= 0) return null;
+  return criterion + (exchange / Math.log10(2)) * Math.log10(dose8hr / 100);
+}
+
+// Pure function: reads current multi-standard field values and returns
+// per-standard verification state. Does not touch DOM. Used both by the
+// render layer (runMultiStandardVerification) and by getQAResult() to
+// plumb the results into the saved survey object.
+function computeMultiStandardVerification() {
+  var runTime   = parseFloat(document.getElementById('resRunTime').value);
+  var reportTWA = parseFloat(document.getElementById('resDosReportTWA').value);
+
+  var results = {
+    acgih:   null,
+    oshaHc:  null,
+    oshaPel: null,
+    crossStandard: { pass: null, note: '', severity: 'ok', gap: null },
+    allPass: null,
+    anyPopulated: false
+  };
+
+  var slots = {
+    acgih:   { params: STD_PARAMS.ACGIH,    label: 'ACGIH / NIOSH' },
+    oshaHc:  { params: STD_PARAMS.OSHA_HC,  label: 'OSHA HC'       },
+    oshaPel: { params: STD_PARAMS.OSHA_PEL, label: 'OSHA PEL'      }
+  };
+
+  Object.keys(slots).forEach(function(slotKey) {
+    var slot = slots[slotKey];
+    var p = slot.params;
+    var reportDose = parseFloat(document.getElementById(p.doseId).value);
+    var reportLavg = parseFloat(document.getElementById(p.lavgId).value);
+
+    var out = {
+      label: slot.label,
+      params: p,
+      reportLavg: !isNaN(reportLavg) ? reportLavg : null,
+      reportDose: !isNaN(reportDose) ? reportDose : null,
+      calcDose: null,
+      calcTWA: null,
+      doseDiff: null,
+      dosePass: null,
+      twaDiff: null,
+      twaPass: null
+    };
+
+    // Calc Dose & TWA from the report's Lavg
+    if (out.reportLavg !== null && !isNaN(runTime) && runTime > 0) {
+      out.calcDose = calcDoseFromLavg(out.reportLavg, runTime, p.exchange, p.criterion);
+      out.calcTWA  = calcTWAFromLavg(out.reportLavg, runTime, p.exchange, p.criterion);
+
+      if (out.reportDose !== null && out.calcDose !== null) {
+        var absDelta = Math.abs(out.reportDose - out.calcDose);
+        var relDelta = out.reportDose > 0
+          ? (absDelta / out.reportDose) * 100
+          : Infinity;
+        out.doseDiff = absDelta;
+        // Pass if EITHER absolute OR relative tolerance met.
+        out.dosePass = (absDelta <= MSV_DOSE_TOL_PCT) ||
+                       (relDelta <= MSV_DOSE_TOL_REL_PCT);
+      }
+    }
+
+    // TWA check against Report TWA (only meaningful for the primary
+    // standard slot, but run for all three — a mismatch on a non-primary
+    // slot just means that standard's TWA differs from the report TWA,
+    // which is normal and not flagged here).
+    if (out.calcTWA !== null && !isNaN(reportTWA)) {
+      out.twaDiff = Math.abs(out.calcTWA - reportTWA);
+      out.twaPass = out.twaDiff <= 0.5;
+    }
+
+    results[slotKey] = out;
+    if (out.reportLavg !== null || out.reportDose !== null) {
+      results.anyPopulated = true;
+    }
+  });
+
+  // Cross-standard sanity: ACGIH vs OSHA HC Lavg gap
+  var aLavg = results.acgih.reportLavg;
+  var hcLavg = results.oshaHc.reportLavg;
+  if (aLavg !== null && hcLavg !== null) {
+    var gap = Math.abs(aLavg - hcLavg);
+    results.crossStandard.gap = gap;
+    if (gap > MSV_CROSS_STD_FLAG_DBA) {
+      results.crossStandard.pass = false;
+      results.crossStandard.severity = 'flag';
+      results.crossStandard.note = 'ACGIH and OSHA HC Lavg differ by ' + gap.toFixed(1) +
+        ' dBA. Both share criterion 85 / threshold 80; only exchange rate differs (3 vs 5). ' +
+        'Gaps over ' + MSV_CROSS_STD_FLAG_DBA + ' dBA almost always indicate a data-entry error \u2014 ' +
+        'verify the Lavg values against the dosimeter report.';
+    } else if (gap > MSV_CROSS_STD_WARN_DBA) {
+      results.crossStandard.pass = true;
+      results.crossStandard.severity = 'warn';
+      results.crossStandard.note = 'ACGIH and OSHA HC Lavg differ by ' + gap.toFixed(1) +
+        ' dBA. This can happen with impulsive noise where the 3 vs 5 dB exchange rate ' +
+        'integrates differently. Worth a reviewer note confirming source type.';
+    } else {
+      results.crossStandard.pass = true;
+      results.crossStandard.severity = 'ok';
+      results.crossStandard.note = '';
+    }
+  }
+
+  // Overall pass
+  var populatedDoseChecks = ['acgih', 'oshaHc', 'oshaPel']
+    .map(function(k) { return results[k].dosePass; })
+    .filter(function(v) { return v !== null; });
+
+  if (!results.anyPopulated) {
+    results.allPass = null;
+  } else if (populatedDoseChecks.length === 0 && results.crossStandard.pass === null) {
+    results.allPass = null;
+  } else {
+    var doseAllPass = populatedDoseChecks.every(function(v) { return v === true; });
+    var crossOk = results.crossStandard.pass !== false;
+    results.allPass = doseAllPass && crossOk;
+  }
+
+  return results;
+}
+
+// Render the verification panel.
+function runMultiStandardVerification() {
+  var tbody = document.getElementById('msVerifyTbody');
+  var badge = document.getElementById('msVerifyBadge');
+  var note  = document.getElementById('msCrossStdNote');
+  if (!tbody) return;
+
+  var r = computeMultiStandardVerification();
+
+  var rows = [
+    { key: 'acgih',   label: 'ACGIH / NIOSH', sub: 'C85 \u00b7 T80 \u00b7 Q3' },
+    { key: 'oshaHc',  label: 'OSHA HC',       sub: 'C85 \u00b7 T80 \u00b7 Q5' },
+    { key: 'oshaPel', label: 'OSHA PEL',      sub: 'C90 \u00b7 T90 \u00b7 Q5' }
+  ];
+
+  var fmt = function(v, digits) {
+    return (v === null || v === undefined || isNaN(v)) ? '\u2014' : Number(v).toFixed(digits);
+  };
+  var statusCell = function(out) {
+    if (out.reportLavg === null && out.reportDose === null) {
+      return '<span style="color:var(--text3); font-size:11px;">\u2014</span>';
+    }
+    if (out.dosePass === null && out.twaPass === null) {
+      return '<span style="background:#fff8e6; color:#7a4f00; font-size:10px; padding:2px 6px; border-radius:10px;">Partial</span>';
+    }
+    var ok = (out.dosePass !== false);
+    if (ok) {
+      return '<span style="background:#e6f5ee; color:#0f6e56; font-size:10px; padding:2px 6px; border-radius:10px;">Match</span>';
+    }
+    return '<span style="background:#fcebeb; color:#a32d2d; font-size:10px; padding:2px 6px; border-radius:10px;">Flag</span>';
+  };
+
+  tbody.innerHTML = rows.map(function(rowDef) {
+    var out = r[rowDef.key];
+    var doseDeltaDisplay = '\u2014';
+    if (out.doseDiff !== null) {
+      var color = out.dosePass ? 'var(--text2)' : '#a32d2d';
+      var deltaVal = out.reportDose - out.calcDose;
+      doseDeltaDisplay = '<span style="color:' + color + ';">'
+        + (deltaVal >= 0 ? '+' : '')
+        + deltaVal.toFixed(2) + '</span>';
+    }
+    return '<tr style="border-bottom:1px solid var(--border);">'
+      + '<td style="padding:8px 4px;">'
+        + '<div style="font-weight:500; color:var(--text);">' + rowDef.label + '</div>'
+        + '<div style="font-size:10px; color:var(--text3);">' + rowDef.sub + '</div>'
+      + '</td>'
+      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text);">' + fmt(out.reportLavg, 1) + '</td>'
+      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text);">' + fmt(out.reportDose, 1) + '</td>'
+      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text2);">' + fmt(out.calcDose, 1) + '</td>'
+      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums;">' + doseDeltaDisplay + '</td>'
+      + '<td style="text-align:right; padding:8px 4px; font-variant-numeric:tabular-nums; color:var(--text2);">' + fmt(out.calcTWA, 1) + '</td>'
+      + '<td style="text-align:center; padding:8px 4px;">' + statusCell(out) + '</td>'
+    + '</tr>';
+  }).join('');
+
+  // Overall badge
+  if (r.allPass === null) {
+    badge.textContent = 'Pending';
+    badge.style.background = 'var(--surface2)';
+    badge.style.color = 'var(--text3)';
+  } else if (r.allPass === true) {
+    badge.textContent = 'All match';
+    badge.style.background = '#e6f5ee';
+    badge.style.color = '#0f6e56';
+  } else {
+    badge.textContent = 'Flags present';
+    badge.style.background = '#fcebeb';
+    badge.style.color = '#a32d2d';
+  }
+
+  // Cross-standard note
+  if (r.crossStandard.note) {
+    note.style.display = 'block';
+    note.textContent = r.crossStandard.note;
+    if (r.crossStandard.severity === 'flag') {
+      note.style.background = '#fcebeb';
+      note.style.color = '#a32d2d';
+      note.style.borderLeft = '3px solid #a32d2d';
+    } else if (r.crossStandard.severity === 'warn') {
+      note.style.background = '#fff8e6';
+      note.style.color = '#7a4f00';
+      note.style.borderLeft = '3px solid #f0a500';
+    }
+  } else {
+    note.style.display = 'none';
+  }
+}
 function forceSyncStandardResults() {
   var runTimeRaw = document.getElementById('resRunTime').value;
   var runTime    = parseFloat(runTimeRaw);
