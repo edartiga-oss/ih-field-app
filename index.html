@@ -2752,9 +2752,27 @@ function onPrimaryConfigChange(i) {
 // Infer a human-readable standard name from a setup's (exchange, criterion).
 // Returns {name, slotKey, color}. slotKey identifies the legacy mirror
 // (acgih/oshaHc/oshaPel) or null for custom setups.
-function inferStandardForSetup(exchange, criterion) {
+function inferStandardForSetup(exchange, criterion, threshold) {
   var ex = parseFloat(exchange);
   var cr = parseFloat(criterion);
+  // Threshold is optional for backward compatibility. Callers that pass
+  // it get the full three-value classification (which is what the
+  // standards actually require — OSHA HC and OSHA PEL share exchange
+  // but differ in criterion AND threshold). Callers that don't pass
+  // threshold fall back to the old 2-value behavior so nothing breaks
+  // while callsites are migrated.
+  var th = (threshold !== undefined && threshold !== null && threshold !== '') ? parseFloat(threshold) : null;
+  if (th !== null && !isNaN(th)) {
+    if (ex === 3 && cr === 85 && th === 80) return { name: 'ACGIH / NIOSH', slotKey: 'acgih',   color: 'var(--teal)' };
+    if (ex === 5 && cr === 85 && th === 80) return { name: 'OSHA HC',       slotKey: 'oshaHc',  color: '#6b7fcf'      };
+    if (ex === 5 && cr === 90 && th === 90) return { name: 'OSHA PEL',      slotKey: 'oshaPel', color: '#c07040'      };
+    return {
+      name: 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex) + ' T' + th,
+      slotKey: null,
+      color: 'var(--text2)'
+    };
+  }
+  // Legacy 2-value path
   if (ex === 3 && cr === 85)  return { name: 'ACGIH / NIOSH', slotKey: 'acgih',   color: 'var(--teal)' };
   if (ex === 5 && cr === 85)  return { name: 'OSHA HC',       slotKey: 'oshaHc',  color: '#6b7fcf'      };
   if (ex === 5 && cr === 90)  return { name: 'OSHA PEL',      slotKey: 'oshaPel', color: '#c07040'      };
@@ -2769,9 +2787,11 @@ function measuredValueColHtml(i) {
   var n = i + 1;
   var exEl = document.getElementById('setup' + n + '_exchange');
   var crEl = document.getElementById('setup' + n + '_criterion');
+  var thEl = document.getElementById('setup' + n + '_threshold');
   var exchange  = exEl ? exEl.value : '';
   var criterion = crEl ? crEl.value : '';
-  var std = inferStandardForSetup(exchange, criterion);
+  var threshold = thEl ? thEl.value : '';
+  var std = inferStandardForSetup(exchange, criterion, threshold);
   var isPrimary = (i === primarySetupIndex);
   var borderColor = isPrimary ? std.color : 'var(--border)';
   var borderWidth = isPrimary ? '2px' : '1px';
@@ -4073,7 +4093,7 @@ function computeMultiStandardVerification() {
     // Q=exchange. Parsed as float for consistency with the other two.
     var thEl = document.getElementById('setup' + n + '_threshold');
     var threshold = thEl ? parseFloat(thEl.value) : NaN;
-    var std = inferStandardForSetup(exchange, criterion);
+    var std = inferStandardForSetup(exchange, criterion, threshold);
 
     var reportDose = parseFloat((document.getElementById('mvDose_' + i) || {}).value);
     var reportLavg = parseFloat((document.getElementById('mvLavg_' + i) || {}).value);
@@ -4243,8 +4263,15 @@ function runMultiStandardVerification() {
   } else {
     tbody.innerHTML = r.setups.map(function(out) {
       var n = out.setupIndex + 1;
+      // Custom standard names already embed their C/Q/T params in
+      // the name itself (e.g. "Custom \u2014 C90 Q5 T80"), so the
+      // named-standard suffix below would just duplicate them. Skip
+      // the suffix for Custom — named standards still get it so the
+      // reader can see the params without having to know the standard
+      // definitions by heart.
+      var isCustom = (out.slotKey === null);
       var subtitle = out.standardName +
-        (out.params.criterion != null && !isNaN(out.params.criterion)
+        ((!isCustom && out.params.criterion != null && !isNaN(out.params.criterion))
           ? ' \u00b7 C' + out.params.criterion + ' Q' + out.params.exchange +
             (out.params.threshold != null && !isNaN(out.params.threshold)
               ? ' T' + out.params.threshold

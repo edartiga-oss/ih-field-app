@@ -510,23 +510,34 @@ function buildPDFDoc(surveysArr) {
       var TWA_TOL      = 0.5;
 
       // Standard inference mirrors inferStandardForSetup() in index.html.
-      // Name returned already covers the three recognized standards; the
-      // threshold is appended separately in the row builder below so the
-      // "Standard" column shows e.g. "OSHA HC · C85 Q5 T80" — the T value
-      // is what visually distinguishes OSHA HC (T80) from OSHA PEL (T90)
-      // even though the names are already unambiguous.
-      function inferStd(ex, cr) {
+      // Uses the full (exchange, criterion, threshold) triple because
+      // OSHA HC and OSHA PEL differ in criterion AND threshold, and a
+      // setup like Q5/C90/T80 is a Custom config (not OSHA PEL). Falls
+      // back to 2-value matching only when threshold is missing (legacy
+      // surveys predating the threshold field) so those surveys still
+      // classify to their named standard instead of "Custom" with a
+      // "T?" suffix.
+      function inferStd(ex, cr, th) {
+        var haveTh = !isNaN(th);
+        if (haveTh) {
+          if (ex === 3 && cr === 85 && th === 80) return 'ACGIH / NIOSH';
+          if (ex === 5 && cr === 85 && th === 80) return 'OSHA HC';
+          if (ex === 5 && cr === 90 && th === 90) return 'OSHA PEL';
+          return 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex) + ' T' + th;
+        }
         if (ex === 3 && cr === 85) return 'ACGIH / NIOSH';
         if (ex === 5 && cr === 85) return 'OSHA HC';
         if (ex === 5 && cr === 90) return 'OSHA PEL';
         return 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex);
       }
-      // Build the full "Standard · Params" display string including the
-      // threshold when available. Threshold is optional on legacy data
-      // (setups array predates the threshold field on some surveys) so
-      // it's gated on !isNaN.
+      // Build the full "Standard \u00b7 Params" display string. For
+      // named standards we append the C/Q/T params so the reader can
+      // see the spec values. For Custom, the params are already in the
+      // name so we skip the duplicate suffix.
       function stdLabel(ex, cr, th) {
-        var name = inferStd(ex, cr);
+        var name = inferStd(ex, cr, th);
+        var isCustom = /^Custom/.test(name);
+        if (isCustom) return name;
         var params = '';
         if (!isNaN(cr) && !isNaN(ex)) {
           params = ' \u00b7 C' + cr + ' Q' + ex;
