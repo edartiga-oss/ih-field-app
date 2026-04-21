@@ -181,21 +181,27 @@ function lognormalStats(twas) {
 var statsSelectedSEGs       = null; // null = all
 var statsSelectedIHs        = null; // null = all
 var statsSelectedLocations  = null; // null = all
-var statsStandard           = 'ACGIH'; // 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL'
+var statsStandard           = 'ACGIH'; // 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL' | 'CUSTOM'
 
 // Standard definitions for Stats tab
-//  ACGIH/NIOSH : PEL=85 dBA, AL=80, Q=3, C=85
-//  OSHA HC     : PEL=85 dBA, AL=80, Q=5, C=85  (Hearing Conservation Amendment)
-//  OSHA PEL    : PEL=90 dBA, AL=85, Q=5, C=90
+//  ACGIH/NIOSH : PEL=85 dBA, AL=80, Q=3, C=85, T=80
+//  OSHA HC     : PEL=85 dBA, AL=80, Q=5, C=85, T=80  (Hearing Conservation Amendment)
+//  OSHA PEL    : PEL=90 dBA, AL=85, Q=5, C=90, T=90
+//  CUSTOM      : any setup whose (Q,C,T) doesn't match one of the three
+//                named standards. PEL/AL default to OSHA PEL values
+//                (90/85) since that's the most conservative common pairing
+//                and the ≥PEL / ≥AL tallies still need thresholds to
+//                count against.
 var STATS_STANDARDS = {
-  ACGIH:    { label:'ACGIH/NIOSH', pel:85, al:80, exchange:3, criterion:85 },
-  OSHA_HC:  { label:'OSHA HC',     pel:85, al:80, exchange:5, criterion:85 },
-  OSHA_PEL: { label:'OSHA PEL',    pel:90, al:85, exchange:5, criterion:90 }
+  ACGIH:    { label:'ACGIH/NIOSH', pel:85, al:80, exchange:3, criterion:85, threshold:80 },
+  OSHA_HC:  { label:'OSHA HC',     pel:85, al:80, exchange:5, criterion:85, threshold:80 },
+  OSHA_PEL: { label:'OSHA PEL',    pel:90, al:85, exchange:5, criterion:90, threshold:90 },
+  CUSTOM:   { label:'Custom',      pel:90, al:85, exchange:null, criterion:null, threshold:null }
 };
 
 function statsSetStandard(std) {
   statsStandard = std;
-  ['ACGIH','OSHA_HC','OSHA_PEL'].forEach(function(s) {
+  ['ACGIH','OSHA_HC','OSHA_PEL','CUSTOM'].forEach(function(s) {
     var el = document.getElementById('statsStdChip_' + s);
     if (!el) return;
     var active = (s === std);
@@ -322,13 +328,32 @@ function renderStats() {
     var meas = Array.isArray(s.results.measurements) ? s.results.measurements : null;
     var setups = (s.dosimeter && Array.isArray(s.dosimeter.setups)) ? s.dosimeter.setups : null;
 
-    // New schema: find the setup matching the selected standard's
-    // (exchange, criterion) pair and return that setup's measurement.
+    // Classify a setup's (exchange, criterion, threshold) against the
+    // three named standards. CUSTOM = anything that doesn't match.
+    // This must agree with the classifySetup() used to pick the
+    // column header — otherwise a column labeled "OSHA PEL" could
+    // pick up data that stats aggregation drops as "Custom" (or vice
+    // versa). Keep these two classifiers in sync.
+    function classify(ex, cr, th) {
+      if (ex === 3 && cr === 85 && th === 80) return 'ACGIH';
+      if (ex === 5 && cr === 85 && th === 80) return 'OSHA_HC';
+      if (ex === 5 && cr === 90 && th === 90) return 'OSHA_PEL';
+      return 'CUSTOM';
+    }
+
+    // New schema: find the first setup whose classification matches
+    // the selected standard, then return that setup's measurement.
+    // Note: previously this matched on (ex, cr) only, which meant
+    // Q5/C90/T80 (a non-standard config) was treated as OSHA PEL
+    // because it shared exchange+criterion with PEL. Now the full
+    // (Q,C,T) triple is considered, and any mismatch falls into the
+    // CUSTOM pool — which is selectable as its own chip.
     if (meas && setups) {
       for (var i = 0; i < meas.length && i < setups.length; i++) {
         var ex = parseFloat(setups[i] && setups[i].exchange);
         var cr = parseFloat(setups[i] && setups[i].criterion);
-        if (ex === def.exchange && cr === def.criterion) {
+        var th = parseFloat(setups[i] && setups[i].threshold);
+        if (classify(ex, cr, th) === stdKey) {
           var v = parseFloat(meas[i] && meas[i][measKey]);
           return isNaN(v) ? null : v;
         }
@@ -336,13 +361,12 @@ function renderStats() {
       return null;
     }
 
-    // Legacy schema: only use the flat value if the primary setup is
-    // the active standard. Primary setup is the one whose exchange/
-    // criterion drove the Calc TWA, so if those match the selected
-    // chip, this survey does belong to this standard's pool.
+    // Legacy schema: only use the flat value if the primary setup
+    // classifies as the active standard.
     var legacyEx = parseFloat(s.dosimeter && s.dosimeter.exchange);
     var legacyCr = parseFloat(s.dosimeter && s.dosimeter.criterion);
-    if (legacyEx === def.exchange && legacyCr === def.criterion) {
+    var legacyTh = parseFloat(s.dosimeter && s.dosimeter.threshold);
+    if (classify(legacyEx, legacyCr, legacyTh) === stdKey) {
       var v2 = parseFloat(s.results[legacyKey]);
       return isNaN(v2) ? null : v2;
     }
