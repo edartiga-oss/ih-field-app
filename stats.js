@@ -516,16 +516,12 @@ function renderStats() {
     // ── Individual results table ──
     var indTable = '';
     if (showIndividual) {
-      // Determine which per-setup TWA columns to show in this SEG's
-      // table. A column is added only if at least one survey in the
-      // group has a Report TWA populated for that standard — avoids
-      // showing empty "OSHA PEL TWA" column when nobody measured PEL.
-      // Maintains a stable order (ACGIH, OSHA HC, OSHA PEL) so columns
-      // don't shuffle as data accumulates.
-      var standardOrder = ['ACGIH', 'OSHA_HC', 'OSHA_PEL'];
-      var columnStandards = standardOrder.filter(function(k) {
-        return group.some(function(s) { return statsTwaFor(s, k) !== null; });
-      });
+      // Always show all three standard columns so the reader can see
+      // at a glance whether a standard was measured or not (dashes =
+      // not stored). Previously columns were filtered to only those
+      // with data, which hid the fact that OSHA HC was never measured
+      // when a project only captured ACGIH + OSHA PEL.
+      var columnStandards = ['ACGIH', 'OSHA_HC', 'OSHA_PEL'];
       var standardLabels = {
         ACGIH:    'ACGIH TWA',
         OSHA_HC:  'OSHA HC TWA',
