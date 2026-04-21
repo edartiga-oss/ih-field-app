@@ -291,14 +291,117 @@ function renderStats() {
     return;
   }
 
+  // ── Standard-aware per-survey value extraction ──
+  //
+  // Stats used to read s.results.twa directly, which was the Calc TWA
+  // from the primary setup — not the Report TWA (the value actually
+  // on the dosimeter printout) and not aware of the selected standard
+  // chip. For multi-setup surveys that stored measurements for all of
+  // ACGIH / OSHA HC / OSHA PEL, this meant switching the standard chip
+  // didn't actually switch the numbers being aggregated.
+  //
+  // statsTwaFor / statsDoseFor return the Report TWA / Report Dose for
+  // the setup whose exchange+criterion matches the selected standard.
+  // Surveys that don't have a matching setup are skipped entirely (they
+  // contribute nothing to this chip's stats — they belong to a different
+  // standard's pool). Legacy surveys that predate the measurements[]
+  // array fall back to s.results.dosReportTWA / s.results.dose, but
+  // only when the primary setup is the active standard — otherwise that
+  // single stored value belongs to a different chip's pool.
+  //
+  // Returns: number or null (null = survey excluded from this chip).
+  function statsTwaFor(s, stdKey) {
+    return statsValueFor(s, stdKey, 'reportTWA', 'dosReportTWA');
+  }
+  function statsDoseFor(s, stdKey) {
+    return statsValueFor(s, stdKey, 'dose', 'dose');
+  }
+  function statsValueFor(s, stdKey, measKey, legacyKey) {
+    var def = STATS_STANDARDS[stdKey];
+    if (!def || !s || !s.results) return null;
+    var meas = Array.isArray(s.results.measurements) ? s.results.measurements : null;
+    var setups = (s.dosimeter && Array.isArray(s.dosimeter.setups)) ? s.dosimeter.setups : null;
+
+    // New schema: find the setup matching the selected standard's
+    // (exchange, criterion) pair and return that setup's measurement.
+    if (meas && setups) {
+      for (var i = 0; i < meas.length && i < setups.length; i++) {
+        var ex = parseFloat(setups[i] && setups[i].exchange);
+        var cr = parseFloat(setups[i] && setups[i].criterion);
+        if (ex === def.exchange && cr === def.criterion) {
+          var v = parseFloat(meas[i] && meas[i][measKey]);
+          return isNaN(v) ? null : v;
+        }
+      }
+      return null;
+    }
+
+    // Legacy schema: only use the flat value if the primary setup is
+    // the active standard. Primary setup is the one whose exchange/
+    // criterion drove the Calc TWA, so if those match the selected
+    // chip, this survey does belong to this standard's pool.
+    var legacyEx = parseFloat(s.dosimeter && s.dosimeter.exchange);
+    var legacyCr = parseFloat(s.dosimeter && s.dosimeter.criterion);
+    if (legacyEx === def.exchange && legacyCr === def.criterion) {
+      var v2 = parseFloat(s.results[legacyKey]);
+      return isNaN(v2) ? null : v2;
+    }
+    return null;
+  }
+
+  // Returns an array of { setupIndex, label, std, reportTWA } for every
+  // setup in a survey that has a Report TWA populated. Used by the
+  // individual results table to show all per-setup TWAs side-by-side.
+  function statsAllTwasForSurvey(s) {
+    var out = [];
+    if (!s || !s.results) return out;
+    var meas = Array.isArray(s.results.measurements) ? s.results.measurements : null;
+    var setups = (s.dosimeter && Array.isArray(s.dosimeter.setups)) ? s.dosimeter.setups : null;
+    if (meas && setups) {
+      var primary = (typeof s.dosimeter.primarySetupIndex === 'number') ? s.dosimeter.primarySetupIndex : 0;
+      for (var i = 0; i < meas.length && i < setups.length; i++) {
+        var v = parseFloat(meas[i] && meas[i].reportTWA);
+        if (isNaN(v)) continue;
+        var ex = parseFloat(setups[i].exchange);
+        var cr = parseFloat(setups[i].criterion);
+        var stdName = '';
+        if (ex === 3 && cr === 85) stdName = 'ACGIH';
+        else if (ex === 5 && cr === 85) stdName = 'OSHA HC';
+        else if (ex === 5 && cr === 90) stdName = 'OSHA PEL';
+        else stdName = 'C' + cr + ' Q' + ex;
+        out.push({
+          setupIndex: i,
+          label: 'Setup ' + (i + 1) + (i === primary ? '\u2605' : ''),
+          std: stdName,
+          reportTWA: v
+        });
+      }
+    } else if (s.dosimeter) {
+      // Legacy: surface the one stored Report TWA as a single setup
+      // entry, so legacy surveys still render a TWA in the breakdown.
+      var v3 = parseFloat(s.results.dosReportTWA);
+      if (!isNaN(v3)) {
+        var ex2 = parseFloat(s.dosimeter.exchange);
+        var cr2 = parseFloat(s.dosimeter.criterion);
+        var stdName2 = '';
+        if (ex2 === 3 && cr2 === 85) stdName2 = 'ACGIH';
+        else if (ex2 === 5 && cr2 === 85) stdName2 = 'OSHA HC';
+        else if (ex2 === 5 && cr2 === 90) stdName2 = 'OSHA PEL';
+        else stdName2 = 'C' + cr2 + ' Q' + ex2;
+        out.push({ setupIndex: 0, label: 'Setup 1\u2605', std: stdName2, reportTWA: v3 });
+      }
+    }
+    return out;
+  }
+
   // ── Global summary metrics ──
-  var twas  = sel.map(function(s) { return parseFloat(s.results?.twa); }).filter(function(n) { return !isNaN(n); });
-  var doses = sel.map(function(s) { return parseFloat(s.results?.dose); }).filter(function(n) { return !isNaN(n); });
+  var twas  = sel.map(function(s) { return statsTwaFor(s, statsStandard); }).filter(function(n) { return n !== null; });
+  var doses = sel.map(function(s) { return statsDoseFor(s, statsStandard); }).filter(function(n) { return n !== null; });
   var _std = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
   var _PEL = _std.pel, _AL = _std.al;
-  var atOrAbovePEL = sel.filter(function(s) { return parseFloat(s.results?.twa) >= _PEL; }).length;
-  var atOrAboveAL  = sel.filter(function(s) { var t = parseFloat(s.results?.twa); return t >= _AL && t < _PEL; }).length;
-  var belowAL      = sel.filter(function(s) { return parseFloat(s.results?.twa) < _AL; }).length;
+  var atOrAbovePEL = sel.filter(function(s) { var t = statsTwaFor(s, statsStandard); return t !== null && t >= _PEL; }).length;
+  var atOrAboveAL  = sel.filter(function(s) { var t = statsTwaFor(s, statsStandard); return t !== null && t >= _AL && t < _PEL; }).length;
+  var belowAL      = sel.filter(function(s) { var t = statsTwaFor(s, statsStandard); return t !== null && t < _AL; }).length;
   var qaFails      = sel.filter(function(s) { return s.status === 'qa-fail'; }).length;
 
   function avg(arr) { return arr.length ? arr.reduce(function(a,b){return a+b;},0)/arr.length : null; }
@@ -338,8 +441,8 @@ function renderStats() {
 
   bodyEl.innerHTML = Object.keys(segGroups).sort().map(function(seg) {
     var group  = segGroups[seg];
-    var gTWAs  = group.map(function(s) { return parseFloat(s.results?.twa); }).filter(function(n){return !isNaN(n);});
-    var gDoses = group.map(function(s) { return parseFloat(s.results?.dose); }).filter(function(n){return !isNaN(n);});
+    var gTWAs  = group.map(function(s) { return statsTwaFor(s, statsStandard); }).filter(function(n){return n !== null;});
+    var gDoses = group.map(function(s) { return statsDoseFor(s, statsStandard); }).filter(function(n){return n !== null;});
 
     // Category distribution
     var cats = {};
@@ -413,42 +516,90 @@ function renderStats() {
     // ── Individual results table ──
     var indTable = '';
     if (showIndividual) {
+      // Determine which per-setup TWA columns to show in this SEG's
+      // table. A column is added only if at least one survey in the
+      // group has a Report TWA populated for that standard — avoids
+      // showing empty "OSHA PEL TWA" column when nobody measured PEL.
+      // Maintains a stable order (ACGIH, OSHA HC, OSHA PEL) so columns
+      // don't shuffle as data accumulates.
+      var standardOrder = ['ACGIH', 'OSHA_HC', 'OSHA_PEL'];
+      var columnStandards = standardOrder.filter(function(k) {
+        return group.some(function(s) { return statsTwaFor(s, k) !== null; });
+      });
+      var standardLabels = {
+        ACGIH:    'ACGIH TWA',
+        OSHA_HC:  'OSHA HC TWA',
+        OSHA_PEL: 'OSHA PEL TWA'
+      };
+
+      // Sort by the active-standard TWA so the "worst case for this
+      // chip" surfaces to the top. Surveys missing that standard
+      // (null) sort to the bottom.
       var sorted = group.slice().sort(function(a,b) {
-        var ta = parseFloat(a.results?.twa)||0; var tb = parseFloat(b.results?.twa)||0;
+        var ta = statsTwaFor(a, statsStandard);
+        var tb = statsTwaFor(b, statsStandard);
+        // Nulls last.
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return 1;
+        if (tb === null) return -1;
         return tb - ta; // highest TWA first
       });
       var indRows = sorted.map(function(s) {
-        var twa   = parseFloat(s.results?.twa);
-        var dose  = parseFloat(s.results?.dose);
-        var date  = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '—';
-        var ih    = s.ih?.name || s.deviceNickname || '—';
-        var loc   = s.employee?.location || '—';
-        var proc  = s.employee?.process  || '—';
+        var twa   = statsTwaFor(s, statsStandard);
+        var dose  = statsDoseFor(s, statsStandard);
+        var date  = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '\u2014';
+        var ih    = s.ih?.name || s.deviceNickname || '\u2014';
+        var loc   = s.employee?.location || '\u2014';
+        var proc  = s.employee?.process  || '\u2014';
         var qaOk  = s.qa?.allPass;
         var status= s.status;
-        var twaColor = isNaN(twa) ? 'var(--text3)' : twa >= _segPEL ? '#a32d2d' : twa >= _segAL ? '#7a4f00' : '#085041';
-        var twaBg    = isNaN(twa) ? '' : twa >= _segPEL ? 'background:#fcebeb;' : twa >= _segAL ? 'background:#fff8e6;' : '';
+        // Color/background driven by the active-standard TWA — that's
+        // what the user is focused on when they pick a chip.
+        var twaColor = (twa === null) ? 'var(--text3)' : twa >= _segPEL ? '#a32d2d' : twa >= _segAL ? '#7a4f00' : '#085041';
+        var twaBg    = (twa === null) ? '' : twa >= _segPEL ? 'background:#fcebeb;' : twa >= _segAL ? 'background:#fff8e6;' : '';
         var statusBadge = status === 'complete'
           ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#e1f5ee;color:#085041;">Pass</span>'
           : status === 'qa-fail'
           ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#fcebeb;color:#a32d2d;">QA Flag</span>'
           : '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#f1efe8;color:#444441;">Draft</span>';
+
+        // Per-setup TWA columns — lightweight gray text, not color-coded
+        // (only the active-standard TWA gets the full warning treatment
+        // to keep the table visually calm with 3 extra columns).
+        var perSetupCells = columnStandards.map(function(k) {
+          var v = statsTwaFor(s, k);
+          var txt = v === null ? '\u2014' : v.toFixed(1) + ' dBA';
+          // Bold when this column matches the active chip — subtle
+          // visual cue for "this is the TWA driving the stats above".
+          var weight = (k === statsStandard) ? '700' : '500';
+          var color = (k === statsStandard) ? 'var(--text)' : 'var(--text2)';
+          return '<td style="padding:6px 10px; font-size:11px; font-weight:' + weight + '; color:' + color + '; text-align:right;">' + txt + '</td>';
+        }).join('');
+
         return '<tr style="border-bottom:1px solid var(--border);">'
-          + '<td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text);">' + esc(s.employee?.name || '—') + '</td>'
+          + '<td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text);">' + esc(s.employee?.name || '\u2014') + '</td>'
           + '<td style="padding:6px 10px; font-size:11px; color:var(--teal);">' + esc(ih) + '</td>'
           + '<td style="padding:6px 10px; font-size:11px; color:var(--text2);">' + date + '</td>'
           + '<td style="padding:6px 10px; font-size:11px; color:var(--text2); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(loc) + '</td>'
           + '<td style="padding:6px 10px; font-size:11px; color:var(--text2); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(proc) + '</td>'
-          + '<td style="padding:6px 10px; font-size:12px; font-weight:700; color:' + twaColor + '; ' + twaBg + ' text-align:right;">' + (isNaN(twa)?'—':twa.toFixed(1)) + ' dBA</td>'
-          + '<td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">' + (isNaN(dose)?'—':dose.toFixed(1)) + '%</td>'
+          + '<td style="padding:6px 10px; font-size:12px; font-weight:700; color:' + twaColor + '; ' + twaBg + ' text-align:right;">' + (twa === null ? '\u2014' : twa.toFixed(1) + ' dBA') + '</td>'
+          + perSetupCells
+          + '<td style="padding:6px 10px; font-size:12px; font-weight:600; color:var(--text); text-align:right;">' + (dose === null ? '\u2014' : dose.toFixed(1) + '%') + '</td>'
           + '<td style="padding:6px 10px; text-align:center;">' + statusBadge + '</td>'
           + '</tr>';
+      }).join('');
+
+      // Header cells for the per-setup columns — asterisk on the active
+      // standard matches the bold treatment in each row.
+      var perSetupHeaders = columnStandards.map(function(k) {
+        var marker = (k === statsStandard) ? ' \u2605' : '';
+        return '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">' + standardLabels[k] + marker + '</th>';
       }).join('');
 
       indTable = '<div style="margin-top:16px;">'
         + '<div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Individual Results (' + group.length + ' surveys)</div>'
         + '<div style="overflow-x:auto;">'
-        + '<table style="width:100%; border-collapse:collapse; min-width:600px;">'
+        + '<table style="width:100%; border-collapse:collapse; min-width:' + (600 + columnStandards.length * 90) + 'px;">'
         + '<thead><tr style="background:var(--surface);">'
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Employee</th>'
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">IH</th>'
@@ -456,6 +607,7 @@ function renderStats() {
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Location</th>'
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Process</th>'
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">TWA</th>'
+        + perSetupHeaders
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">Dose %</th>'
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:center;">QA</th>'
         + '</tr></thead>'
