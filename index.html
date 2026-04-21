@@ -2527,8 +2527,23 @@ function setupBlockHtml(i) {
     '<div class="setup-block" data-setup-index="' + i + '" ' +
     'style="border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:10px; background:var(--surface);">' +
       '<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap;">' +
-        '<div style="display:flex; align-items:center; gap:10px;">' +
+        '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
           '<div style="font-size:12px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">Setup ' + n + '</div>' +
+          // Preset dropdown — one-shot fill of all five fields below.
+          // Default "Custom" means "don't touch", so opening a saved
+          // survey doesn't overwrite what the user already configured.
+          // onchange (not oninput) so selecting the same option twice
+          // doesn't re-fire and wipe edits the user made after.
+          '<label style="display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text2);">' +
+            '<span>Preset:</span>' +
+            '<select id="setup' + n + '_preset" onchange="applyStandardPreset(' + i + ', this.value)" ' +
+            'style="font-size:11px; padding:2px 6px;">' +
+              '<option value="">Custom</option>' +
+              '<option value="ACGIH">ACGIH / NIOSH</option>' +
+              '<option value="OSHA_HC">OSHA HC</option>' +
+              '<option value="OSHA_PEL">OSHA PEL</option>' +
+            '</select>' +
+          '</label>' +
           '<label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:11px; color:var(--text2);">' +
             '<input type="radio" name="setupPrimary" id="setup' + n + '_primary" value="' + i + '" ' +
             'onchange="setPrimarySetup(' + i + ')" style="cursor:pointer;">' +
@@ -2581,6 +2596,52 @@ function setupBlockHtml(i) {
       '</div>' +
     '</div>'
   );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STANDARD PRESETS
+//  One-click fill for the five setup fields from a named standard.
+//  Called from the "Preset" dropdown in each setup block. Empty
+//  string = "Custom" = no-op so a user choosing Custom doesn't
+//  wipe their current configuration.
+//
+//  Values match the definitions used elsewhere in the app:
+//    ACGIH / NIOSH : Q3 / C85 / A-weighting / Slow / T80
+//    OSHA HC       : Q5 / C85 / A-weighting / Slow / T80
+//    OSHA PEL      : Q5 / C90 / A-weighting / Slow / T90
+//  (see STD_PARAMS near the multi-standard verification code for the
+//   canonical source of exchange/criterion/threshold values.)
+// ═══════════════════════════════════════════════════════════
+var SETUP_PRESETS = {
+  ACGIH:    { exchange: '3', criterion: '85', weighting: 'A', response: 'Slow', threshold: '80' },
+  OSHA_HC:  { exchange: '5', criterion: '85', weighting: 'A', response: 'Slow', threshold: '80' },
+  OSHA_PEL: { exchange: '5', criterion: '90', weighting: 'A', response: 'Slow', threshold: '90' }
+};
+
+function applyStandardPreset(i, presetKey) {
+  // presetKey === '' means "Custom" — don't modify any fields. That
+  // matches the dropdown's default label and gives users a clean way
+  // to mark a non-standard configuration without the dropdown
+  // accidentally overwriting their hand-tuned values.
+  if (!presetKey) return;
+  var p = SETUP_PRESETS[presetKey];
+  if (!p) return;
+  var n = i + 1;
+  var fields = [
+    ['exchange',  p.exchange],
+    ['criterion', p.criterion],
+    ['weighting', p.weighting],
+    ['response',  p.response],
+    ['threshold', p.threshold]
+  ];
+  fields.forEach(function(f) {
+    var el = document.getElementById('setup' + n + '_' + f[0]);
+    if (el) el.value = f[1];
+  });
+  // Exchange/criterion changes affect TWA math and the MSV label
+  // inference, so run the same hook that a manual change would.
+  if (typeof onPrimaryConfigChange === 'function') onPrimaryConfigChange(i);
+  autosave();
 }
 
 // Render the current setupCount number of setup blocks into #setupBlocks.
@@ -4004,6 +4065,13 @@ function computeMultiStandardVerification() {
     if (!exEl || !crEl) continue;
     var exchange  = parseFloat(exEl.value);
     var criterion = parseFloat(crEl.value);
+    // Threshold is captured so the MSV subtitle can show e.g.
+    // "OSHA HC · C85 Q5 T80" vs "OSHA PEL · C90 Q5 T90" — readers
+    // who know the standards by threshold can disambiguate at a
+    // glance without having to remember that C=criterion and
+    // Q=exchange. Parsed as float for consistency with the other two.
+    var thEl = document.getElementById('setup' + n + '_threshold');
+    var threshold = thEl ? parseFloat(thEl.value) : NaN;
     var std = inferStandardForSetup(exchange, criterion);
 
     var reportDose = parseFloat((document.getElementById('mvDose_' + i) || {}).value);
@@ -4021,7 +4089,7 @@ function computeMultiStandardVerification() {
       standardName: std.name,
       slotKey: std.slotKey,
       color: std.color,
-      params: { exchange: exchange, criterion: criterion },
+      params: { exchange: exchange, criterion: criterion, threshold: threshold },
       isPrimary: i === primarySetupIndex,
       reportLavg: !isNaN(reportLavg) ? reportLavg : null,
       reportDose: !isNaN(reportDose) ? reportDose : null,
@@ -4176,7 +4244,10 @@ function runMultiStandardVerification() {
       var n = out.setupIndex + 1;
       var subtitle = out.standardName +
         (out.params.criterion != null && !isNaN(out.params.criterion)
-          ? ' \u00b7 C' + out.params.criterion + ' Q' + out.params.exchange
+          ? ' \u00b7 C' + out.params.criterion + ' Q' + out.params.exchange +
+            (out.params.threshold != null && !isNaN(out.params.threshold)
+              ? ' T' + out.params.threshold
+              : '')
           : '');
       var primaryTag = out.isPrimary
         ? '<span style="font-size:9px; background:' + out.color + '; color:#fff; padding:1px 5px; border-radius:6px; margin-left:5px;">PRIMARY</span>'

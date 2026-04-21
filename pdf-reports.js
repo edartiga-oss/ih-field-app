@@ -510,11 +510,29 @@ function buildPDFDoc(surveysArr) {
       var TWA_TOL      = 0.5;
 
       // Standard inference mirrors inferStandardForSetup() in index.html.
+      // Name returned already covers the three recognized standards; the
+      // threshold is appended separately in the row builder below so the
+      // "Standard" column shows e.g. "OSHA HC · C85 Q5 T80" — the T value
+      // is what visually distinguishes OSHA HC (T80) from OSHA PEL (T90)
+      // even though the names are already unambiguous.
       function inferStd(ex, cr) {
         if (ex === 3 && cr === 85) return 'ACGIH / NIOSH';
         if (ex === 5 && cr === 85) return 'OSHA HC';
         if (ex === 5 && cr === 90) return 'OSHA PEL';
         return 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex);
+      }
+      // Build the full "Standard · Params" display string including the
+      // threshold when available. Threshold is optional on legacy data
+      // (setups array predates the threshold field on some surveys) so
+      // it's gated on !isNaN.
+      function stdLabel(ex, cr, th) {
+        var name = inferStd(ex, cr);
+        var params = '';
+        if (!isNaN(cr) && !isNaN(ex)) {
+          params = ' \u00b7 C' + cr + ' Q' + ex;
+          if (!isNaN(th)) params += ' T' + th;
+        }
+        return name + params;
       }
       // Formulas match calcDoseFromLavg / calcTWAFromLavg in index.html.
       function calcDose(lavg, rt, ex, cr) {
@@ -543,6 +561,7 @@ function buildPDFDoc(surveysArr) {
         var setup = setupsArr[i] || {};
         var ex = parseFloat(setup.exchange);
         var cr = parseFloat(setup.criterion);
+        var th = parseFloat(setup.threshold);
         var lavg = parseFloat(m.lavg);
         var rDose = parseFloat(m.dose);
         var rTWA  = parseFloat(m.reportTWA);
@@ -576,7 +595,7 @@ function buildPDFDoc(surveysArr) {
 
         rows.push({
           label: 'Setup ' + (i + 1) + (i === primaryIdx2 ? ' \u2014 PRIMARY' : ''),
-          std: inferStd(ex, cr),
+          std: stdLabel(ex, cr, th),
           lavg: !isNaN(lavg) ? lavg.toFixed(1) + ' dBA' : '\u2014',
           rDose: !isNaN(rDose) ? rDose.toFixed(1) + ' %' : '\u2014',
           cDose: cDose !== null ? cDose.toFixed(1) + ' %' : '\u2014',
@@ -620,9 +639,10 @@ function buildPDFDoc(surveysArr) {
       var tblW = W - 72;
       // Column widths (fractions of content width). Setup + Standard
       // are the widest because "Setup N \u2014 PRIMARY" and standard
-      // names like "ACGIH / NIOSH" need room or they collide. Numeric
-      // columns can stay narrow — the values are short (e.g. "13.0 %").
-      var colWs = [0.17, 0.15, 0.08, 0.10, 0.09, 0.07, 0.10, 0.09, 0.07, 0.08]
+      // names like "OSHA HC \u00b7 C85 Q5 T80" need room or they collide.
+      // Numeric columns can stay narrow — the values are short
+      // (e.g. "13.0 %").
+      var colWs = [0.13, 0.22, 0.07, 0.10, 0.09, 0.07, 0.10, 0.09, 0.07, 0.06]
         .map(function(p) { return p * tblW; });
       var colXs = [];
       (function() { var x = tblL; colWs.forEach(function(w) { colXs.push(x); x += w; }); })();
