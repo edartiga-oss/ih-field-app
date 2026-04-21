@@ -516,17 +516,57 @@ function renderStats() {
     // ── Individual results table ──
     var indTable = '';
     if (showIndividual) {
-      // Always show all three standard columns so the reader can see
-      // at a glance whether a standard was measured or not (dashes =
-      // not stored). Previously columns were filtered to only those
-      // with data, which hid the fact that OSHA HC was never measured
-      // when a project only captured ACGIH + OSHA PEL.
-      var columnStandards = ['ACGIH', 'OSHA_HC', 'OSHA_PEL'];
-      var standardLabels = {
-        ACGIH:    'ACGIH TWA',
-        OSHA_HC:  'OSHA HC TWA',
-        OSHA_PEL: 'OSHA PEL TWA'
-      };
+      // Classify a setup by its (exchange, criterion, threshold). The
+      // standard chips match on ER+C alone, but for the per-setup column
+      // header we want the full triple so "C85 Q5 T80" (OSHA HC) is
+      // distinguishable from a hypothetical "C85 Q5 T90" (custom). Any
+      // combination that doesn't fit one of the three canonical
+      // standards is labeled "Custom TWA" so the user can tell at a
+      // glance that the setup isn't a recognized pairing.
+      function classifySetup(ex, cr, th) {
+        if (ex === 3 && cr === 85 && th === 80) return { key: 'ACGIH',    label: 'ACGIH TWA' };
+        if (ex === 5 && cr === 85 && th === 80) return { key: 'OSHA_HC',  label: 'OSHA HC TWA' };
+        if (ex === 5 && cr === 90 && th === 90) return { key: 'OSHA_PEL', label: 'OSHA PEL TWA' };
+        return { key: 'CUSTOM', label: 'Custom TWA' };
+      }
+
+      // Determine how many setup columns to show and what header label
+      // each gets, driven by the actual setup configs in the SEG group
+      // (not by the three named standards). The max setup count across
+      // the group sets the column count — usually 1, 2, or 3.
+      //
+      // Each column's header comes from the first survey in the group
+      // that has data at that position. If later surveys have a
+      // different config at the same slot (rare in practice since
+      // project-level setup definitions tend to be consistent), the row
+      // still renders its own TWA in that column — only the header
+      // label reflects the "typical" config for the slot.
+      var maxSetups = 0;
+      group.forEach(function(s) {
+        var setups = s.dosimeter && Array.isArray(s.dosimeter.setups) ? s.dosimeter.setups : null;
+        if (setups && setups.length > maxSetups) maxSetups = setups.length;
+      });
+      // Column headers: label + the chip-match flag for the \u2605 marker.
+      var columnHeaders = [];
+      for (var ci = 0; ci < maxSetups; ci++) {
+        var headerSrc = null;
+        for (var gi = 0; gi < group.length; gi++) {
+          var sg = group[gi];
+          var setupsG = sg.dosimeter && Array.isArray(sg.dosimeter.setups) ? sg.dosimeter.setups : null;
+          if (setupsG && setupsG[ci]) {
+            headerSrc = setupsG[ci];
+            break;
+          }
+        }
+        var hEx = headerSrc ? parseFloat(headerSrc.exchange)  : NaN;
+        var hCr = headerSrc ? parseFloat(headerSrc.criterion) : NaN;
+        var hTh = headerSrc ? parseFloat(headerSrc.threshold) : NaN;
+        columnHeaders.push({
+          index: ci,
+          cls: classifySetup(hEx, hCr, hTh),
+          sample: headerSrc ? { exchange: hEx, criterion: hCr, threshold: hTh } : null
+        });
+      }
 
       // Sort by the active-standard TWA so the "worst case for this
       // chip" surfaces to the top. Surveys missing that standard
@@ -559,16 +599,18 @@ function renderStats() {
           ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#fcebeb;color:#a32d2d;">QA Flag</span>'
           : '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:#f1efe8;color:#444441;">Draft</span>';
 
-        // Per-setup TWA columns — lightweight gray text, not color-coded
-        // (only the active-standard TWA gets the full warning treatment
-        // to keep the table visually calm with 3 extra columns).
-        var perSetupCells = columnStandards.map(function(k) {
-          var v = statsTwaFor(s, k);
-          var txt = v === null ? '\u2014' : v.toFixed(1) + ' dBA';
-          // Bold when this column matches the active chip — subtle
-          // visual cue for "this is the TWA driving the stats above".
-          var weight = (k === statsStandard) ? '700' : '500';
-          var color = (k === statsStandard) ? 'var(--text)' : 'var(--text2)';
+        // Per-setup TWA cells. Read reportTWA directly from each
+        // survey's measurements[] by position index. Bold + darker
+        // when the column's header matches the active chip (so the
+        // "driving" column stands out from the reference columns).
+        var sMeas = (s.results && Array.isArray(s.results.measurements)) ? s.results.measurements : [];
+        var perSetupCells = columnHeaders.map(function(h) {
+          var m = sMeas[h.index];
+          var v = m ? parseFloat(m.reportTWA) : NaN;
+          var txt = isNaN(v) ? '\u2014' : v.toFixed(1) + ' dBA';
+          var activeCol = (h.cls.key === statsStandard);
+          var weight = activeCol ? '700' : '500';
+          var color = activeCol ? 'var(--text)' : 'var(--text2)';
           return '<td style="padding:6px 10px; font-size:11px; font-weight:' + weight + '; color:' + color + '; text-align:right;">' + txt + '</td>';
         }).join('');
 
@@ -585,17 +627,17 @@ function renderStats() {
           + '</tr>';
       }).join('');
 
-      // Header cells for the per-setup columns — asterisk on the active
-      // standard matches the bold treatment in each row.
-      var perSetupHeaders = columnStandards.map(function(k) {
-        var marker = (k === statsStandard) ? ' \u2605' : '';
-        return '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">' + standardLabels[k] + marker + '</th>';
+      // Header cells for the per-setup columns. Star marker on any
+      // column whose classified standard matches the active chip.
+      var perSetupHeaders = columnHeaders.map(function(h) {
+        var marker = (h.cls.key === statsStandard) ? ' \u2605' : '';
+        return '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:right;">' + h.cls.label + marker + '</th>';
       }).join('');
 
       indTable = '<div style="margin-top:16px;">'
         + '<div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Individual Results (' + group.length + ' surveys)</div>'
         + '<div style="overflow-x:auto;">'
-        + '<table style="width:100%; border-collapse:collapse; min-width:' + (600 + columnStandards.length * 90) + 'px;">'
+        + '<table style="width:100%; border-collapse:collapse; min-width:' + (600 + columnHeaders.length * 90) + 'px;">'
         + '<thead><tr style="background:var(--surface);">'
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">Employee</th>'
         + '<th style="padding:6px 10px; font-size:10px; font-weight:600; color:var(--text3); text-align:left;">IH</th>'
