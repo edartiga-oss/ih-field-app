@@ -614,6 +614,28 @@ body { padding: 20px 18px; }
     </div>
   </div>
 
+  <!-- PROJECT / CLIENT -->
+  <!-- Per-survey override of the global project-bar field. New surveys
+       seed from projectMeta.name so the field fills in automatically;
+       the user can edit it here to pin a different project/client to
+       this single survey without affecting others. Shown on the survey
+       card in the Surveys tab so it's visible before export. -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg>
+      Project / Client
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>Project / Client (this survey)</label>
+          <input type="text" id="surveyProject" placeholder="Defaults to the Project header above" oninput="autosave()">
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Stamped onto the survey and shown on the Surveys list card. Edit here to override the global Project field for this survey only.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- INSTRUMENT INFO -->
   <div class="card">
     <div class="card-header">
@@ -3109,6 +3131,11 @@ function startNewSurvey() {
   clearFormFields();
   document.getElementById('formTitle').textContent = 'New Noise Dosimetry Survey';
   document.getElementById('formSurveyId').textContent = 'Survey ID: ' + currentSurveyId;
+  // Seed the per-survey Project/Client from the global project bar so
+  // new surveys start with the current project and only need editing
+  // when the IH wants to pin a different one for this survey.
+  var _sp = document.getElementById('surveyProject');
+  if (_sp) _sp.value = (projectMeta && projectMeta.name) || '';
   // set today date/time defaults
   const now = new Date();
   const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
@@ -3127,6 +3154,7 @@ function clearFormFields(keepInstruments) {
   // When keepInstruments=true we preserve the primary setup's config and drop
   // setups 2 & 3; when false we reset everything to a single empty setup.
   const ids = [
+    'surveyProject',
     'preCalTime','preCalReading','preCalInitials',
     'surveyStart','surveyEnd',
     'postCalTime','postCalReading','postCalInitials',
@@ -3191,6 +3219,10 @@ function clearForm() {
     clearFormFields();
     document.getElementById('formTitle').textContent = 'New Noise Dosimetry Survey';
     document.getElementById('formSurveyId').textContent = 'Survey ID: ' + currentSurveyId;
+    // Re-seed per-survey Project/Client from the global default after
+    // the clear (same contract as startNewSurvey).
+    var _sp = document.getElementById('surveyProject');
+    if (_sp) _sp.value = (projectMeta && projectMeta.name) || '';
     var _now = new Date();
     var _localNow = new Date(_now.getTime() - _now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
     var _startEl = document.getElementById('surveyStart');
@@ -3209,7 +3241,11 @@ function getFormData() {
       var existing = surveys.find(function(s){ return s.id === currentSurveyId; });
       return (existing && existing.deviceNickname) ? existing.deviceNickname : (deviceNickname || '');
     })(),
-    project: { ...projectMeta },
+    // Project/Client now per-survey. Start from the global projectMeta
+    // (to keep standard/date and any future fields) and overlay the
+    // form's editable name so this survey can pin its own project
+    // without affecting others.
+    project: Object.assign({}, projectMeta, { name: g('surveyProject') || (projectMeta && projectMeta.name) || '' }),
     dosimeter: (function() {
       // Build the new multi-setup schema: shared instrument fields + an
       // array of up to 3 setups. primarySetupIndex flags the one whose
@@ -3305,6 +3341,10 @@ function getFormData() {
 
 function populateForm(s) {
   const sv = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val || ''; };
+  // Load the per-survey Project/Client. Legacy surveys may have left
+  // it undefined (pre-per-survey-field); fall back to the current
+  // global projectMeta.name so the field isn't awkwardly blank.
+  sv('surveyProject', (s.project && s.project.name) || (projectMeta && projectMeta.name) || '');
   sv('dosMake', s.dosimeter?.make); sv('dosModel', s.dosimeter?.model); sv('dosSerial', s.dosimeter?.serial);
   sv('dosFactoryCal', s.dosimeter?.factoryCal);
   // Setup block reconstruction: prefer new setups[] schema; migrate
@@ -3557,6 +3597,11 @@ function saveSurvey() {
   currentSurveyId = generateId();
   document.getElementById('formTitle').textContent = 'New Noise Dosimetry Survey';
   document.getElementById('formSurveyId').textContent = 'Survey ID: ' + currentSurveyId;
+  // Re-seed per-survey Project/Client — typical workflow is multiple
+  // surveys for the same project, so default to the global value
+  // instead of clearing it.
+  var _sp2 = document.getElementById('surveyProject');
+  if (_sp2) _sp2.value = (projectMeta && projectMeta.name) || '';
   // Seed time defaults: pre-cal = now, survey start = now (matching startNewSurvey behaviour)
   var _now = new Date();
   var _localNow = new Date(_now.getTime() - _now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
@@ -3685,15 +3730,16 @@ function renderSurveyList() {
     const lbl = statusLabel[s.status] || 'Draft';
     const survDate = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : 'No date';
     const meta = [s.dosimeter?.make, s.dosimeter?.model, s.dosimeter?.serial].filter(Boolean).join(' · ');
-    const ihTag  = s.ih?.name || s.deviceNickname || '';
-    const segTag = s.employee?.seg || '';
-    const locTag = s.employee?.location || '';
+    const ihTag   = s.ih?.name || s.deviceNickname || '';
+    const segTag  = s.employee?.seg || '';
+    const locTag  = s.employee?.location || '';
+    const projTag = (s.project && s.project.name) || '';
     const conflict = s.conflictFlag ? '<span title="Edited on multiple devices — review and re-save to resolve" style="display:inline-flex;align-items:center;gap:3px;background:#fff8e6;border:1px solid var(--amber);color:#7a4f00;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;margin-left:6px;">&#9651; Conflict</span>' : '';
     return `<div class="survey-card">
       <div>
         <div class="survey-card-name">${esc(s.employee?.name || 'Unnamed Employee')}${conflict}</div>
         <div class="survey-card-meta">${esc(s.employee?.title || '')}${s.employee?.title ? ' — ' : ''}${esc(s.employee?.company || '')} · ${survDate}${ihTag ? ' · <span style="color:var(--teal);font-weight:600;">' + esc(ihTag) + '</span>' : ''}</div>
-        <div class="survey-card-meta" style="margin-top:2px; font-size:11px; color:var(--text2);">${segTag ? '<span style="background:var(--surface2);padding:1px 6px;border-radius:4px;margin-right:4px;">' + esc(segTag) + '</span>' : ''}${s.employee?.process ? '<span style="background:var(--surface2);padding:1px 6px;border-radius:4px;margin-right:4px;color:var(--teal);">' + esc(s.employee.process) + '</span>' : ''}${locTag ? '<span style="color:var(--text3);">&#x1F4CD; ' + esc(locTag) + '</span>' : ''}</div>
+        <div class="survey-card-meta" style="margin-top:2px; font-size:11px; color:var(--text2);">${segTag ? '<span style="background:var(--surface2);padding:1px 6px;border-radius:4px;margin-right:4px;">' + esc(segTag) + '</span>' : ''}${s.employee?.process ? '<span style="background:var(--surface2);padding:1px 6px;border-radius:4px;margin-right:4px;color:var(--teal);">' + esc(s.employee.process) + '</span>' : ''}${locTag ? '<span style="color:var(--text3);">&#x1F4CD; ' + esc(locTag) + '</span>' : ''}${projTag ? '<span style="color:var(--text3); margin-left:8px;">&#x1F4C1; ' + esc(projTag) + '</span>' : ''}</div>
         <div class="survey-card-meta" style="margin-top:2px; font-family:var(--mono); font-size:11px; color:var(--text3);">${esc(meta)}</div>
       </div>
       <div class="survey-card-right">
