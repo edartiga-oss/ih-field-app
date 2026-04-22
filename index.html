@@ -2567,14 +2567,14 @@ function setupBlockHtml(i) {
       '<div class="form-grid">' +
         '<div class="field">' +
           '<label>Exchange Rate</label>' +
-          '<select id="setup' + n + '_exchange" oninput="onPrimaryConfigChange(' + i + '); autosave()">' +
+          '<select id="setup' + n + '_exchange" oninput="onPrimaryConfigChange(' + i + '); syncPresetDropdown(' + i + '); autosave()">' +
             '<option value="5">5 dB (OSHA)</option>' +
             '<option value="3">3 dB (ACGIH/NIOSH)</option>' +
           '</select>' +
         '</div>' +
         '<div class="field">' +
           '<label>Criterion Level (dB)</label>' +
-          '<select id="setup' + n + '_criterion" oninput="onPrimaryConfigChange(' + i + '); autosave()">' +
+          '<select id="setup' + n + '_criterion" oninput="onPrimaryConfigChange(' + i + '); syncPresetDropdown(' + i + '); autosave()">' +
             '<option value="90">90 dB \u2014 OSHA PEL</option>' +
             '<option value="85">85 dB \u2014 OSHA AL / ACGIH TLV</option>' +
             '<option value="80">80 dB</option>' +
@@ -2582,7 +2582,7 @@ function setupBlockHtml(i) {
         '</div>' +
         '<div class="field">' +
           '<label>Frequency Weighting</label>' +
-          '<select id="setup' + n + '_weighting" oninput="autosave()">' +
+          '<select id="setup' + n + '_weighting" oninput="syncPresetDropdown(' + i + '); autosave()">' +
             '<option value="A">A-weighting (dBA) \u2014 Standard</option>' +
             '<option value="C">C-weighting (dBC)</option>' +
             '<option value="Z">Z-weighting / Flat (dBZ)</option>' +
@@ -2590,7 +2590,7 @@ function setupBlockHtml(i) {
         '</div>' +
         '<div class="field">' +
           '<label>Detector Response</label>' +
-          '<select id="setup' + n + '_response" oninput="autosave()">' +
+          '<select id="setup' + n + '_response" oninput="syncPresetDropdown(' + i + '); autosave()">' +
             '<option value="Slow">Slow (1,000 ms)</option>' +
             '<option value="Fast">Fast (125 ms)</option>' +
             '<option value="Impulse">Impulse (35 ms / 1,500 ms decay)</option>' +
@@ -2598,7 +2598,7 @@ function setupBlockHtml(i) {
         '</div>' +
         '<div class="field">' +
           '<label>Threshold (dB)</label>' +
-          '<select id="setup' + n + '_threshold" oninput="autosave()">' +
+          '<select id="setup' + n + '_threshold" oninput="syncPresetDropdown(' + i + '); autosave()">' +
             '<option value="80">80 dB \u2014 ACGIH/NIOSH</option>' +
             '<option value="90">90 dB \u2014 OSHA PEL</option>' +
             '<option value="70">70 dB</option>' +
@@ -2629,6 +2629,40 @@ var SETUP_PRESETS = {
   OSHA_HC:  { exchange: '5', criterion: '85', weighting: 'A', response: 'Slow', threshold: '80' },
   OSHA_PEL: { exchange: '5', criterion: '90', weighting: 'A', response: 'Slow', threshold: '90' }
 };
+
+// Reverse lookup: which preset (if any) matches the current setup's
+// five-field config. Used to keep the Preset dropdown in sync with
+// the underlying fields — so once a preset is picked it "stays picked"
+// across re-renders (addSetup, removeSetup, populateForm) and also
+// flips to Custom automatically if the user hand-edits any field away
+// from the preset. Returns '' (Custom) when no preset matches.
+function derivePresetKey(ex, cr, wt, rs, th) {
+  var keys = Object.keys(SETUP_PRESETS);
+  for (var i = 0; i < keys.length; i++) {
+    var p = SETUP_PRESETS[keys[i]];
+    if (String(ex) === p.exchange && String(cr) === p.criterion
+        && wt === p.weighting && rs === p.response
+        && String(th) === p.threshold) {
+      return keys[i];
+    }
+  }
+  return '';
+}
+
+// Recompute the Preset dropdown value for setup index i from the
+// five setup fields. Safe to call before the dropdown exists (e.g.
+// during partial teardown) — just bails out.
+function syncPresetDropdown(i) {
+  var n = i + 1;
+  var ex = document.getElementById('setup' + n + '_exchange');
+  var cr = document.getElementById('setup' + n + '_criterion');
+  var wt = document.getElementById('setup' + n + '_weighting');
+  var rs = document.getElementById('setup' + n + '_response');
+  var th = document.getElementById('setup' + n + '_threshold');
+  var pr = document.getElementById('setup' + n + '_preset');
+  if (!pr || !ex || !cr || !wt || !rs || !th) return;
+  pr.value = derivePresetKey(ex.value, cr.value, wt.value, rs.value, th.value);
+}
 
 function applyStandardPreset(i, presetKey) {
   // presetKey === '' means "Custom" — don't modify any fields. That
@@ -2690,6 +2724,10 @@ function renderSetupBlocks() {
       document.getElementById('setup' + nn + '_weighting').value = snapshot[k].weighting;
       document.getElementById('setup' + nn + '_response').value  = snapshot[k].response;
       document.getElementById('setup' + nn + '_threshold').value = snapshot[k].threshold;
+      // Restore the Preset dropdown to match the restored field values
+      // so a preset picked before add/remove of a sibling setup doesn't
+      // silently revert to "Custom" on the rebuild.
+      syncPresetDropdown(k);
     }
   }
   // Check the primary radio.
@@ -3351,6 +3389,10 @@ function populateForm(s) {
     sv('setup' + n + '_weighting', st.weighting);
     sv('setup' + n + '_response',  st.response);
     sv('setup' + n + '_threshold', st.threshold);
+    // Infer the Preset dropdown from the loaded setup's config so
+    // opening a saved survey shows the original preset (or Custom
+    // if the values don't match any).
+    syncPresetDropdown(i);
   }
   sv('calMake', s.calibrator?.make); sv('calModel', s.calibrator?.model); sv('calSerial', s.calibrator?.serial);
   sv('calLastNistCal', s.calibrator?.lastNistCal); sv('calNistDue', s.calibrator?.nistDue); sv('calRefLevel', s.calibrator?.refLevel);
