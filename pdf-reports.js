@@ -1155,6 +1155,33 @@ var racSelectedIHs        = null;
 var racSelectedLocations  = null;
 var racSelectedSEGs       = null;
 var racPersonnelOverrides = {};
+// Mirrors the Stats tab's standard chip. Drives which per-survey
+// Report TWA feeds the UTL/RAC computation: switching standards
+// pulls the matching setup's measurement (via statsTwaFor in
+// stats.js) instead of s.results.twa, so RAC stays consistent
+// with Stats for multi-setup surveys.
+var racStandard = 'ACGIH';
+
+function racSetStandard(std) {
+  racStandard = std;
+  ['ACGIH','OSHA_HC','OSHA_PEL','CUSTOM'].forEach(function(s) {
+    var el = document.getElementById('racStdChip_' + s);
+    if (!el) return;
+    var active = (s === std);
+    el.style.borderColor = active ? 'var(--teal)' : 'var(--border)';
+    el.style.background  = active ? 'rgba(0,184,160,0.12)' : 'var(--surface)';
+    el.style.color       = active ? 'var(--teal)' : 'var(--text2)';
+  });
+  renderRAC();
+}
+
+// Per-survey TWA for the RAC tab. Standard-aware via statsTwaFor
+// — surveys whose setup doesn't classify as the active standard
+// are dropped (return null), matching the Stats tab so the two
+// tabs aggregate the same survey pool for any given chip.
+function racTwaFor(s) {
+  return (typeof statsTwaFor === 'function') ? statsTwaFor(s, racStandard) : null;
+}
 
 (function() {
   try {
@@ -1317,7 +1344,7 @@ function renderRAC() {
 
   var summaryRows = segs.map(function(seg) {
     var group = segGroups[seg];
-    var twas  = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
+    var twas  = group.map(racTwaFor).filter(function(n){ return n !== null; });
     var stats = lognormalStats(twas);
     var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
     var utlNA = !twas.length;
@@ -1347,7 +1374,7 @@ function renderRAC() {
 
   var detailCards = segs.map(function(seg) {
     var group = segGroups[seg];
-    var twas  = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
+    var twas  = group.map(racTwaFor).filter(function(n){ return n !== null; });
     var stats = lognormalStats(twas);
     var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
     var utlNA = !twas.length;
@@ -1365,19 +1392,23 @@ function renderRAC() {
       : twas.length === 1
       ? '<div style="margin-top:8px;padding:7px 10px;background:#fff8e6;border:1px solid #f0a500;border-radius:6px;font-size:11px;color:#7a4f00;">&#9651; <strong>Single sample (n=1):</strong> TWA used directly as UTL.</div>'
       : '';
-    var surveyRows = group.slice().sort(function(a,b){ return (parseFloat(b.results?.twa)||0)-(parseFloat(a.results?.twa)||0); }).map(function(s) {
-      var twa  = parseFloat(s.results?.twa);
-      var dose = parseFloat(s.results?.dose);
+    var surveyRows = group.slice()
+      .filter(function(s){ return racTwaFor(s) !== null; })
+      .sort(function(a,b){ return (racTwaFor(b)||0) - (racTwaFor(a)||0); })
+      .map(function(s) {
+      var twa  = racTwaFor(s);
+      var dose = (typeof statsDoseFor === 'function') ? statsDoseFor(s, racStandard) : null;
+      if (dose === null) { var d = parseFloat(s.results?.dose); dose = isNaN(d) ? null : d; }
       var date = s.calibration?.surveyStart ? new Date(s.calibration.surveyStart).toLocaleDateString() : '—';
-      var twaC = isNaN(twa) ? 'var(--text3)' : twa >= 90 ? '#a32d2d' : twa >= 85 ? '#7a4f00' : '#085041';
-      var twaBg= isNaN(twa) ? '' : twa >= 90 ? 'background:#fcebeb;' : twa >= 85 ? 'background:#fff8e6;' : '';
+      var twaC = (twa === null) ? 'var(--text3)' : twa >= 90 ? '#a32d2d' : twa >= 85 ? '#7a4f00' : '#085041';
+      var twaBg= (twa === null) ? '' : twa >= 90 ? 'background:#fcebeb;' : twa >= 85 ? 'background:#fff8e6;' : '';
       return '<tr style="border-bottom:1px solid var(--border);">'
         + '<td style="padding:6px 10px;font-size:12px;color:var(--text);">' + esc(s.employee?.name||'—') + '</td>'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--teal);">' + esc(s.ih?.name||s.deviceNickname||'—') + '</td>'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);">' + date + '</td>'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);">' + esc(s.employee?.location||'—') + '</td>'
-        + '<td style="padding:6px 10px;font-size:12px;font-weight:700;text-align:right;color:'+twaC+';'+twaBg+'">' + (isNaN(twa)?'—':twa.toFixed(1)+' dBA') + '</td>'
-        + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--text);">' + (isNaN(dose)?'—':dose.toFixed(1)+'%') + '</td>'
+        + '<td style="padding:6px 10px;font-size:12px;font-weight:700;text-align:right;color:'+twaC+';'+twaBg+'">' + (twa === null ? '—' : twa.toFixed(1)+' dBA') + '</td>'
+        + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--text);">' + (dose === null ? '—' : dose.toFixed(1)+'%') + '</td>'
         + '</tr>';
     }).join('');
     var metricCards = [
@@ -1616,7 +1647,7 @@ function printRAC() {
     segs.forEach(function(seg, si) {
       y = checkY(y, 22);
       var group     = segGroups[seg];
-      var twas      = group.map(function(s){ return parseFloat(s.results && s.results.twa); }).filter(function(n){ return !isNaN(n); });
+      var twas      = group.map(racTwaFor).filter(function(n){ return n !== null; });
       var stats     = lognormalStats(twas);
       var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
       var utlNA     = !twas.length;
@@ -1648,7 +1679,7 @@ function printRAC() {
     // ── Per-SEG detail sections ───────────────────────────
     segs.forEach(function(seg) {
       var group     = segGroups[seg];
-      var twas      = group.map(function(s){ return parseFloat(s.results && s.results.twa); }).filter(function(n){ return !isNaN(n); });
+      var twas      = group.map(racTwaFor).filter(function(n){ return n !== null; });
       var stats     = lognormalStats(twas);
       var utl       = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
       var utlNA     = !twas.length;
@@ -1799,23 +1830,27 @@ function printRAC() {
       }
       y = drawColumnHeader(y);
 
-      // Survey rows
-      group.slice().sort(function(a,b){
-        return (parseFloat(b.results && b.results.twa)||0) - (parseFloat(a.results && a.results.twa)||0);
-      }).forEach(function(s, ri) {
+      // Survey rows — only those contributing to the active standard's
+      // TWA pool (matches the on-screen tab and the UTL above).
+      group.slice()
+        .filter(function(s){ return racTwaFor(s) !== null; })
+        .sort(function(a,b){
+          return (racTwaFor(b)||0) - (racTwaFor(a)||0);
+        }).forEach(function(s, ri) {
         // Detect whether checkY triggered a page break; if so, redraw
         // the SEG continuation header so orphaned rows stay identified.
         var yBefore = y;
         y = checkY(y, 16);
         if (y < yBefore) y = drawSEGContinuation(y);
-        var twa  = parseFloat(s.results && s.results.twa);
-        var dose = parseFloat(s.results && s.results.dose);
+        var twa  = racTwaFor(s);
+        var dose = (typeof statsDoseFor === 'function') ? statsDoseFor(s, racStandard) : null;
+        if (dose === null) { var d = parseFloat(s.results && s.results.dose); dose = isNaN(d) ? null : d; }
         var date = (s.calibration && s.calibration.surveyStart)
           ? new Date(s.calibration.surveyStart).toLocaleDateString() : '\u2014';
         // Binary TWA coloring per stakeholder review: warning (red) at
         // or above the standard's threshold, neutral below. Independent
         // of the SEG's RAC tint.
-        var twaColor = isNaN(twa) ? GRAY : twa >= twaWarnAt ? RED : [20,20,20];
+        var twaColor = (twa === null) ? GRAY : twa >= twaWarnAt ? RED : [20,20,20];
 
         doc.setFillColor(...(ri % 2 === 0 ? [251,252,254] : WHITE));
         doc.rect(L, y, CW, 16, 'F');
@@ -1829,9 +1864,9 @@ function printRAC() {
         doc.text(date, dc[2]+4, y+11);
         doc.text((s.employee && s.employee.location) || '\u2014', dc[3]+4, y+11);
         doc.setTextColor(...twaColor); doc.setFont('helvetica','bold');
-        doc.text(isNaN(twa) ? '\u2014' : twa.toFixed(1)+' dBA', dc[4]+4, y+11);
+        doc.text((twa === null || isNaN(twa)) ? '\u2014' : twa.toFixed(1)+' dBA', dc[4]+4, y+11);
         doc.setTextColor(20,20,20); doc.setFont('helvetica','normal');
-        doc.text(isNaN(dose) ? '\u2014' : dose.toFixed(1)+'%', dc[5]+4, y+11);
+        doc.text((dose === null || isNaN(dose)) ? '\u2014' : dose.toFixed(1)+'%', dc[5]+4, y+11);
         y += 16;
       });
       y += 20;
