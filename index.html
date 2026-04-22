@@ -1494,12 +1494,21 @@ body { padding: 20px 18px; }
 <!-- ═══════════════════════════════ NOISE RAC VIEW ═══════════════════════════════ -->
 <div id="view-rac" class="view">
 
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; gap:12px; flex-wrap:wrap;">
     <div style="font-size:18px; font-weight:600;">Noise RAC Calculations</div>
-    <button onclick="printRAC()" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:6px; padding:6px 14px; font-size:12px; flex-shrink:0;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-      Print
-    </button>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">Standard:</div>
+      <div style="display:flex; gap:5px; flex-wrap:wrap;">
+        <button onclick="racSetStandard('ACGIH')"    id="racStdChip_ACGIH"    style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--teal); background:rgba(0,184,160,0.12); color:var(--teal);">ACGIH/NIOSH</button>
+        <button onclick="racSetStandard('OSHA_HC')"  id="racStdChip_OSHA_HC"  style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">OSHA HC</button>
+        <button onclick="racSetStandard('OSHA_PEL')" id="racStdChip_OSHA_PEL" style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">OSHA PEL</button>
+        <button onclick="racSetStandard('CUSTOM')"   id="racStdChip_CUSTOM"   style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid var(--border); background:var(--surface); color:var(--text2);">Custom</button>
+      </div>
+      <button onclick="printRAC()" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:6px; padding:6px 14px; font-size:12px; flex-shrink:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+    </div>
   </div>
   <div style="font-size:13px; color:var(--text2); margin-bottom:18px;">Risk Assessment Codes based on UTL by SEG and number of personnel exposed.</div>
 

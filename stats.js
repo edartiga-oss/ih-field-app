@@ -199,6 +199,50 @@ var STATS_STANDARDS = {
   CUSTOM:   { label:'Custom',      pel:90, al:85, exchange:null, criterion:null, threshold:null }
 };
 
+// ── Standard-aware per-survey value extraction (module scope) ──
+//
+// Extracted from renderStats so the Noise RAC tab (renderRAC in
+// pdf-reports.js) can apply the same standard-switching rule to its
+// UTL inputs. Returns the Report TWA / Dose for the setup whose
+// (Q,C,T) matches the requested standard, or null if the survey
+// has no matching setup. Legacy (pre-measurements[]) surveys fall
+// back to s.results.dosReportTWA / s.results.dose only when the
+// primary setup classifies as the requested standard.
+function statsClassifySetup(ex, cr, th) {
+  if (ex === 3 && cr === 85 && th === 80) return 'ACGIH';
+  if (ex === 5 && cr === 85 && th === 80) return 'OSHA_HC';
+  if (ex === 5 && cr === 90 && th === 90) return 'OSHA_PEL';
+  return 'CUSTOM';
+}
+function statsValueFor(s, stdKey, measKey, legacyKey) {
+  var def = STATS_STANDARDS[stdKey];
+  if (!def || !s || !s.results) return null;
+  var meas = Array.isArray(s.results.measurements) ? s.results.measurements : null;
+  var setups = (s.dosimeter && Array.isArray(s.dosimeter.setups)) ? s.dosimeter.setups : null;
+  if (meas && setups) {
+    for (var i = 0; i < meas.length && i < setups.length; i++) {
+      var ex = parseFloat(setups[i] && setups[i].exchange);
+      var cr = parseFloat(setups[i] && setups[i].criterion);
+      var th = parseFloat(setups[i] && setups[i].threshold);
+      if (statsClassifySetup(ex, cr, th) === stdKey) {
+        var v = parseFloat(meas[i] && meas[i][measKey]);
+        return isNaN(v) ? null : v;
+      }
+    }
+    return null;
+  }
+  var legacyEx = parseFloat(s.dosimeter && s.dosimeter.exchange);
+  var legacyCr = parseFloat(s.dosimeter && s.dosimeter.criterion);
+  var legacyTh = parseFloat(s.dosimeter && s.dosimeter.threshold);
+  if (statsClassifySetup(legacyEx, legacyCr, legacyTh) === stdKey) {
+    var v2 = parseFloat(s.results[legacyKey]);
+    return isNaN(v2) ? null : v2;
+  }
+  return null;
+}
+function statsTwaFor(s, stdKey)  { return statsValueFor(s, stdKey, 'reportTWA', 'dosReportTWA'); }
+function statsDoseFor(s, stdKey) { return statsValueFor(s, stdKey, 'dose',      'dose'); }
+
 function statsSetStandard(std) {
   statsStandard = std;
   ['ACGIH','OSHA_HC','OSHA_PEL','CUSTOM'].forEach(function(s) {
@@ -297,81 +341,10 @@ function renderStats() {
     return;
   }
 
-  // ── Standard-aware per-survey value extraction ──
-  //
-  // Stats used to read s.results.twa directly, which was the Calc TWA
-  // from the primary setup — not the Report TWA (the value actually
-  // on the dosimeter printout) and not aware of the selected standard
-  // chip. For multi-setup surveys that stored measurements for all of
-  // ACGIH / OSHA HC / OSHA PEL, this meant switching the standard chip
-  // didn't actually switch the numbers being aggregated.
-  //
-  // statsTwaFor / statsDoseFor return the Report TWA / Report Dose for
-  // the setup whose exchange+criterion matches the selected standard.
-  // Surveys that don't have a matching setup are skipped entirely (they
-  // contribute nothing to this chip's stats — they belong to a different
-  // standard's pool). Legacy surveys that predate the measurements[]
-  // array fall back to s.results.dosReportTWA / s.results.dose, but
-  // only when the primary setup is the active standard — otherwise that
-  // single stored value belongs to a different chip's pool.
-  //
-  // Returns: number or null (null = survey excluded from this chip).
-  function statsTwaFor(s, stdKey) {
-    return statsValueFor(s, stdKey, 'reportTWA', 'dosReportTWA');
-  }
-  function statsDoseFor(s, stdKey) {
-    return statsValueFor(s, stdKey, 'dose', 'dose');
-  }
-  function statsValueFor(s, stdKey, measKey, legacyKey) {
-    var def = STATS_STANDARDS[stdKey];
-    if (!def || !s || !s.results) return null;
-    var meas = Array.isArray(s.results.measurements) ? s.results.measurements : null;
-    var setups = (s.dosimeter && Array.isArray(s.dosimeter.setups)) ? s.dosimeter.setups : null;
-
-    // Classify a setup's (exchange, criterion, threshold) against the
-    // three named standards. CUSTOM = anything that doesn't match.
-    // This must agree with the classifySetup() used to pick the
-    // column header — otherwise a column labeled "OSHA PEL" could
-    // pick up data that stats aggregation drops as "Custom" (or vice
-    // versa). Keep these two classifiers in sync.
-    function classify(ex, cr, th) {
-      if (ex === 3 && cr === 85 && th === 80) return 'ACGIH';
-      if (ex === 5 && cr === 85 && th === 80) return 'OSHA_HC';
-      if (ex === 5 && cr === 90 && th === 90) return 'OSHA_PEL';
-      return 'CUSTOM';
-    }
-
-    // New schema: find the first setup whose classification matches
-    // the selected standard, then return that setup's measurement.
-    // Note: previously this matched on (ex, cr) only, which meant
-    // Q5/C90/T80 (a non-standard config) was treated as OSHA PEL
-    // because it shared exchange+criterion with PEL. Now the full
-    // (Q,C,T) triple is considered, and any mismatch falls into the
-    // CUSTOM pool — which is selectable as its own chip.
-    if (meas && setups) {
-      for (var i = 0; i < meas.length && i < setups.length; i++) {
-        var ex = parseFloat(setups[i] && setups[i].exchange);
-        var cr = parseFloat(setups[i] && setups[i].criterion);
-        var th = parseFloat(setups[i] && setups[i].threshold);
-        if (classify(ex, cr, th) === stdKey) {
-          var v = parseFloat(meas[i] && meas[i][measKey]);
-          return isNaN(v) ? null : v;
-        }
-      }
-      return null;
-    }
-
-    // Legacy schema: only use the flat value if the primary setup
-    // classifies as the active standard.
-    var legacyEx = parseFloat(s.dosimeter && s.dosimeter.exchange);
-    var legacyCr = parseFloat(s.dosimeter && s.dosimeter.criterion);
-    var legacyTh = parseFloat(s.dosimeter && s.dosimeter.threshold);
-    if (classify(legacyEx, legacyCr, legacyTh) === stdKey) {
-      var v2 = parseFloat(s.results[legacyKey]);
-      return isNaN(v2) ? null : v2;
-    }
-    return null;
-  }
+  // statsTwaFor / statsDoseFor / statsValueFor are defined at module
+  // scope above so the Noise RAC tab (renderRAC) can reuse them. The
+  // standard-classifier (statsClassifySetup) must match this file's
+  // Stats column-header classifier — keep them in sync.
 
   // Returns an array of { setupIndex, label, std, reportTWA } for every
   // setup in a survey that has a Report TWA populated. Used by the
