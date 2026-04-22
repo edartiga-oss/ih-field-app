@@ -248,16 +248,30 @@ function buildPDFDoc(surveysArr) {
     }
 
     function grid3(fields, y2) {
-      // Row stride tightened to 30pt (was 38) to cut excess whitespace.
-      // label at y2 (~10pt tall) + value at y2+12 + optional wrap at
-      // y2+21 fits in 30pt with ~7pt cushion before the next row.
+      // Row stride 28pt: label at y2 (~10pt tall) + value at y2+12 +
+      // optional wrap at y2+19 fits with ~5pt cushion before the next
+      // row's label-top.
+      //
+      // Iterate grid rows (groups of 3 fields) and run checkY before
+      // each one so a row never starts close enough to the page bottom
+      // that its value (drawn at y2+12, or +19 with a wrap) lands
+      // off-page. The previous version computed each row's y as
+      // y2 + rowN*stride and drew it unconditionally — values past the
+      // footer reserve were silently clipped, leaving labels visible
+      // with no value below them and no continuation on the next page.
       const ROW_STRIDE = 28;
-      fields.forEach((f, i) => {
-        const col = i % 3;
-        const rowN = Math.floor(i / 3);
-        row(f[0], f[1], 36 + col * colW, y2 + rowN * ROW_STRIDE, colW - 10);
-      });
-      return y2 + Math.ceil(fields.length / 3) * ROW_STRIDE;
+      const numRows = Math.ceil(fields.length / 3);
+      for (var rowN = 0; rowN < numRows; rowN++) {
+        y2 = checkY(y2, ROW_STRIDE);
+        for (var col = 0; col < 3; col++) {
+          var idx = rowN * 3 + col;
+          if (idx >= fields.length) break;
+          var f = fields[idx];
+          row(f[0], f[1], 36 + col * colW, y2, colW - 10);
+        }
+        y2 += ROW_STRIDE;
+      }
+      return y2;
     }
 
     // Page-break guard: if there isn't at least `needed` pt of vertical room
