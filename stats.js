@@ -759,6 +759,13 @@ function renderStats() {
       // Individual results table (conditional)
       + indTable
 
+      // OSHA-only footnote. The 50% dose <-> 85 dBA equivalence assumes
+      // OSHA's 5 dB exchange, so it's shown only under the OSHA HC /
+      // OSHA PEL chips. Mirrors the style used on the Noise RAC tab.
+      + ((statsStandard === 'OSHA_HC' || statsStandard === 'OSHA_PEL')
+          ? '<div style="margin-top:12px;padding:7px 10px;background:#eef4fa;border-left:3px solid #4a6b8a;border-radius:4px;font-size:11px;color:var(--text2);font-style:italic;">A dose of &ge;50% corresponds to an 8-hour TWA of &ge;85 dBA, which is the OSHA Action Level triggering HCP enrollment.</div>'
+          : '')
+
       + '</div></div>';
   }).join('');
 }

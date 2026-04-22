@@ -1392,6 +1392,14 @@ function renderRAC() {
       : twas.length === 1
       ? '<div style="margin-top:8px;padding:7px 10px;background:#fff8e6;border:1px solid #f0a500;border-radius:6px;font-size:11px;color:#7a4f00;">&#9651; <strong>Single sample (n=1):</strong> TWA used directly as UTL.</div>'
       : '';
+    // OSHA-only footnote. The 50% dose <-> 85 dBA 8-hr TWA equivalence
+    // assumes OSHA's 5 dB exchange rate, so it's surfaced only under the
+    // OSHA HC / OSHA PEL chips. Rendered as a subtle info-tinted block
+    // below the survey table so it reads as a reference note, not a
+    // warning (warnings use the amber statsNote style above).
+    var oshaFootnote = (racStandard === 'OSHA_HC' || racStandard === 'OSHA_PEL')
+      ? '<div style="margin-top:10px;padding:7px 10px;background:#eef4fa;border-left:3px solid #4a6b8a;border-radius:4px;font-size:11px;color:var(--text2);font-style:italic;">A dose of &ge;50% corresponds to an 8-hour TWA of &ge;85 dBA, which is the OSHA Action Level triggering HCP enrollment.</div>'
+      : '';
     var surveyRows = group.slice()
       .filter(function(s){ return racTwaFor(s) !== null; })
       .sort(function(a,b){ return (racTwaFor(b)||0) - (racTwaFor(a)||0); })
@@ -1432,7 +1440,7 @@ function renderRAC() {
       + '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:500px;">'
       + '<thead><tr style="background:var(--surface);">'
       + ['Employee','IH','Date','Location','TWA','Dose %'].map(function(h,i){ return '<th style="padding:6px 10px;font-size:10px;font-weight:600;color:var(--text3);text-align:'+(i>=4?'right':'left')+';">'+h+'</th>'; }).join('')
-      + '</tr></thead><tbody>' + surveyRows + '</tbody></table></div></div></div></div>';
+      + '</tr></thead><tbody>' + surveyRows + '</tbody></table></div></div>' + oshaFootnote + '</div></div>';
   }).join('');
 
   resultsEl.innerHTML =
