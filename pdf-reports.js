@@ -220,7 +220,7 @@ function buildPDFDoc(surveysArr) {
       doc.text(title.toUpperCase(), 40, y2 + 12);
       // Bar (18pt) + 10pt clearance before the next baseline-anchored
       // label. Was +36 (18pt clearance) which left a lot of dead space.
-      return y2 + 28;
+      return y2 + 24;
     }
 
     function row(label, value, x, y2, w) {
@@ -242,7 +242,7 @@ function buildPDFDoc(surveysArr) {
       if (wrapped.length > 1) {
         var secondLine = wrapped[1];
         if (wrapped.length > 2) secondLine = secondLine.replace(/\s*\S*$/, '') + ' \u2026';
-        doc.text(secondLine, x, y2 + 21);
+        doc.text(secondLine, x, y2 + 19);
       }
       return y2;
     }
@@ -251,7 +251,7 @@ function buildPDFDoc(surveysArr) {
       // Row stride tightened to 30pt (was 38) to cut excess whitespace.
       // label at y2 (~10pt tall) + value at y2+12 + optional wrap at
       // y2+21 fits in 30pt with ~7pt cushion before the next row.
-      const ROW_STRIDE = 30;
+      const ROW_STRIDE = 28;
       fields.forEach((f, i) => {
         const col = i % 3;
         const rowN = Math.floor(i / 3);
@@ -276,7 +276,7 @@ function buildPDFDoc(surveysArr) {
     y = grid3([
       ['Project / Client', s.project?.name],
       ['Survey Date', s.project?.date || s.calibration?.surveyStart?.split('T')[0]],
-    ], y) + 10;
+    ], y) + 6;
 
     // Employee
     y = sectionHead('Employee & Sample Information', y);
@@ -287,7 +287,7 @@ function buildPDFDoc(surveysArr) {
     doc.text('Employee Name', 36, y);
     doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(26,41,64);
     doc.text(String(s.employee?.name || '—'), 36, y + 18);
-    y += 32;
+    y += 26;
 
     y = grid3([
       ['Employee ID', s.employee?.empId],
@@ -304,7 +304,7 @@ function buildPDFDoc(surveysArr) {
       doc.text(lines, 36, y + 18);
       y += 18 + lines.length * 10;
     }
-    y += 12;
+    y += 6;
 
     // Instrument
     y = sectionHead('Instrument Information', y);
@@ -346,7 +346,7 @@ function buildPDFDoc(surveysArr) {
       doc.setTextColor(...NAVY);
       doc.setFontSize(9); doc.setFont('helvetica', 'bold');
       doc.text(title, 40, y2 + 10);
-      return y2 + 22;
+      return y2 + 18;
     }
 
     for (var setupI = 0; setupI < savedSetups.length && setupI < 3; setupI++) {
@@ -388,7 +388,7 @@ function buildPDFDoc(surveysArr) {
       s.calibration?.postTime?.replace('T',' '),
       s.calibration?.postReading ? s.calibration.postReading + ' dB' : '',
     ];
-    y = grid3(calCols.map((c,i) => [c, calVals[i]]), y) + 8;
+    y = grid3(calCols.map((c,i) => [c, calVals[i]]), y) + 4;
 
     // QA results table — re-derive from stored calibration data so surveys
     // without a saved s.qa.checks object still show correct Pass/Fail.
@@ -557,7 +557,7 @@ function buildPDFDoc(surveysArr) {
         // baseline-anchored glyphs rise ~10pt above the y argument — can't
         // overlap the bar. 14pt bar + 14pt clearance before the next row's
         // label baseline keeps them distinct.
-        y += 14 + 14;
+        y += 14 + 10;
 
         y = grid3([
           ['Dose %',            hasVal(m.dose)      ? m.dose      + ' %'   : ''],
