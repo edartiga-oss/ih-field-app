@@ -509,6 +509,12 @@ function renderStats() {
     var _segStdOuter = STATS_STANDARDS[statsStandard] || STATS_STANDARDS.ACGIH;
     var _segPEL = _segStdOuter.pel;
     var _segAL  = _segStdOuter.al;
+    // Setup-parameter string for the footer label (ER / C / T). Empty
+    // for CUSTOM since its (ex, cr, th) triple is null — each survey
+    // can have its own params, so a single label can't summarize them.
+    var _segParams = (_segStdOuter.exchange != null && _segStdOuter.criterion != null && _segStdOuter.threshold != null)
+      ? '(ER ' + _segStdOuter.exchange + ' dB / C ' + _segStdOuter.criterion + ' dBA / T ' + _segStdOuter.threshold + ' dBA)'
+      : '';
 
     // ── Individual results table ──
     var indTable = '';
@@ -727,7 +733,7 @@ function renderStats() {
             + '<div style="font-size:10px; color:var(--text3); line-height:1.6;">'
               + '<strong>UCL</strong> (95% confidence limit on the <em>arithmetic</em> mean): exp(ų + s²/2 + H(n,δ)·s/√n). Land\'s Exact — Land (1971/1975). H(n=' + stats.n + ', δ=' + (stats.delta ? stats.delta.toFixed(3) : '—') + ')=' + (stats.t ? stats.t.toFixed(4) : '—') + '. '
               + '<strong>UTL</strong> (95th percentile / 95% confidence): exp(ų + K·s). Hahn-Meeker K(n=' + stats.n + ') = ' + (stats.K ? stats.K.toFixed(3) : '—') + '. '
-              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed. | Standard: <strong>' + _segStdOuter.label + '</strong> (PEL ' + _segPEL + ' dBA, AL ' + _segAL + ' dBA)'
+              + '<strong>GSD</strong> = geometric standard deviation: the multiplicative spread factor around the GM. GSD < 1.5● = homogeneous SEG; 1.5–2.0● = moderate spread; > 2.0● = consider splitting the SEG. Lognormal on TWA dBA — AIHA Strategy / Noise Manual 6th Ed. | Standard: <strong>' + _segStdOuter.label + '</strong>' + (_segParams ? ' ' + _segParams : '')
             + '</div>'
             + smallNote
             + '</div>';
