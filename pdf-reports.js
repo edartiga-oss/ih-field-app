@@ -213,6 +213,13 @@ function buildPDFDoc(surveysArr) {
     }
 
     function sectionHead(title, y2) {
+      // Reserve room for the bar (18pt) + below-bar clearance (12pt) +
+      // at least one grid3 row (28pt) before drawing. Without this guard
+      // a section near the page bottom renders its bar in the last few
+      // points of room and then grid3 page-breaks every row to the next
+      // page, leaving the bar orphaned at the previous page's bottom.
+      // Total reserve: 18 + 12 + 28 = 58pt.
+      y2 = checkY(y2, 58);
       doc.setFillColor(...NAVY);
       doc.rect(36, y2, W - 72, 18, 'F');
       doc.setTextColor(255,255,255);
