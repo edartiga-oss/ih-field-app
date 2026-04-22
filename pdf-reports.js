@@ -547,7 +547,11 @@ function buildPDFDoc(surveysArr) {
         var hdr = 'Setup ' + (i + 1) + ' · ' + stdName(ex, cr, th)
                 + (i === primaryIdx3 ? '  —  PRIMARY' : '');
         doc.text(hdr, 40, y + 10);
-        y += 14 + 4;
+        // Pad enough below the bar that grid3's label text — whose
+        // baseline-anchored glyphs rise ~10pt above the y argument — can't
+        // overlap the bar. 14pt bar + 14pt clearance before the next row's
+        // label baseline keeps them distinct.
+        y += 14 + 14;
 
         y = grid3([
           ['Dose %',            hasVal(m.dose)      ? m.dose      + ' %'   : ''],
@@ -683,7 +687,7 @@ function buildPDFDoc(surveysArr) {
           : checks.every(Boolean) ? 'Match' : 'Flag';
 
         rows.push({
-          label: 'Setup ' + (i + 1) + (i === primaryIdx2 ? ' \u2014 PRIMARY' : ''),
+          label: 'Setup ' + (i + 1) + (i === primaryIdx2 ? '*' : ''),
           std: stdLabel(ex, cr, th),
           lavg: !isNaN(lavg) ? lavg.toFixed(1) + ' dBA' : '\u2014',
           rDose: !isNaN(rDose) ? rDose.toFixed(1) + ' %' : '\u2014',
@@ -731,7 +735,7 @@ function buildPDFDoc(surveysArr) {
       // names like "OSHA HC \u00b7 C90 Q5 T80" need room or they collide.
       // Numeric columns can stay narrow — the values are short
       // (e.g. "13.0 %").
-      var colWs = [0.13, 0.22, 0.07, 0.10, 0.09, 0.07, 0.10, 0.09, 0.07, 0.06]
+      var colWs = [0.10, 0.24, 0.07, 0.10, 0.09, 0.07, 0.10, 0.09, 0.08, 0.06]
         .map(function(p) { return p * tblW; });
       var colXs = [];
       (function() { var x = tblL; colWs.forEach(function(w) { colXs.push(x); x += w; }); })();
@@ -780,11 +784,23 @@ function buildPDFDoc(surveysArr) {
         y += rowH2;
       });
 
-      // Footnote for override indicator, only if any row used it.
-      if (rows.some(function(r) { return /\*$/.test(r.cTWA); })) {
+      // Footnotes. Two distinct meanings of "*" share the table:
+      //   - "Setup N*" in the Setup column flags the primary setup
+      //   - Calc TWA "X.X dBA*" flags a manual override
+      // Position decides intent; spell both out so the reader doesn't
+      // have to guess.
+      var hasPrimaryStar  = rows.some(function(r) { return /\*$/.test(r.label); });
+      var hasOverrideStar = rows.some(function(r) { return /\*$/.test(r.cTWA);  });
+      if (hasPrimaryStar || hasOverrideStar) {
         doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
-        doc.text('* Calc TWA manually overridden by reviewer.', tblL, y + 8);
-        y += 10;
+        if (hasPrimaryStar) {
+          doc.text('* (Setup column) Primary setup — drives the survey-level TWA.', tblL, y + 8);
+          y += 10;
+        }
+        if (hasOverrideStar) {
+          doc.text('* (Calc TWA column) Calc TWA manually overridden by reviewer.', tblL, y + 8);
+          y += 10;
+        }
       }
       y += 6;
     })();
