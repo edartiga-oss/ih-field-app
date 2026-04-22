@@ -74,7 +74,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     },
     OSHA_HC: {
       label: 'OSHA HC',
-      params: 'ER 5 dB / C 85 dBA / T 80 dBA',
+      params: 'ER 5 dB / C 90 dBA / T 80 dBA',
       threshold: 85, al: 80,
       citation: 'the OSHA Hearing Conservation Amendment (29 CFR 1910.95) Action Level of 85 dBA as an 8-hr TWA',
       shortCitation: 'the OSHA Action Level of 85 dBA'

@@ -521,7 +521,7 @@ function buildPDFDoc(surveysArr) {
         var haveTh = !isNaN(th);
         if (haveTh) {
           if (ex === 3 && cr === 85 && th === 80) return 'ACGIH / NIOSH';
-          if (ex === 5 && cr === 85 && th === 80) return 'OSHA HC';
+          if (ex === 5 && cr === 90 && th === 80) return 'OSHA HC';
           if (ex === 5 && cr === 90 && th === 90) return 'OSHA PEL';
           return 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex) + ' T' + th;
         }
@@ -650,7 +650,7 @@ function buildPDFDoc(surveysArr) {
       var tblW = W - 72;
       // Column widths (fractions of content width). Setup + Standard
       // are the widest because "Setup N \u2014 PRIMARY" and standard
-      // names like "OSHA HC \u00b7 C85 Q5 T80" need room or they collide.
+      // names like "OSHA HC \u00b7 C90 Q5 T80" need room or they collide.
       // Numeric columns can stay narrow — the values are short
       // (e.g. "13.0 %").
       var colWs = [0.13, 0.22, 0.07, 0.10, 0.09, 0.07, 0.10, 0.09, 0.07, 0.06]
