@@ -270,7 +270,6 @@ function buildPDFDoc(surveysArr) {
     y = grid3([
       ['Project / Client', s.project?.name],
       ['Survey Date', s.project?.date || s.calibration?.surveyStart?.split('T')[0]],
-      ['Standard', activeStandardLabel()],
     ], y) + 10;
 
     // Employee
@@ -469,15 +468,94 @@ function buildPDFDoc(surveysArr) {
     // Dosimetry results
     if (y > 650) { doc.addPage(); y = 40; }
     y = sectionHead('Dosimetry Results', y);
+
+    // Survey-wide fields first — these are not per-setup. LASmax / Run Time
+    // / Exposure Category / HPD are recorded once for the survey regardless
+    // of how many setups the dosimeter ran.
     y = grid3([
-      ['Dose %', s.results?.dose ? s.results.dose + ' %' : ''],
-      ['Lavg / LEQ', s.results?.lavg ? s.results.lavg + ' dB' : ''],
       ['LASmax', s.results?.peak ? s.results.peak + ' dBA' + (parseFloat(s.results.peak) > 115 ? ' (!) >115 dBA' : '') : ''],
       ['Run Time', s.results?.runTime ? s.results.runTime + ' hr' : ''],
-      ['TWA (8-hr)', s.results?.twa ? s.results.twa + ' dBA' : ''],
       ['Exposure Category', s.results?.category],
       ['HPD Required?', s.results?.hpd],
     ], y);
+
+    // Per-standard results — one labeled mini-block per configured setup,
+    // showing the values the dosimeter reported under that setup's
+    // (exchange, criterion, threshold). Replaces the old single-grid
+    // layout that only surfaced the primary setup's flat results and
+    // hid all the other standards' numbers in the verification table
+    // further down.
+    //
+    // Falls back to legacy flat fields (s.results.dose / .lavg /
+    // .dosReportTWA) under the primary setup's standard label when
+    // s.results.measurements[] is absent — so legacy surveys still
+    // render one block. Setups with no values in that standard are
+    // skipped to keep the PDF clean.
+    (function renderPerStandardResults() {
+      // Local classifier so this block doesn't depend on the helpers
+      // defined later inside the MSV IIFE. Mirrors inferStandardForSetup
+      // in index.html and the inferStd inside the MSV block below.
+      function stdName(ex, cr, th) {
+        var haveTh = !isNaN(th);
+        if (haveTh) {
+          if (ex === 3 && cr === 85 && th === 80) return 'ACGIH / NIOSH';
+          if (ex === 5 && cr === 90 && th === 80) return 'OSHA HC';
+          if (ex === 5 && cr === 90 && th === 90) return 'OSHA PEL';
+          return 'Custom — C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex) + ' T' + th;
+        }
+        if (ex === 3 && cr === 85) return 'ACGIH / NIOSH';
+        if (ex === 5 && cr === 85) return 'OSHA HC';
+        if (ex === 5 && cr === 90) return 'OSHA PEL';
+        return 'Custom — C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex);
+      }
+
+      var setupsArr = (s.dosimeter && Array.isArray(s.dosimeter.setups) && s.dosimeter.setups.length > 0)
+        ? s.dosimeter.setups
+        : [{
+            exchange:  s.dosimeter?.exchange,
+            criterion: s.dosimeter?.criterion,
+            threshold: s.dosimeter?.threshold
+          }];
+      var primaryIdx3 = (typeof s.dosimeter?.primarySetupIndex === 'number')
+        ? s.dosimeter.primarySetupIndex : 0;
+      var measArr = (s.results && Array.isArray(s.results.measurements) && s.results.measurements.length > 0)
+        ? s.results.measurements
+        : [{
+            dose:      s.results?.dose,
+            lavg:      s.results?.lavg,
+            reportTWA: s.results?.dosReportTWA || s.results?.twa
+          }];
+
+      measArr.forEach(function(m, i) {
+        var hasVal = function(v) { return v !== undefined && v !== null && String(v).trim() !== ''; };
+        if (!hasVal(m.dose) && !hasVal(m.lavg) && !hasVal(m.reportTWA)) return;
+
+        var setup = setupsArr[i] || {};
+        var ex = parseFloat(setup.exchange);
+        var cr = parseFloat(setup.criterion);
+        var th = parseFloat(setup.threshold);
+
+        // Sub-header bar (lighter than main section bar) — matches the
+        // MULTI-STANDARD VERIFICATION header treatment below for
+        // visual consistency.
+        y = checkY(y, 60);
+        y += 6;
+        doc.setFillColor(234, 238, 244);
+        doc.rect(36, y, W - 72, 14, 'F');
+        doc.setTextColor(...NAVY);
+        doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+        var hdr = 'Setup ' + (i + 1) + ' · ' + stdName(ex, cr, th)
+                + (i === primaryIdx3 ? '  —  PRIMARY' : '');
+        doc.text(hdr, 40, y + 10);
+        y += 14 + 4;
+
+        y = grid3([
+          ['Dose %',            hasVal(m.dose)      ? m.dose      + ' %'   : ''],
+          ['Lavg / LEQ',        hasVal(m.lavg)      ? m.lavg      + ' dB'  : ''],
+          ['Report TWA (8-hr)', hasVal(m.reportTWA) ? m.reportTWA + ' dBA' : ''],
+        ], y);
+      });
+    })();
 
     // ── Multi-Standard Verification — Report vs Calculated ────────────
     // Mirrors the app's "Report vs calculated" verification table under
