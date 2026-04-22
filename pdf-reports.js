@@ -220,7 +220,7 @@ function buildPDFDoc(surveysArr) {
       doc.text(title.toUpperCase(), 40, y2 + 12);
       // Bar (18pt) + 10pt clearance before the next baseline-anchored
       // label. Was +36 (18pt clearance) which left a lot of dead space.
-      return y2 + 24;
+      return y2 + 30;
     }
 
     function row(label, value, x, y2, w) {
@@ -360,7 +360,7 @@ function buildPDFDoc(surveysArr) {
       doc.setTextColor(...NAVY);
       doc.setFontSize(9); doc.setFont('helvetica', 'bold');
       doc.text(title, 40, y2 + 10);
-      return y2 + 18;
+      return y2 + 26;
     }
 
     for (var setupI = 0; setupI < savedSetups.length && setupI < 3; setupI++) {
@@ -571,7 +571,7 @@ function buildPDFDoc(surveysArr) {
         // baseline-anchored glyphs rise ~10pt above the y argument — can't
         // overlap the bar. 14pt bar + 14pt clearance before the next row's
         // label baseline keeps them distinct.
-        y += 14 + 10;
+        y += 14 + 12;
 
         y = grid3([
           ['Dose %',            hasVal(m.dose)      ? m.dose      + ' %'   : ''],
