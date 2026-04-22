@@ -185,7 +185,7 @@ var statsStandard           = 'ACGIH'; // 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL' | 'CU
 
 // Standard definitions for Stats tab
 //  ACGIH/NIOSH : PEL=85 dBA, AL=80, Q=3, C=85, T=80
-//  OSHA HC     : PEL=85 dBA, AL=80, Q=5, C=85, T=80  (Hearing Conservation Amendment)
+//  OSHA HC     : PEL=85 dBA, AL=80, Q=5, C=90, T=80  (Hearing Conservation Amendment)
 //  OSHA PEL    : PEL=90 dBA, AL=85, Q=5, C=90, T=90
 //  CUSTOM      : any setup whose (Q,C,T) doesn't match one of the three
 //                named standards. PEL/AL default to OSHA PEL values
@@ -194,7 +194,7 @@ var statsStandard           = 'ACGIH'; // 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL' | 'CU
 //                count against.
 var STATS_STANDARDS = {
   ACGIH:    { label:'ACGIH/NIOSH', pel:85, al:80, exchange:3, criterion:85, threshold:80 },
-  OSHA_HC:  { label:'OSHA HC',     pel:85, al:80, exchange:5, criterion:85, threshold:80 },
+  OSHA_HC:  { label:'OSHA HC',     pel:85, al:80, exchange:5, criterion:90, threshold:80 },
   OSHA_PEL: { label:'OSHA PEL',    pel:90, al:85, exchange:5, criterion:90, threshold:90 },
   CUSTOM:   { label:'Custom',      pel:90, al:85, exchange:null, criterion:null, threshold:null }
 };
@@ -210,7 +210,7 @@ var STATS_STANDARDS = {
 // primary setup classifies as the requested standard.
 function statsClassifySetup(ex, cr, th) {
   if (ex === 3 && cr === 85 && th === 80) return 'ACGIH';
-  if (ex === 5 && cr === 85 && th === 80) return 'OSHA_HC';
+  if (ex === 5 && cr === 90 && th === 80) return 'OSHA_HC';
   if (ex === 5 && cr === 90 && th === 90) return 'OSHA_PEL';
   return 'CUSTOM';
 }
@@ -362,8 +362,11 @@ function renderStats() {
         var ex = parseFloat(setups[i].exchange);
         var cr = parseFloat(setups[i].criterion);
         var stdName = '';
+        // Q5/C90/T80 (new OSHA HC convention) shares (ex, cr) with
+        // OSHA PEL (Q5/C90/T90) — read setups[i].threshold to tell them apart.
+        var thAll = parseFloat(setups[i].threshold);
         if (ex === 3 && cr === 85) stdName = 'ACGIH';
-        else if (ex === 5 && cr === 85) stdName = 'OSHA HC';
+        else if (ex === 5 && cr === 90 && thAll === 80) stdName = 'OSHA HC';
         else if (ex === 5 && cr === 90) stdName = 'OSHA PEL';
         else stdName = 'C' + cr + ' Q' + ex;
         out.push({
@@ -381,8 +384,11 @@ function renderStats() {
         var ex2 = parseFloat(s.dosimeter.exchange);
         var cr2 = parseFloat(s.dosimeter.criterion);
         var stdName2 = '';
+        // Legacy flat-field path. Same Q5/C90 ambiguity as above;
+        // use s.dosimeter.threshold when present to disambiguate.
+        var th2 = parseFloat(s.dosimeter.threshold);
         if (ex2 === 3 && cr2 === 85) stdName2 = 'ACGIH';
-        else if (ex2 === 5 && cr2 === 85) stdName2 = 'OSHA HC';
+        else if (ex2 === 5 && cr2 === 90 && th2 === 80) stdName2 = 'OSHA HC';
         else if (ex2 === 5 && cr2 === 90) stdName2 = 'OSHA PEL';
         else stdName2 = 'C' + cr2 + ' Q' + ex2;
         out.push({ setupIndex: 0, label: 'Setup 1\u2605', std: stdName2, reportTWA: v3 });
@@ -521,14 +527,14 @@ function renderStats() {
     if (showIndividual) {
       // Classify a setup by its (exchange, criterion, threshold). The
       // standard chips match on ER+C alone, but for the per-setup column
-      // header we want the full triple so "C85 Q5 T80" (OSHA HC) is
+      // header we want the full triple so "C90 Q5 T80" (OSHA HC) is
       // distinguishable from a hypothetical "C85 Q5 T90" (custom). Any
       // combination that doesn't fit one of the three canonical
       // standards is labeled "Custom TWA" so the user can tell at a
       // glance that the setup isn't a recognized pairing.
       function classifySetup(ex, cr, th) {
         if (ex === 3 && cr === 85 && th === 80) return { key: 'ACGIH',    label: 'ACGIH TWA' };
-        if (ex === 5 && cr === 85 && th === 80) return { key: 'OSHA_HC',  label: 'OSHA HC TWA' };
+        if (ex === 5 && cr === 90 && th === 80) return { key: 'OSHA_HC',  label: 'OSHA HC TWA' };
         if (ex === 5 && cr === 90 && th === 90) return { key: 'OSHA_PEL', label: 'OSHA PEL TWA' };
         return { key: 'CUSTOM', label: 'Custom TWA' };
       }

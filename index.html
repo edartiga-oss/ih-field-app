@@ -2619,14 +2619,14 @@ function setupBlockHtml(i) {
 //
 //  Values match the definitions used elsewhere in the app:
 //    ACGIH / NIOSH : Q3 / C85 / A-weighting / Slow / T80
-//    OSHA HC       : Q5 / C85 / A-weighting / Slow / T80
+//    OSHA HC       : Q5 / C90 / A-weighting / Slow / T80
 //    OSHA PEL      : Q5 / C90 / A-weighting / Slow / T90
 //  (see STD_PARAMS near the multi-standard verification code for the
 //   canonical source of exchange/criterion/threshold values.)
 // ═══════════════════════════════════════════════════════════
 var SETUP_PRESETS = {
   ACGIH:    { exchange: '3', criterion: '85', weighting: 'A', response: 'Slow', threshold: '80' },
-  OSHA_HC:  { exchange: '5', criterion: '85', weighting: 'A', response: 'Slow', threshold: '80' },
+  OSHA_HC:  { exchange: '5', criterion: '90', weighting: 'A', response: 'Slow', threshold: '80' },
   OSHA_PEL: { exchange: '5', criterion: '90', weighting: 'A', response: 'Slow', threshold: '90' }
 };
 
@@ -2813,7 +2813,7 @@ function inferStandardForSetup(exchange, criterion, threshold) {
   var th = (threshold !== undefined && threshold !== null && threshold !== '') ? parseFloat(threshold) : null;
   if (th !== null && !isNaN(th)) {
     if (ex === 3 && cr === 85 && th === 80) return { name: 'ACGIH / NIOSH', slotKey: 'acgih',   color: 'var(--teal)' };
-    if (ex === 5 && cr === 85 && th === 80) return { name: 'OSHA HC',       slotKey: 'oshaHc',  color: '#6b7fcf'      };
+    if (ex === 5 && cr === 90 && th === 80) return { name: 'OSHA HC',       slotKey: 'oshaHc',  color: '#6b7fcf'      };
     if (ex === 5 && cr === 90 && th === 90) return { name: 'OSHA PEL',      slotKey: 'oshaPel', color: '#c07040'      };
     return {
       name: 'Custom \u2014 C' + (isNaN(cr) ? '?' : cr) + ' Q' + (isNaN(ex) ? '?' : ex) + ' T' + th,
@@ -4036,12 +4036,12 @@ function calcResults() {
 //
 // Standard parameters:
 //   ACGIH/NIOSH : Exchange=3, Criterion=85, Threshold=80
-//   OSHA HC     : Exchange=5, Criterion=85, Threshold=80
+//   OSHA HC     : Exchange=5, Criterion=90, Threshold=80
 //   OSHA PEL    : Exchange=5, Criterion=90, Threshold=90
 
 var STD_PARAMS = {
   ACGIH:    { exchange: 3, criterion: 85, threshold: 80, doseId: 'resAcgihDose',   lavgId: 'resAcgihLavg'   },
-  OSHA_HC:  { exchange: 5, criterion: 85, threshold: 80, doseId: 'resOshaHcDose',  lavgId: 'resOshaHcLavg'  },
+  OSHA_HC:  { exchange: 5, criterion: 90, threshold: 80, doseId: 'resOshaHcDose',  lavgId: 'resOshaHcLavg'  },
   OSHA_PEL: { exchange: 5, criterion: 90, threshold: 90, doseId: 'resOshaPelDose', lavgId: 'resOshaPelLavg' }
 };
 
@@ -4071,8 +4071,11 @@ function syncStandardResults(forceOverwrite) {
 
   // Identify which standard the dosimeter is set to
   var activeSlot = null;
+  // OSHA HC (Q5/C90/T80) and OSHA PEL (Q5/C90/T90) share exchange &
+  // criterion — require threshold to tell them apart. Falls back to
+  // OSHA PEL when threshold is missing so legacy surveys still resolve.
   if (exchange === 3 && criterion === 85) activeSlot = 'ACGIH';
-  else if (exchange === 5 && criterion === 85) activeSlot = 'OSHA_HC';
+  else if (exchange === 5 && criterion === 90 && threshold === 80) activeSlot = 'OSHA_HC';
   else if (exchange === 5 && criterion === 90) activeSlot = 'OSHA_PEL';
 
   var anyPopulated = false;
@@ -4163,7 +4166,7 @@ function computeMultiStandardVerification() {
     var exchange  = parseFloat(exEl.value);
     var criterion = parseFloat(crEl.value);
     // Threshold is captured so the MSV subtitle can show e.g.
-    // "OSHA HC · C85 Q5 T80" vs "OSHA PEL · C90 Q5 T90" — readers
+    // "OSHA HC · C90 Q5 T80" vs "OSHA PEL · C90 Q5 T90" — readers
     // who know the standards by threshold can disambiguate at a
     // glance without having to remember that C=criterion and
     // Q=exchange. Parsed as float for consistency with the other two.
@@ -6994,7 +6997,7 @@ var verifyStandard = 'APP'; // 'APP' | 'ACGIH' | 'OSHA_HC' | 'OSHA_PEL'
 var VERIFY_STANDARDS = {
   APP:      { label:'App Setup',   exchange:null, criterion:null, dosSlot:null, note:'Comparing report setup to App-recorded values' },
   ACGIH:    { label:'ACGIH/NIOSH', exchange:3,    criterion:85,   dosSlot:1,    note:'Q3 · C85 · A-weighting · Slow — ACGIH/NIOSH standard (D1)' },
-  OSHA_HC:  { label:'OSHA HC',     exchange:5,    criterion:85,   dosSlot:2,    note:'Q5 · C85 · A-weighting · Slow — OSHA Hearing Conservation (D2)' },
+  OSHA_HC:  { label:'OSHA HC',     exchange:5,    criterion:90,   dosSlot:2,    note:'Q5 · C90 · T80 · A-weighting · Slow — OSHA Hearing Conservation (D2)' },
   OSHA_PEL: { label:'OSHA PEL',    exchange:5,    criterion:90,   dosSlot:3,    note:'Q5 · C90 · A-weighting · Slow — OSHA PEL (D3)' }
 };
 
