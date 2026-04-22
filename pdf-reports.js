@@ -296,7 +296,12 @@ function buildPDFDoc(surveysArr) {
     y = sectionHead('Project Information', y);
     y = grid3([
       ['Project / Client', s.project?.name],
-      ['Survey Date', s.project?.date || s.calibration?.surveyStart?.split('T')[0]],
+      // Survey Date always sourced from the Calibration Checks Start
+      // Date/Time (s.calibration.surveyStart) — that's the dosimeter's
+      // first-sample timestamp, which is the authoritative date for the
+      // survey. s.project.date was a user-editable freeform field that
+      // could drift from reality.
+      ['Survey Date', s.calibration?.surveyStart?.split('T')[0] || s.project?.date || ''],
     ], y) + 6;
 
     // Employee
