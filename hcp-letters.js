@@ -54,8 +54,48 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     return isNaN(v) ? null : v;
   }
   var activeStandard = (typeof racStandard === 'string') ? racStandard : 'ACGIH';
-  var stdLabels = { ACGIH:'ACGIH/NIOSH', OSHA_HC:'OSHA HC', OSHA_PEL:'OSHA PEL', CUSTOM:'Custom' };
-  var stdLabel  = stdLabels[activeStandard] || activeStandard;
+
+  // Per-standard copy used throughout the letter. Drives:
+  //   - the Standard label (with ER/C/T params) in the UTL summary box
+  //   - the HCP threshold (needHCP decision + aboveBelow phrasing)
+  //   - the regulatory citation embedded in paragraph 2
+  //   - the TWA / UTL color bands
+  // Keep threshold aligned with STATS_STANDARDS[x].pel so a standard
+  // added there auto-picks the same cutoff here. CUSTOM retains the
+  // pre-existing DoDI wording (the app's historical default) since
+  // custom setups have no single "correct" regulatory reference.
+  var STD_INFO = {
+    ACGIH: {
+      label: 'ACGIH/NIOSH',
+      params: 'ER 3 dB / C 85 dBA / T 80 dBA',
+      threshold: 85, al: 80,
+      citation: 'the Department of the Army, Department of Defense Instruction (DoDI) 6055.12 and the ACGIH Threshold Limit Value (TLV) for noise of 85 dBA as an 8-hr TWA (3 dB exchange rate)',
+      shortCitation: 'the DoDI 6055.12 / ACGIH TLV of 85 dBA'
+    },
+    OSHA_HC: {
+      label: 'OSHA HC',
+      params: 'ER 5 dB / C 85 dBA / T 80 dBA',
+      threshold: 85, al: 80,
+      citation: 'the OSHA Hearing Conservation Amendment (29 CFR 1910.95) Action Level of 85 dBA as an 8-hr TWA',
+      shortCitation: 'the OSHA Action Level of 85 dBA'
+    },
+    OSHA_PEL: {
+      label: 'OSHA PEL',
+      params: 'ER 5 dB / C 90 dBA / T 90 dBA',
+      threshold: 90, al: 85,
+      citation: 'the OSHA Permissible Exposure Limit (29 CFR 1910.95) of 90 dBA as an 8-hr TWA',
+      shortCitation: 'the OSHA PEL of 90 dBA'
+    },
+    CUSTOM: {
+      label: 'Custom',
+      params: '',
+      threshold: 85, al: 80,
+      citation: 'the Department of the Army, Department of Defense Instruction (DoDI) 6055.12 noise standard of 85 dBA',
+      shortCitation: 'the DoDI 6055.12 noise standard of 85 dBA'
+    }
+  };
+  var stdInfo  = STD_INFO[activeStandard] || STD_INFO.CUSTOM;
+  var stdLabel = stdInfo.label;
 
   // ── 1. Filter surveys ──────────────────────────────────────────────
   var sel = surveys.filter(function(s) {
@@ -170,7 +210,13 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     var loc       = pdfSafe(letter.location);
     var twaStr    = twa.toFixed(1) + ' dBA';
     var utlStr    = utl.toFixed(1) + ' dBA';
-    var twaColor  = twa >= 90 ? [163,45,45] : twa >= 85 ? [122,79,0] : [8,80,65];
+    // Traffic-light TWA color keyed off the active standard:
+    //   red    ≥ threshold (PEL)
+    //   amber  AL ≤ x < threshold
+    //   green  < AL
+    var twaColor  = twa >= stdInfo.threshold ? [163,45,45]
+                   : twa >= stdInfo.al       ? [122,79,0]
+                                             : [8,80,65];
 
     // Survey date
     var surveyDate = '--';
@@ -180,10 +226,11 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       catch(e) { surveyDate = rawDate.slice(0,10); }
     }
 
-    // Dynamic text logic
+    // Dynamic text logic — threshold switches with the active
+    // standard chip (PEL value from STD_INFO).
     var smallSample = n < 6;
-    var aboveBelow  = twa >= 85 ? 'above' : 'below';
-    var needHCP     = smallSample ? (twa >= 85) : (utl >= 85);
+    var aboveBelow  = twa >= stdInfo.threshold ? 'above' : 'below';
+    var needHCP     = smallSample ? (twa >= stdInfo.threshold) : (utl >= stdInfo.threshold);
     var doDoNot     = needHCP ? 'do need' : 'do not need';
     var rac         = (typeof calcRAC === 'function') ? calcRAC(utl, personnel) : null;
     var racStr      = rac === 2 ? 'RAC 2 -- High' : rac === 3 ? 'RAC 3 -- Medium' : rac === 4 ? 'RAC 4 -- Low' : '--';
@@ -297,19 +344,17 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
          + (n === 1 ? 'was ' : 'were ') + empCount + '. A Upper Tolerance Limit (UTL) '
          + 'could not be calculated because fewer than 6 samples were available for this SEG. '
          + "The employee's individual 8-hr TWA result of " + twaStr + ' indicates levels '
-         + aboveBelow + ' the Department of the Army, Department of Defense Instruction '
-         + '(DoDI) 6055.12 noise standard of 85 dBA. Based on this individual result, you '
+         + aboveBelow + ' ' + stdInfo.citation + '. Based on this individual result, you '
          + doDoNot + ' to be included in the Hearing Conservation Program.';
     } else {
       // n >= 6: UTL calculated, base HCP decision on UTL
-      var however = twa >= 85 ? '' : 'However, ';
+      var however = twa >= stdInfo.threshold ? '' : 'However, ';
       var capB    = however ? 'b' : 'B';
       p2 = '2.  This employee was designated to the ' + seg + ' SEG and there were '
          + "more than 6 employees' individual results. Therefore, a statistical calculation "
          + 'called the Upper Tolerance Limit (UTL) was able to be calculated at the 95% '
          + 'confidence level to a result of ' + utlStr + ". The employee's exposure "
-         + 'indicates levels ' + aboveBelow + ' the Department of the Army, Department of '
-         + 'Defense Instruction (DoDI) 6055.12 noise standard of 85 dBA. '
+         + 'indicates levels ' + aboveBelow + ' ' + stdInfo.citation + '. '
          + (however ? 'However, based on the SEG UTL calculation result of ' : 'Based on this result and the SEG UTL calculation result of ')
          + utlStr + ', you ' + doDoNot + ' to be included in the Hearing Conservation Program.';
     }
@@ -437,14 +482,15 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
       doc.text('UTL CALCULATION SUMMARY', ML + 10, y + 13);
       doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC(GRAY);
-      doc.text('Standard: ' + stdLabel, ML + CW - 10, y + 13, { align: 'right' });
+      var stdLabelLine = 'Standard: ' + stdLabel + (stdInfo.params ? '  (' + stdInfo.params + ')' : '');
+      doc.text(stdLabelLine, ML + CW - 10, y + 13, { align: 'right' });
 
       var cols = [ML + 10, ML + 10 + CW * 0.25, ML + 10 + CW * 0.5, ML + 10 + CW * 0.75];
       var labels = ['Samples (n)', 'UTL 95/95', 'SEG Personnel', 'RAC'];
       labels.forEach(function(h, i) { doc.text(h, cols[i], y + 26); });
 
       doc.setFont('helvetica','bold'); doc.setFontSize(11.5);
-      var utlColor = utl >= 85 ? [163,45,45] : [8,80,65];
+      var utlColor = utl >= stdInfo.threshold ? [163,45,45] : [8,80,65];
       setC(BLACK);    doc.text(String(n),         cols[0], y + 42);
       setC(utlColor); doc.text(utlStr,             cols[1], y + 42);
       setC(BLACK);    doc.text(String(personnel),  cols[2], y + 42);
