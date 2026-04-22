@@ -1721,7 +1721,14 @@ function printRAC() {
     // ── Filters ───────────────────────────────────────────
     var ihLabels  = racSelectedIHs       === null ? ['All IHs']      : [...racSelectedIHs].sort();
     var locLabels = racSelectedLocations === null ? ['All Locations'] : [...racSelectedLocations].sort();
-    var segLabels = racSelectedSEGs      === null ? ['All SEGs']      : [...racSelectedSEGs].sort();
+    // SEG label list shows only SEGs that actually contribute data
+    // to this report — i.e., SEGs with at least one survey surviving the
+    // IH / Location / SEG filter pipeline. Previously we emitted every
+    // SEG in racSelectedSEGs (the dropdown's "All SEGs" state is a Set
+    // of every known SEG in the data), which made the filters block a
+    // noisy directory listing even when only two or three of them had
+    // surveys in the report.
+    var segLabels = segs.length ? segs.slice() : ['None \u2014 no matching surveys'];
 
     doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
     doc.text('FILTERS APPLIED', L, y + 10); y += 18;
