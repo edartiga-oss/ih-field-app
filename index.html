@@ -629,6 +629,133 @@ body { padding: 20px 18px; }
     </div>
   </div>
 
+  <!-- EMPLOYEE / SAMPLE INFO -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Employee &amp; Sample Information
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="field">
+          <label>Employee Name <span class="req">*</span></label>
+          <input type="text" id="empName" placeholder="Last, First" oninput="autosave()">
+        </div>
+        <div class="field">
+          <label>Employee ID / Badge #</label>
+          <input type="text" id="empId" placeholder="Optional" oninput="autosave()">
+        </div>
+        <div class="field">
+          <label>Company / Employer</label>
+          <input type="text" id="empCompany" placeholder="Employer name" oninput="autosave()">
+        </div>
+        <div class="field">
+          <label>Job Title</label>
+          <input type="text" id="empTitle" placeholder="e.g., Millwright" oninput="autosave()">
+        </div>
+        <div class="field">
+          <label>Department / Area</label>
+          <input type="text" id="empDept" placeholder="e.g., Maintenance" oninput="autosave()">
+        </div>
+        <div class="field">
+          <label>Location / Building</label>
+          <input type="text" id="empLocation" placeholder="e.g., Unit 3 — Compressor Bay" oninput="autosave()">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Similarly Exposed Group (SEG)</label>
+          <select id="empSegSelect" oninput="onSegSelectChange(); autosave();" style="margin-bottom:8px;">
+            <option value="">Select SEG...</option>
+            <option>Vehicle Maintenance</option>
+            <option>Administrative</option>
+            <option>Production / Manufacturing</option>
+            <option>Maintenance / Facilities</option>
+            <option>Warehousing / Shipping</option>
+            <option>Construction</option>
+            <option>Grounds / Utilities</option>
+            <option>Healthcare / Clinical</option>
+            <option>Laboratory</option>
+            <option>Security / Law Enforcement</option>
+            <option>Aviation / Flight Operations</option>
+            <option>Military Operations</option>
+            <option>Other</option>
+          </select>
+          <input type="text" id="empSegOther" placeholder="Describe SEG..." style="display:none;" oninput="autosave()">
+          <label style="margin-top:8px; display:block;">Process / Task Category</label>
+          <select id="empProcessSelect" oninput="onProcessSelectChange(); autosave();" style="margin-bottom:8px; display:none;">
+            <option value="">Select process...</option>
+          </select>
+          <input type="text" id="empProcessOther" placeholder="Describe process..." style="display:none;" oninput="autosave()">
+          <input type="hidden" id="empSeg">
+          <div class="hint">Group of workers with similar noise exposure profiles</div>
+        </div>
+      </div>
+      <div class="section-spacer"></div>
+      <div class="section-label">Task description</div>
+      <div class="field">
+        <textarea id="empTask" rows="2" placeholder="Describe primary tasks performed during the monitoring period..." style="resize:vertical;" oninput="autosave()"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOSIMETER PLACEMENT -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+      Dosimeter Placement
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="field">
+          <label>Placement Location</label>
+          <select id="dosPlacement" oninput="autosave()">
+            <option value="">Select...</option>
+            <option>Left shoulder (collar area)</option>
+            <option>Right shoulder (collar area)</option>
+            <option>Left breast pocket</option>
+            <option>Right breast pocket</option>
+            <option>Chest center</option>
+            <option>Belt / waist — left side</option>
+            <option>Belt / waist — right side</option>
+            <option>Hard hat mount</option>
+            <option>Other (see notes)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Microphone Type</label>
+          <select id="micType" oninput="autosave()">
+            <option value="">Select...</option>
+            <option>Omnidirectional, windscreen installed</option>
+            <option>Omnidirectional, no windscreen</option>
+            <option>Top-mounted</option>
+            <option>Remote probe</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Windscreen Used?</label>
+          <select id="windscreen" oninput="autosave()">
+            <option value="">Select...</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Obstructions / Interferences?</label>
+          <select id="obstructions" oninput="autosave()">
+            <option value="">Select...</option>
+            <option value="none">None noted</option>
+            <option value="minor">Minor — noted below</option>
+            <option value="significant">Significant — see notes</option>
+          </select>
+        </div>
+      </div>
+      <div class="section-spacer"></div>
+      <div class="field">
+        <label>Placement Notes / Comments</label>
+        <textarea id="placementNotes" rows="2" placeholder="Note any obstructions, clothing over mic, employee movements, etc." style="resize:vertical;" oninput="autosave()"></textarea>
+      </div>
+    </div>
+  </div>
+
   <!-- INSTRUMENT INFO -->
   <div class="card">
     <div class="card-header">
@@ -809,133 +936,6 @@ body { padding: 20px 18px; }
           <div class="qa-value" id="qa6val">—</div>
           <div class="qa-status qa-pending" id="qa6">Pending</div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- EMPLOYEE / SAMPLE INFO -->
-  <div class="card">
-    <div class="card-header">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Employee &amp; Sample Information
-    </div>
-    <div class="card-body">
-      <div class="form-grid">
-        <div class="field">
-          <label>Employee Name <span class="req">*</span></label>
-          <input type="text" id="empName" placeholder="Last, First" oninput="autosave()">
-        </div>
-        <div class="field">
-          <label>Employee ID / Badge #</label>
-          <input type="text" id="empId" placeholder="Optional" oninput="autosave()">
-        </div>
-        <div class="field">
-          <label>Company / Employer</label>
-          <input type="text" id="empCompany" placeholder="Employer name" oninput="autosave()">
-        </div>
-        <div class="field">
-          <label>Job Title</label>
-          <input type="text" id="empTitle" placeholder="e.g., Millwright" oninput="autosave()">
-        </div>
-        <div class="field">
-          <label>Department / Area</label>
-          <input type="text" id="empDept" placeholder="e.g., Maintenance" oninput="autosave()">
-        </div>
-        <div class="field">
-          <label>Location / Building</label>
-          <input type="text" id="empLocation" placeholder="e.g., Unit 3 — Compressor Bay" oninput="autosave()">
-        </div>
-        <div class="field" style="grid-column:1/-1;">
-          <label>Similarly Exposed Group (SEG)</label>
-          <select id="empSegSelect" oninput="onSegSelectChange(); autosave();" style="margin-bottom:8px;">
-            <option value="">Select SEG...</option>
-            <option>Vehicle Maintenance</option>
-            <option>Administrative</option>
-            <option>Production / Manufacturing</option>
-            <option>Maintenance / Facilities</option>
-            <option>Warehousing / Shipping</option>
-            <option>Construction</option>
-            <option>Grounds / Utilities</option>
-            <option>Healthcare / Clinical</option>
-            <option>Laboratory</option>
-            <option>Security / Law Enforcement</option>
-            <option>Aviation / Flight Operations</option>
-            <option>Military Operations</option>
-            <option>Other</option>
-          </select>
-          <input type="text" id="empSegOther" placeholder="Describe SEG..." style="display:none;" oninput="autosave()">
-          <label style="margin-top:8px; display:block;">Process / Task Category</label>
-          <select id="empProcessSelect" oninput="onProcessSelectChange(); autosave();" style="margin-bottom:8px; display:none;">
-            <option value="">Select process...</option>
-          </select>
-          <input type="text" id="empProcessOther" placeholder="Describe process..." style="display:none;" oninput="autosave()">
-          <input type="hidden" id="empSeg">
-          <div class="hint">Group of workers with similar noise exposure profiles</div>
-        </div>
-      </div>
-      <div class="section-spacer"></div>
-      <div class="section-label">Task description</div>
-      <div class="field">
-        <textarea id="empTask" rows="2" placeholder="Describe primary tasks performed during the monitoring period..." style="resize:vertical;" oninput="autosave()"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <!-- DOSIMETER PLACEMENT -->
-  <div class="card">
-    <div class="card-header">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-      Dosimeter Placement
-    </div>
-    <div class="card-body">
-      <div class="form-grid">
-        <div class="field">
-          <label>Placement Location</label>
-          <select id="dosPlacement" oninput="autosave()">
-            <option value="">Select...</option>
-            <option>Left shoulder (collar area)</option>
-            <option>Right shoulder (collar area)</option>
-            <option>Left breast pocket</option>
-            <option>Right breast pocket</option>
-            <option>Chest center</option>
-            <option>Belt / waist — left side</option>
-            <option>Belt / waist — right side</option>
-            <option>Hard hat mount</option>
-            <option>Other (see notes)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Microphone Type</label>
-          <select id="micType" oninput="autosave()">
-            <option value="">Select...</option>
-            <option>Omnidirectional, windscreen installed</option>
-            <option>Omnidirectional, no windscreen</option>
-            <option>Top-mounted</option>
-            <option>Remote probe</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Windscreen Used?</label>
-          <select id="windscreen" oninput="autosave()">
-            <option value="">Select...</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Obstructions / Interferences?</label>
-          <select id="obstructions" oninput="autosave()">
-            <option value="">Select...</option>
-            <option value="none">None noted</option>
-            <option value="minor">Minor — noted below</option>
-            <option value="significant">Significant — see notes</option>
-          </select>
-        </div>
-      </div>
-      <div class="section-spacer"></div>
-      <div class="field">
-        <label>Placement Notes / Comments</label>
-        <textarea id="placementNotes" rows="2" placeholder="Note any obstructions, clothing over mic, employee movements, etc." style="resize:vertical;" oninput="autosave()"></textarea>
       </div>
     </div>
   </div>
