@@ -42,6 +42,21 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     return;
   }
 
+  // Per-survey TWA reader, standard-aware. Routes through racTwaFor
+  // (pdf-reports.js) so letters use the same standard chip selection
+  // as the Noise RAC tab they were launched from. Falls back to the
+  // legacy s.results.twa only if racTwaFor isn't loaded yet, so the
+  // letters still render in environments where pdf-reports.js failed
+  // to load.
+  function letterTwaFor(s) {
+    if (typeof racTwaFor === 'function') return racTwaFor(s);
+    var v = parseFloat(s && s.results && s.results.twa);
+    return isNaN(v) ? null : v;
+  }
+  var activeStandard = (typeof racStandard === 'string') ? racStandard : 'ACGIH';
+  var stdLabels = { ACGIH:'ACGIH/NIOSH', OSHA_HC:'OSHA HC', OSHA_PEL:'OSHA PEL', CUSTOM:'Custom' };
+  var stdLabel  = stdLabels[activeStandard] || activeStandard;
+
   // ── 1. Filter surveys ──────────────────────────────────────────────
   var sel = surveys.filter(function(s) {
     var loc = s.employee?.location || '';
@@ -69,7 +84,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
   Object.keys(locGroups).sort().forEach(function(loc) {
     Object.keys(locGroups[loc]).sort().forEach(function(seg) {
       var group = locGroups[loc][seg];
-      var twas  = group.map(function(s){ return parseFloat(s.results?.twa); }).filter(function(n){ return !isNaN(n); });
+      var twas  = group.map(letterTwaFor).filter(function(n){ return n !== null; });
       if (!twas.length) return;
       var stats = (typeof lognormalStats === 'function') ? lognormalStats(twas) : null;
       var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
@@ -77,16 +92,16 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       var personnel = (typeof racPersonnelOverrides !== 'undefined' && racPersonnelOverrides[seg])
                       ? racPersonnelOverrides[seg] : group.length;
       group.forEach(function(s) {
-        var twa = parseFloat(s.results?.twa);
-        if (isNaN(twa)) return;
+        var twa = letterTwaFor(s);
+        if (twa === null) return;
         letters.push({ location: loc, seg: seg, utl: utl, personnel: personnel,
-                        sampleCount: twas.length, survey: s });
+                        sampleCount: twas.length, survey: s, twa: twa });
       });
     });
   });
 
   if (!letters.length) {
-    alert('No SEGs with a calculated UTL were found' + (locationFilter ? ' for this location' : '') + '.\n\nUTL requires at least one valid TWA result per SEG.');
+    alert('No SEGs with a calculated UTL were found' + (locationFilter ? ' for this location' : '') + ' for the ' + stdLabel + ' standard.\n\nUTL requires at least one valid TWA result per SEG. Try switching the Standard chip on the Noise RAC tab.');
     return;
   }
 
@@ -147,7 +162,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     var empName   = pdfSafe((s.employee?.name    || 'Employee').trim());
     var empTitle  = pdfSafe((s.employee?.title   || s.employee?.jobTitle || '').trim());
     var empComp   = pdfSafe((s.employee?.company || s.employee?.employer || '').trim());
-    var twa       = parseFloat(s.results?.twa);
+    var twa       = letter.twa;
     var utl       = letter.utl;
     var n         = letter.sampleCount;
     var personnel = letter.personnel;
@@ -421,6 +436,8 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
       doc.setFont('helvetica','bold'); doc.setFontSize(7.5); setC(GRAY);
       doc.text('UTL CALCULATION SUMMARY', ML + 10, y + 13);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC(GRAY);
+      doc.text('Standard: ' + stdLabel, ML + CW - 10, y + 13, { align: 'right' });
 
       var cols = [ML + 10, ML + 10 + CW * 0.25, ML + 10 + CW * 0.5, ML + 10 + CW * 0.75];
       var labels = ['Samples (n)', 'UTL 95/95', 'SEG Personnel', 'RAC'];
