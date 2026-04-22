@@ -1869,6 +1869,20 @@ function printRAC() {
         doc.text((dose === null || isNaN(dose)) ? '\u2014' : dose.toFixed(1)+'%', dc[5]+4, y+11);
         y += 16;
       });
+
+      // Per-SEG OSHA footnote — only when the active standard chip
+      // is one of the two OSHA options. ACGIH/NIOSH and Custom don't
+      // get this note because 50% dose <-> 85 dBA is an OSHA-specific
+      // equivalence (5 dB exchange rate). Uses ">=" rather than the
+      // Unicode glyph since jsPDF's default Helvetica is WinAnsi-only.
+      if (racStandard === 'OSHA_HC' || racStandard === 'OSHA_PEL') {
+        y = checkY(y, 14);
+        doc.setFont('helvetica','italic'); doc.setFontSize(8);
+        doc.setTextColor(...GRAY);
+        doc.text('A dose of >=50% corresponds to an 8-hour TWA of >=85 dBA, which is the OSHA Action Level triggering HCP enrollment.', L, y + 9);
+        doc.setFont('helvetica','normal');
+        y += 14;
+      }
       y += 20;
     });
 
