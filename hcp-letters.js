@@ -69,8 +69,8 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
       label: 'ACGIH/NIOSH',
       params: 'ER 3 dB / C 85 dBA / T 80 dBA',
       threshold: 85, al: 80,
-      citation: 'the ACGIH Threshold Limit Value (TLV) for noise of 85 dBA as an 8-hr TWA (3 dB exchange rate)',
-      shortCitation: 'the ACGIH TLV of 85 dBA'
+      citation: 'the Department of the Army, Department of Defense Instruction (DoDI) 6055.12 and the ACGIH Threshold Limit Value (TLV) for noise of 85 dBA as an 8-hr TWA (3 dB exchange rate)',
+      shortCitation: 'the DoDI 6055.12 / ACGIH TLV of 85 dBA'
     },
     OSHA_HC: {
       label: 'OSHA HC',
