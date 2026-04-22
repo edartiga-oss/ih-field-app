@@ -387,7 +387,7 @@ body { padding: 20px 18px; }
   flex-wrap: wrap;
 }
 .project-bar label { font-size: 11px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-.project-bar select, .project-bar input {
+.project-bar input {
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.2);
   color: var(--white);
@@ -396,7 +396,6 @@ body { padding: 20px 18px; }
   font-size: 13px;
   font-weight: 500;
 }
-.project-bar select option { background: var(--navy); }
 .project-bar input::placeholder { color: rgba(255,255,255,0.35); }
 
 /* ── SECTION DIVIDER ── */
@@ -544,12 +543,6 @@ body { padding: 20px 18px; }
 <div class="project-bar">
   <label>Project</label>
   <input type="text" id="projectName" placeholder="Enter project / client name" style="min-width:200px; flex:1; max-width:340px;" oninput="saveProjectMeta()">
-  <label>Standard</label>
-  <select id="standardSelect" onchange="saveProjectMeta()">
-    <option value="OSHA">OSHA (5 dB)</option>
-    <option value="ACGIH">ACGIH/NIOSH (3 dB)</option>
-    <option value="BOTH" selected>Both</option>
-  </select>
   <label>Date</label>
   <input type="date" id="projectDate" style="max-width:155px;" oninput="saveProjectMeta()">
 </div>
@@ -2434,7 +2427,7 @@ let equipment = [];
 let deviceNickname = '';
 let currentSurveyId = null;
 let autosaveTimer = null;
-let projectMeta = { name: '', standard: 'BOTH', date: '' };
+let projectMeta = { name: '', date: '' };
 
 const STORAGE_KEY = 'ih_noise_surveys_v2';
 const META_KEY = 'ih_noise_meta_v2';
@@ -2454,13 +2447,10 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
   renderExportList();
   // set today's date as default
   document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
-  // Render Setup 1 (primary) block before syncExchangeRate touches it.
   // Multi-setup data model: setupCount starts at 1, primarySetupIndex at 0,
   // so Setup 1 is always present on a fresh page; Setups 2/3 are added on
   // demand via the "+ Add Setup" buttons.
   renderSetupBlocks();
-  // default exchange rate based on standard
-  syncExchangeRate();
   // Pull latest surveys from Google Sheets on startup
   if (navigator.onLine) setTimeout(pullFromSheets, 1500);
 })();
@@ -2505,13 +2495,16 @@ function saveToStorage() {
 }
 
 function saveProjectMeta() {
-  projectMeta = {
+  // Preserve any legacy fields on projectMeta (e.g. a stored `standard`
+  // from before the dropdown was removed) by spreading existing state
+  // before overwriting the editable ones. Anything the app still reads
+  // comes from the per-tab Standard chip (racStandard / statsStandard),
+  // not from projectMeta.standard — so stale data on disk is benign.
+  projectMeta = Object.assign({}, projectMeta, {
     name: document.getElementById('projectName').value,
-    standard: document.getElementById('standardSelect').value,
     date: document.getElementById('projectDate').value
-  };
+  });
   localStorage.setItem(META_KEY, JSON.stringify(projectMeta));
-  syncExchangeRate();
 }
 
 function loadProjectMeta() {
@@ -2520,22 +2513,9 @@ function loadProjectMeta() {
     if (raw) {
       projectMeta = JSON.parse(raw);
       document.getElementById('projectName').value = projectMeta.name || '';
-      document.getElementById('standardSelect').value = projectMeta.standard || 'BOTH';
       if (projectMeta.date) document.getElementById('projectDate').value = projectMeta.date;
     }
   } catch(e) {}
-}
-
-function syncExchangeRate() {
-  // Apply the top-bar standard hint to the primary setup's exchange rate.
-  // With multi-setup data model, there may be 1-3 setups; we only touch
-  // the primary (setup 1) here since the user picks Exchange explicitly
-  // on each additional setup they add.
-  const std = document.getElementById('standardSelect').value;
-  const ex = document.getElementById('setup1_exchange');
-  if (!ex) return;
-  if (std === 'OSHA') ex.value = '5';
-  else if (std === 'ACGIH') ex.value = '3';
 }
 
 // ── Dosimeter setups (per-setup config: exchange/criterion/weighting/response) ──
@@ -3210,7 +3190,6 @@ function clearFormFields(keepInstruments) {
   resetQADisplay();
   document.getElementById('calBadge').textContent = 'PENDING';
   document.getElementById('calBadge').style.background = '';
-  syncExchangeRate();
 }
 
 function clearForm() {
@@ -4519,7 +4498,7 @@ function buildExcelData(surveysArr) {
     'Survey ID': s.id,
     'Date': s.calibration?.surveyStart?.split('T')[0] || '',
     'Project': s.project?.name || '',
-    'Standard': s.project?.standard || '',
+    'Standard': (typeof activeStandardLabel === 'function') ? activeStandardLabel() : '',
     'Employee Name': s.employee?.name || '',
     'Employee ID': s.employee?.empId || '',
     'Employer': s.employee?.company || '',

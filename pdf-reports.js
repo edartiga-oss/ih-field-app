@@ -270,7 +270,7 @@ function buildPDFDoc(surveysArr) {
     y = grid3([
       ['Project / Client', s.project?.name],
       ['Survey Date', s.project?.date || s.calibration?.surveyStart?.split('T')[0]],
-      ['Standard', s.project?.standard],
+      ['Standard', activeStandardLabel()],
     ], y) + 10;
 
     // Employee
@@ -1162,6 +1162,19 @@ var racPersonnelOverrides = {};
 // with Stats for multi-setup surveys.
 var racStandard = 'ACGIH';
 
+// App-wide label for the active Noise RAC standard. Used by the
+// Survey PDF "Standard" row, the RAC PDF header, and the Excel
+// export "Standard" column — previously these read projectMeta's
+// separate Standard field, but that field was dropped once the
+// per-tab chip took over computation. Defaults to the ACGIH label
+// if STATS_STANDARDS somehow isn't loaded.
+function activeStandardLabel() {
+  if (typeof STATS_STANDARDS !== 'undefined' && STATS_STANDARDS[racStandard]) {
+    return STATS_STANDARDS[racStandard].label;
+  }
+  return 'ACGIH/NIOSH';
+}
+
 function racSetStandard(std) {
   racStandard = std;
   ['ACGIH','OSHA_HC','OSHA_PEL','CUSTOM'].forEach(function(s) {
@@ -1528,13 +1541,14 @@ function printRAC() {
 
     // TWA warning threshold per the project's standard (per stakeholder
     // review: TWA coloring follows the standard's criterion, independent
-    // of the group's RAC). Pulls from STATS_STANDARDS in stats.js so that
-    // adding a new standard there automatically updates this report.
+    // of the group's RAC). Keys off the active Noise RAC chip
+    // (racStandard) so the report's coloring matches whatever standard
+    // drove the UTL/RAC values. Pulls from STATS_STANDARDS in stats.js
+    // so a new standard added there automatically updates this report.
     function getWarningThreshold() {
       var ss = (typeof STATS_STANDARDS !== 'undefined') ? STATS_STANDARDS : null;
       if (!ss) return 85;
-      var std = projectMeta && projectMeta.standard;
-      if (std && ss[std]) return ss[std].pel;
+      if (ss[racStandard]) return ss[racStandard].pel;
       return ss.ACGIH.pel;  // 85 dBA — default / most conservative
     }
     var twaWarnAt = getWarningThreshold();
@@ -1571,8 +1585,8 @@ function printRAC() {
     doc.setFontSize(17); doc.setFont('helvetica','bold');
     doc.text('NOISE RISK ASSESSMENT CODE (RAC) REPORT', L, 26);
     doc.setFontSize(9);  doc.setFont('helvetica','normal');
-    var proj = (projectMeta && projectMeta.name)     ? projectMeta.name     : '';
-    var std  = (projectMeta && projectMeta.standard) ? projectMeta.standard : '';
+    var proj = (projectMeta && projectMeta.name) ? projectMeta.name : '';
+    var std  = activeStandardLabel();
     doc.text((proj ? proj + '  |  ' : '') + (std ? std + '  |  ' : '') + 'Printed: ' + new Date().toLocaleString(), L, 44);
     addPageFooter();
 
