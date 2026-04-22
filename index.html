@@ -3452,6 +3452,20 @@ function populateForm(s) {
   // Load per-column measured values if present on the saved survey (new
   // schema), otherwise migrate from legacy single-field values into the
   // per-column inputs so historic surveys open cleanly.
+  // Reset all mv* inputs before loading so stale values from a
+  // previously-open survey can't leak into setups where this survey's
+  // measurements[] entry is missing or partially populated.
+  // clearFormFields doesn't clear these because their ids are dynamic
+  // (mvDose_0..2 etc.) — do it explicitly here.
+  for (var mc = 0; mc < 3; mc++) {
+    var _d = document.getElementById('mvDose_' + mc);       if (_d) _d.value = '';
+    var _l = document.getElementById('mvLavg_' + mc);       if (_l) _l.value = '';
+    var _t = document.getElementById('mvReportTWA_' + mc);  if (_t) _t.value = '';
+    var _o = document.getElementById('mvCalcTwaOverride_' + mc);
+    if (_o) { _o.value = ''; _o.style.display = 'none'; }
+    var _dsp = document.getElementById('mvCalcTwaDisplay_' + mc);
+    if (_dsp) { _dsp.style.display = ''; _dsp.textContent = '—'; }
+  }
   var savedMeasurements = (s.results && Array.isArray(s.results.measurements)) ? s.results.measurements : [];
   for (var mi = 0; mi < setupCount; mi++) {
     var m = savedMeasurements[mi] || null;
@@ -3651,6 +3665,10 @@ function upsertSurvey(data) {
 function editSurvey(id) {
   const s = surveys.find(x => x.id === id);
   if (!s) return;
+  // Cancel any pending autosave from the previously-open survey so it
+  // can't fire mid-populate and silently overwrite this survey's saved
+  // data (setting status=draft and writing partial form state).
+  clearTimeout(autosaveTimer);
   currentSurveyId = id;
   clearFormFields();
   populateForm(s);
@@ -4490,10 +4508,22 @@ function checkLASmax() {
 // ═══════════════════════════════════════════════════════════
 function autosave() {
   clearTimeout(autosaveTimer);
+  // Capture the id at schedule time. If currentSurveyId changes before
+  // the timer fires (user navigated to another survey via Edit), the
+  // stale autosave would otherwise write this form's partial state
+  // into the wrong record.
+  const scheduledId = currentSurveyId;
   autosaveTimer = setTimeout(() => {
-    if (!currentSurveyId) return;
+    if (!currentSurveyId || currentSurveyId !== scheduledId) return;
     const data = getFormData();
-    data.status = 'draft';
+    // Preserve the survey's existing status if it was already finalized
+    // ('complete' or 'qa-fail'). Unconditionally marking 'draft' silently
+    // demotes completed surveys — the explicit Save Draft / Save &
+    // Finalize buttons are the only things that should change status.
+    const existing = surveys.find(s => s.id === currentSurveyId);
+    data.status = (existing && (existing.status === 'complete' || existing.status === 'qa-fail'))
+      ? existing.status
+      : 'draft';
     upsertSurvey(data);
     saveToStorage();
   }, 1500);
