@@ -218,7 +218,9 @@ function buildPDFDoc(surveysArr) {
       doc.setTextColor(255,255,255);
       doc.setFontSize(11); doc.setFont('helvetica','bold');
       doc.text(title.toUpperCase(), 40, y2 + 12);
-      return y2 + 36;
+      // Bar (18pt) + 10pt clearance before the next baseline-anchored
+      // label. Was +36 (18pt clearance) which left a lot of dead space.
+      return y2 + 28;
     }
 
     function row(label, value, x, y2, w) {
@@ -228,7 +230,7 @@ function buildPDFDoc(surveysArr) {
       const valStr = pdfSafeText(value) || '\u2014';
       const maxW = (w || colW) - 6;
       const wrapped = doc.splitTextToSize(valStr, maxW);
-      // Render up to 2 lines. grid3() reserves 38pt per row which has
+      // Render up to 2 lines. grid3() reserves 30pt per row which has
       // room for a value-line plus one wrap line (~10-11pt each) without
       // colliding with the next row. Previously only wrapped[0] was
       // drawn, so long values like "Significantly Above PEL (>=100 dBA)"
@@ -240,18 +242,22 @@ function buildPDFDoc(surveysArr) {
       if (wrapped.length > 1) {
         var secondLine = wrapped[1];
         if (wrapped.length > 2) secondLine = secondLine.replace(/\s*\S*$/, '') + ' \u2026';
-        doc.text(secondLine, x, y2 + 23);
+        doc.text(secondLine, x, y2 + 21);
       }
       return y2;
     }
 
     function grid3(fields, y2) {
+      // Row stride tightened to 30pt (was 38) to cut excess whitespace.
+      // label at y2 (~10pt tall) + value at y2+12 + optional wrap at
+      // y2+21 fits in 30pt with ~7pt cushion before the next row.
+      const ROW_STRIDE = 30;
       fields.forEach((f, i) => {
         const col = i % 3;
         const rowN = Math.floor(i / 3);
-        row(f[0], f[1], 36 + col * colW, y2 + rowN * 38, colW - 10);
+        row(f[0], f[1], 36 + col * colW, y2 + rowN * ROW_STRIDE, colW - 10);
       });
-      return y2 + Math.ceil(fields.length / 3) * 38;
+      return y2 + Math.ceil(fields.length / 3) * ROW_STRIDE;
     }
 
     // Page-break guard: if there isn't at least `needed` pt of vertical room
