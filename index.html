@@ -3567,18 +3567,34 @@ function onSegSelectChange() {
   var pOth = document.getElementById('empProcessOther');
   if (!sel) return;
 
-  // Handle Other free-write
+  // Handle Other free-write. Previously the process dropdown was also
+  // hidden when SEG was Other, leaving the user with no way to pick
+  // (or free-type) a process. Now we keep the process dropdown and
+  // populate it with the union of every SEG's processes so a freeform
+  // SEG still has a useful list — plus the 'Other' sentinel for
+  // free-text entry via the empProcessOther input.
   if (sel.value === 'Other') {
     if (oth) { oth.style.display = ''; oth.focus(); }
-    if (proc) proc.style.display = 'none';
-    if (pOth) { pOth.style.display = 'none'; pOth.value = ''; }
   } else {
     if (oth) { oth.style.display = 'none'; oth.value = ''; }
   }
 
-  // Populate process dropdown for selected SEG
+  // Populate process dropdown for selected SEG.
   if (proc) {
-    var processes = sel.value && SEG_PROCESSES[sel.value] ? SEG_PROCESSES[sel.value] : [];
+    var processes;
+    if (sel.value === 'Other') {
+      // Union of all processes across every SEG, de-duplicated and
+      // alphabetized. Strip 'Other' from each list before merging and
+      // append a single 'Other' at the end as the free-text sentinel.
+      var union = new Set();
+      Object.keys(SEG_PROCESSES).forEach(function(k) {
+        SEG_PROCESSES[k].forEach(function(p) { if (p !== 'Other') union.add(p); });
+      });
+      processes = Array.from(union).sort();
+      processes.push('Other');
+    } else {
+      processes = sel.value && SEG_PROCESSES[sel.value] ? SEG_PROCESSES[sel.value] : [];
+    }
     if (processes.length) {
       proc.innerHTML = '<option value="">Select process...</option>' +
         processes.map(function(p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
