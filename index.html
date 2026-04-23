@@ -3040,8 +3040,13 @@ function mirrorMeasuredValuesToLegacy() {
     var n = i + 1;
     var exEl = document.getElementById('setup' + n + '_exchange');
     var crEl = document.getElementById('setup' + n + '_criterion');
+    var thEl = document.getElementById('setup' + n + '_threshold');
     if (!exEl || !crEl) continue;
-    var std = inferStandardForSetup(exEl.value, crEl.value);
+    // Pass threshold so Q5/C90/T80 (OSHA HC) and Q5/C90/T90 (OSHA PEL)
+    // route to their own slotKeys. Without it, the 2-tuple classifier
+    // collapses both into OSHA PEL and the OSHA HC mirror slot stays
+    // empty — which breaks the Verify tab's per-standard comparison.
+    var std = inferStandardForSetup(exEl.value, crEl.value, thEl ? thEl.value : '');
     var dose = (document.getElementById('mvDose_' + i) || {}).value || '';
     var lavg = (document.getElementById('mvLavg_' + i) || {}).value || '';
 
@@ -3080,8 +3085,9 @@ function migrateLegacyMeasuredValuesToColumns() {
     var n = i + 1;
     var exEl = document.getElementById('setup' + n + '_exchange');
     var crEl = document.getElementById('setup' + n + '_criterion');
+    var thEl = document.getElementById('setup' + n + '_threshold');
     if (!exEl || !crEl) continue;
-    var std = inferStandardForSetup(exEl.value, crEl.value);
+    var std = inferStandardForSetup(exEl.value, crEl.value, thEl ? thEl.value : '');
 
     var mvDose = document.getElementById('mvDose_' + i);
     var mvLavg = document.getElementById('mvLavg_' + i);
@@ -6736,29 +6742,65 @@ function verifyCompareFields(survey, report) {
     }
   }
 
-  // Select the app-side dose/lavg for the active standard
-  var _appDose = (function() {
-    if (verifyStandard === 'ACGIH') {
-      // Use ACGIH-specific field if populated, else fall back to primary res.dose
-      // (legacy surveys only have res.dose which was typically recorded under ACGIH)
-      return res.acgihDose || res.dose || null;
+  // Select the app-side dose/lavg/TWA for the active standard. Primary
+  // source is the per-setup measurements[] entry whose (ex, cr, th)
+  // triple matches the active standard — that's the value the IH
+  // actually entered in the Dosimetry Results column for that standard,
+  // unaffected by the legacy flat-field mirror path.
+  //
+  // Flat res.acgihDose / res.oshaHcDose / etc. are only used as
+  // fallbacks for legacy surveys that predate the measurements[]
+  // schema. For TWA the legacy flat field is just res.twa (the primary
+  // setup's TWA), so for non-primary verifyStandard modes on legacy
+  // surveys TWA is unknowable — return null so the comparison shows
+  // "—" instead of a misleading match against the primary's value.
+  var _appMeas = (function() {
+    if (verifyStandard === 'APP') return null;
+    var setups = (dos && Array.isArray(dos.setups)) ? dos.setups : [];
+    var meas   = (Array.isArray(res.measurements))  ? res.measurements : [];
+    for (var _mi = 0; _mi < setups.length && _mi < meas.length; _mi++) {
+      var _ex = parseFloat(setups[_mi].exchange);
+      var _cr = parseFloat(setups[_mi].criterion);
+      var _th = parseFloat(setups[_mi].threshold);
+      var _cls = null;
+      if      (_ex === 3 && _cr === 85 && _th === 80) _cls = 'ACGIH';
+      else if (_ex === 5 && _cr === 90 && _th === 80) _cls = 'OSHA_HC';
+      else if (_ex === 5 && _cr === 90 && _th === 90) _cls = 'OSHA_PEL';
+      if (_cls === verifyStandard) return meas[_mi];
     }
-    if (verifyStandard === 'OSHA_HC')  return res.oshaHcDose  || null; // no fallback — wrong standard
-    if (verifyStandard === 'OSHA_PEL') return res.oshaPelDose || null; // no fallback — wrong standard
+    return null;
+  })();
+
+  var _appDose = (function() {
+    if (_appMeas && _appMeas.dose) return _appMeas.dose;
+    if (verifyStandard === 'ACGIH') return res.acgihDose || res.dose || null;
+    if (verifyStandard === 'OSHA_HC')  return res.oshaHcDose  || null;
+    if (verifyStandard === 'OSHA_PEL') return res.oshaPelDose || null;
     return res.dose || null; // APP mode — use primary field
   })();
   var _appLavg = (function() {
-    if (verifyStandard === 'ACGIH') {
-      return res.acgihLavg || res.lavg || null;
-    }
+    if (_appMeas && _appMeas.lavg) return _appMeas.lavg;
+    if (verifyStandard === 'ACGIH') return res.acgihLavg || res.lavg || null;
     if (verifyStandard === 'OSHA_HC')  return res.oshaHcLavg  || null;
     if (verifyStandard === 'OSHA_PEL') return res.oshaPelLavg || null;
     return res.lavg || null; // APP mode
   })();
+  var _appTWA = (function() {
+    if (verifyStandard === 'APP') return res.twa || res.dosReportTWA || null;
+    if (_appMeas && _appMeas.reportTWA) return _appMeas.reportTWA;
+    // Legacy single-setup surveys — their one TWA in res.twa is only
+    // meaningful when verifyStandard matches that setup's classification.
+    // We can't tell without setup metadata, so return the primary TWA for
+    // ACGIH (the typical legacy default) and null for the OSHA modes so
+    // the comparison surfaces "—" instead of silently matching ACGIH's
+    // TWA against OSHA's report TWA.
+    if (verifyStandard === 'ACGIH') return res.twa || res.dosReportTWA || null;
+    return null;
+  })();
 
-  numCheck(res.twa     || res.dosReportTWA, _rptTWA,  0.5, 'twa');
-  numCheck(_appDose,                         _rptDose, 5.0, 'dose');  // ±5% — firmware display rounding
-  numCheck(_appLavg,                         _rptLavg, 1.0, 'lavg');  // ±1 dB — threshold differences
+  numCheck(_appTWA,  _rptTWA,  0.5, 'twa');
+  numCheck(_appDose, _rptDose, 5.0, 'dose');  // ±5% — firmware display rounding
+  numCheck(_appLavg, _rptLavg, 1.0, 'lavg');  // ±1 dB — threshold differences
   numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
   numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
 
