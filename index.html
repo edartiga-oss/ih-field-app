@@ -545,6 +545,7 @@ body { padding: 20px 18px; }
   <input type="text" id="projectName" placeholder="Enter project / client name" style="min-width:200px; flex:1; max-width:340px;" oninput="saveProjectMeta()">
   <label>Date</label>
   <input type="date" id="projectDate" style="max-width:155px;" oninput="saveProjectMeta()">
+  <button type="button" onclick="openIssuerModal()" title="Configure the issuer info that appears in the header of Hearing Notification Letters" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:var(--white); padding:6px 12px; border-radius:var(--radius); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">HCP Issuer ⚙</button>
 </div>
 
 <div class="nav-tabs">
@@ -1435,6 +1436,39 @@ body { padding: 20px 18px; }
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" onclick="closeModal('equipModal')">Cancel</button>
       <button class="btn btn-teal btn-sm" onclick="saveEquipment()">Save Equipment</button>
+    </div>
+  </div>
+</div>
+
+<!-- HCP ISSUER MODAL -->
+<!-- Configures the org / sub-office / address that appear in the
+     header banner of Hearing Notification Letter PDFs. Persisted to
+     localStorage under ISSUER_KEY; used only by hcp-letters.js. -->
+<div class="modal-overlay" id="issuerModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <span>HCP Letter Issuer Information</span>
+      <button class="modal-close" onclick="closeModal('issuerModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px; color:var(--text2); margin-bottom:14px;">These three lines render at the top of every Hearing Notification Letter PDF. Other reports (Survey PDF, Noise RAC) are not affected.</div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Organization</label>
+        <input type="text" id="issuerOrg" placeholder="e.g., National Guard Bureau">
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Sub-office / Department</label>
+        <input type="text" id="issuerSubOffice" placeholder="e.g., Regional Industrial Hygiene — Southeast Office">
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Address</label>
+        <input type="text" id="issuerAddress" placeholder="e.g., 510 Plaza Drive, Suite 1530, College Park, GA 30349">
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-outline btn-sm" onclick="resetIssuerMeta()">Reset to defaults</button>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('issuerModal')">Cancel</button>
+        <button class="btn btn-teal btn-sm" onclick="saveIssuerMeta()">Save</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2442,6 +2476,7 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
   loadFromStorage();
   loadEquipmentFromStorage();
   loadProjectMeta();
+  loadIssuerMeta();
   loadDeviceNickname();
   renderSurveyList();
   renderExportList();
@@ -2492,6 +2527,58 @@ function saveToStorage() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(surveys));
   } catch(e) { showToast('Storage full — consider exporting data', 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HCP LETTER ISSUER INFO
+//  Org / sub-office / address printed at the top of every
+//  Hearing Notification Letter PDF. Persisted to localStorage so
+//  it sticks across sessions. Defaults match the original
+//  hardcoded values so existing installs see no change until they
+//  open the modal and save new values.
+// ═══════════════════════════════════════════════════════════
+const ISSUER_KEY = 'ihFieldIssuerMeta';
+const ISSUER_DEFAULTS = {
+  org:       'NATIONAL GUARD BUREAU',
+  subOffice: 'REGIONAL INDUSTRIAL HYGIENE -- SOUTHEAST OFFICE',
+  address:   '510 PLAZA DRIVE, SUITE 1530, COLLEGE PARK, GA  30349'
+};
+let issuerMeta = Object.assign({}, ISSUER_DEFAULTS);
+
+function loadIssuerMeta() {
+  try {
+    const raw = localStorage.getItem(ISSUER_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // Object.assign: fall back to defaults for any missing field so a
+      // partial save can't blank out the header banner.
+      issuerMeta = Object.assign({}, ISSUER_DEFAULTS, saved);
+    }
+  } catch(e) {}
+}
+
+function openIssuerModal() {
+  document.getElementById('issuerOrg').value       = issuerMeta.org       || '';
+  document.getElementById('issuerSubOffice').value = issuerMeta.subOffice || '';
+  document.getElementById('issuerAddress').value   = issuerMeta.address   || '';
+  document.getElementById('issuerModal').classList.add('open');
+}
+
+function saveIssuerMeta() {
+  issuerMeta = {
+    org:       document.getElementById('issuerOrg').value.trim(),
+    subOffice: document.getElementById('issuerSubOffice').value.trim(),
+    address:   document.getElementById('issuerAddress').value.trim()
+  };
+  try { localStorage.setItem(ISSUER_KEY, JSON.stringify(issuerMeta)); } catch(e) {}
+  closeModal('issuerModal');
+  showToast('Issuer info saved — applies to next HCP letter export.', 'success');
+}
+
+function resetIssuerMeta() {
+  document.getElementById('issuerOrg').value       = ISSUER_DEFAULTS.org;
+  document.getElementById('issuerSubOffice').value = ISSUER_DEFAULTS.subOffice;
+  document.getElementById('issuerAddress').value   = ISSUER_DEFAULTS.address;
 }
 
 function saveProjectMeta() {

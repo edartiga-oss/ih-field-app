@@ -241,11 +241,17 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     // ── HEADER BAND ────────────────────────────────────────────────
     fillRect(0, 0, W, 58, NAVY);
 
+    // Issuer banner — org / sub-office / address, configurable via the
+    // "HCP Issuer ⚙" button in the project bar. issuerMeta is loaded on
+    // page init from localStorage by index.html; fall back to the
+    // original hardcoded values if it isn't defined for any reason so
+    // the letter still renders.
+    var _im = (typeof issuerMeta === 'object' && issuerMeta) ? issuerMeta : {};
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); setC(TEAL);
-    doc.text('NATIONAL GUARD BUREAU', ML, 18);
+    doc.text(pdfSafe(_im.org       || 'NATIONAL GUARD BUREAU'), ML, 18);
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5); setC([165, 195, 215]);
-    doc.text('REGIONAL INDUSTRIAL HYGIENE -- SOUTHEAST OFFICE', ML, 29);
-    doc.text('510 PLAZA DRIVE, SUITE 1530, COLLEGE PARK, GA  30349', ML, 40);
+    doc.text(pdfSafe(_im.subOffice || 'REGIONAL INDUSTRIAL HYGIENE -- SOUTHEAST OFFICE'), ML, 29);
+    doc.text(pdfSafe(_im.address   || '510 PLAZA DRIVE, SUITE 1530, COLLEGE PARK, GA  30349'), ML, 40);
 
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); setC(TEAL);
     doc.text('IH FIELD', W - MR, 18, { align: 'right' });
