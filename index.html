@@ -6344,6 +6344,34 @@ function verifyExtractFieldsTSI(text, filename) {
     // Normalize all unicode whitespace flavors to a regular space.
     .replace(/[\u00A0\u2007\u202F]/g, ' ');
 
+  // TSI font CMap quirk: real-world PDFs (per the diagnostic log
+  // gathered from a failed parse) map both the ti AND fi ligature
+  // glyphs to U+0030 (digit zero). So "Description" comes out as
+  // "Descrip0on", "PKtime" as "PK0me", "Verification" as
+  // "Veri0ca0on", "Christian" as "Chris0an", and so on. Replace any
+  // 0 that sits between two letters with "ti" — covers the vast
+  // majority of these cases. The rare original-was-fi cases (e.g.
+  // "Verification" becoming "Vertication") are tolerated by the
+  // calibration regex below, which matches "Veri\w+" rather than
+  // the literal word.
+  //
+  // Bare digit 0s in serials, doses, dates, and times are untouched
+  // because they're surrounded by other digits (or boundaries),
+  // never by letters on both sides.
+  t = t.replace(/([a-zA-Z])0(?=[a-zA-Z])/g, '$1ti');
+
+  // TSI extraction also concatenates camelCase labels and value+unit
+  // tokens — "SerialNumber" not "Serial Number", "ExchangeRate" not
+  // "Exchange Rate", "114dB" not "114 dB", "20266:53:29AM" not
+  // "2026 6:53:29 AM". Insert spaces at the boundaries so the
+  // existing label-list / value+unit regexes match without having
+  // to rewrite every pattern.
+  t = t
+    .replace(/([a-z]{2,})([A-Z])/g, '$1 $2')          // camelCase: SerialNumber → Serial Number; keeps dB / m³ / kg intact
+    .replace(/([A-Za-z])(\()/g, '$1 $2')             // "Pdose(8:00)" -> "Pdose (8:00)"
+    .replace(/(\d)([A-Za-z])/g, '$1 $2')             // "114dB" -> "114 dB", "29AM" -> "29 AM"
+    .replace(/(\d{4})(\d{1,2}:)/g, '$1 $2');        // "20266:53" -> "2026 6:53"
+
   // Letter-spacing collapse: when PDF.js extracts character-level
   // glyphs whose x-gaps trip the 30%-font-size space-insertion
   // heuristic in verifyParsePDF, the rendered line ends up as
@@ -6500,7 +6528,7 @@ function verifyExtractFieldsTSI(text, filename) {
     var re = new RegExp(
       '\\b' + spec.lbl +
       '\\s+(\\d)\\s+' +
-      '([\\d.]+|True|False|SLOW|FAST|FastFAST|A|C|Z|ACGIH(?:\\s*/\\s*NIOSH)?|OSHA\\s+HC|OSHA\\s+PEL|Custom)' +
+      '(OSHA\\s+PEL|OSHA\\s+HC|ACGIH(?:\\s*/\\s*NIOSH)?|Custom|False|True|SLOW|FastFAST|FAST|[\\d.]+|A|C|Z)' +
       unitPart, 'g');
     var m;
     while ((m = re.exec(t)) !== null) set(parseInt(m[1], 10), spec.key, m[2]);
@@ -6515,8 +6543,13 @@ function verifyExtractFieldsTSI(text, filename) {
   // ── Calibration History ──
   // Pre-cal "Calibration": optionally trailed by calibrator metadata + Deviation.
   // Post-cal "Verification": Level only (Deviation column is blank).
-  var preRe  = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Calibration\s+([\d.]+)(?:\s+\S+\s+\S+\s+\d{1,2}\/\d{1,2}\/\d{4})?\s*([\d.]+)?/i;
-  var postRe = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Verification\s+([\d.]+)/i;
+  // Calib\w+ and Veri\w+ instead of literal "Calibration" /
+  // "Verification" because TSI's CMap maps both ti AND fi to U+0030,
+  // so our (letter)0(letter)→ti substitution above produces
+  // "Vertication" from "Veri0ca0on" — the first 0 was originally fi.
+  // The \w+ pattern catches either form.
+  var preRe  = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Calib\w+\s+([\d.]+)(?:\s+\S+\s+\S+\s+\d{1,2}\/\d{1,2}\/\d{4})?\s*([\d.]+)?/i;
+  var postRe = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Veri\w+\s+([\d.]+)/i;
   var preM  = t.match(preRe);
   var postM = t.match(postRe);
 
