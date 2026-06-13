@@ -6679,8 +6679,15 @@ function verifyExtractFieldsTSI(text, filename) {
   // so our (letter)0(letter)→ti substitution above produces
   // "Vertication" from "Veri0ca0on" — the first 0 was originally fi.
   // The \w+ pattern catches either form.
-  var preRe  = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Calib\w+\s+([\d.]+)(?:\s+\S+\s+\S+\s+\d{1,2}\/\d{1,2}\/\d{4})?\s*([\d.]+)?/i;
-  var postRe = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Veri\w+\s+([\d.]+)/i;
+  // Make the date / time / AM/PM prefix OPTIONAL. PDF extraction
+  // yields the calibration row as one flat line (date + time + AM/PM +
+  // Calibration + level + ...), but DOCX extraction (mammoth) puts each
+  // table cell on its own line separated by \n\n — so the prefix
+  // arrives split across earlier "lines" and the strict pattern misses
+  // every DOCX report. Capture-group indices stay the same: [4] = level,
+  // [5] = optional deviation for preRe; [4] = level for postRe.
+  var preRe  = /(?:(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*)?Calib\w+\s+([\d.]+)(?:\s+\S+\s+\S+\s+\d{1,2}\/\d{1,2}\/\d{4})?\s*([\d.]+)?/i;
+  var postRe = /(?:(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*)?Veri\w+\s+([\d.]+)/i;
   var preM  = t.match(preRe);
   var postM = t.match(postRe);
   // Diagnostic — only fires when calibration parse failed despite the
