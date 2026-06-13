@@ -545,6 +545,7 @@ body { padding: 20px 18px; }
   <input type="text" id="projectName" placeholder="Enter project / client name" style="min-width:200px; flex:1; max-width:340px;" oninput="saveProjectMeta()">
   <label>Date</label>
   <input type="date" id="projectDate" style="max-width:155px;" oninput="saveProjectMeta()">
+  <button type="button" onclick="openSheetsModal()" title="Configure the Google Sheets endpoint this device syncs to" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:var(--white); padding:6px 12px; border-radius:var(--radius); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">Sheets ⚙</button>
   <button type="button" onclick="openIssuerModal()" title="Configure the issuer info that appears in the header of Hearing Notification Letters" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:var(--white); padding:6px 12px; border-radius:var(--radius); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">HCP Issuer ⚙</button>
 </div>
 
@@ -1468,6 +1469,40 @@ body { padding: 20px 18px; }
         <button class="btn btn-outline btn-sm" onclick="resetIssuerMeta()">Reset to defaults</button>
         <button class="btn btn-outline btn-sm" onclick="closeModal('issuerModal')">Cancel</button>
         <button class="btn btn-teal btn-sm" onclick="saveIssuerMeta()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GOOGLE SHEETS MODAL -->
+<!-- Configures the Apps Script web app URL the Pull / Push / Delete /
+     Sync paths POST to. Persisted to localStorage under SHEETS_KEY so a
+     device can be retargeted to a different sheet without redeploying. -->
+<div class="modal-overlay" id="sheetsModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <span>Google Sheets Endpoint</span>
+      <button class="modal-close" onclick="closeModal('sheetsModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px; color:var(--text2); margin-bottom:14px;">
+        Paste the Apps Script web app URL bound to your sheet. To get one:
+        <ol style="margin:6px 0 0 18px; padding:0; font-size:12px; color:var(--text2);">
+          <li>Open the Apps Script project for your Sheet.</li>
+          <li>Click <strong>Deploy → New deployment</strong>, type <em>Web app</em>, set Access to <em>Anyone</em>.</li>
+          <li>Copy the resulting <code style="background:var(--surface2); padding:1px 4px; border-radius:3px;">https://script.google.com/macros/s/&hellip;/exec</code> URL and paste it below.</li>
+        </ol>
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Apps Script Web App URL</label>
+        <input type="url" id="sheetsUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:var(--mono); font-size:12px;">
+        <div id="sheetsUrlNote" style="font-size:11px; color:var(--text3); margin-top:6px;">Affects Pull / Push / Delete / Sync on this device only.</div>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="resetSheetsUrl()">Reset to default</button>
+        <button class="btn btn-outline btn-sm" onclick="testSheetsUrl()">Test connection</button>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('sheetsModal')">Cancel</button>
+        <button class="btn btn-teal btn-sm" onclick="saveSheetsUrl()">Save</button>
       </div>
     </div>
   </div>
@@ -2467,7 +2502,60 @@ const STORAGE_KEY = 'ih_noise_surveys_v2';
 const META_KEY = 'ih_noise_meta_v2';
 const EQUIP_KEY = 'ih_noise_equipment_v1';
 const DEVICE_KEY = 'ih_device_nickname_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsym__2GhktyMtexOsK6YvutTVSbNo8YWNaP3Eg1pKQG4yQmQ/exec';
+// Apps Script web app URL that the Pull / Push / Delete / Sync paths
+// POST to. SHEETS_URL_DEFAULT is the original deployment; the actual
+// runtime URL is looked up via getSheetsUrl(), which checks
+// localStorage[SHEETS_URL_KEY] first so users can retarget the app at a
+// different sheet without a code change. Configured via the
+// "Sheets ⚙" button in the project bar.
+const SHEETS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsym__2GhktyMtexOsK6YvutTVSbNo8YWNaP3Eg1pKQG4yQmQ/exec';
+const SHEETS_URL_KEY = 'ihFieldSheetsUrl';
+function getSheetsUrl() {
+  try {
+    const stored = (localStorage.getItem(SHEETS_URL_KEY) || '').trim();
+    if (stored) return stored;
+  } catch(e) {}
+  return SHEETS_URL_DEFAULT;
+}
+function openSheetsModal() {
+  document.getElementById('sheetsUrlInput').value = getSheetsUrl();
+  const isDefault = getSheetsUrl() === SHEETS_URL_DEFAULT;
+  const note = document.getElementById('sheetsUrlNote');
+  if (note) note.textContent = isDefault
+    ? 'Currently using the default endpoint. Paste a new URL to retarget this device.'
+    : 'Currently using a custom endpoint. Reset to default to restore.';
+  document.getElementById('sheetsModal').classList.add('open');
+}
+function saveSheetsUrl() {
+  const v = (document.getElementById('sheetsUrlInput').value || '').trim();
+  if (!v) {
+    try { localStorage.removeItem(SHEETS_URL_KEY); } catch(e) {}
+    showToast('Endpoint reset to default.', 'success');
+  } else {
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(v)) {
+      showToast('That doesn\'t look like an Apps Script /exec URL. Check the format and try again.', 'error');
+      return;
+    }
+    try { localStorage.setItem(SHEETS_URL_KEY, v); } catch(e) {}
+    showToast('Sheets endpoint saved.', 'success');
+  }
+  closeModal('sheetsModal');
+}
+function resetSheetsUrl() {
+  document.getElementById('sheetsUrlInput').value = SHEETS_URL_DEFAULT;
+  const note = document.getElementById('sheetsUrlNote');
+  if (note) note.textContent = 'Click Save to commit the reset.';
+}
+function testSheetsUrl() {
+  const v = (document.getElementById('sheetsUrlInput').value || '').trim() || SHEETS_URL_DEFAULT;
+  showToast('Pinging endpoint…');
+  fetch(v + (v.indexOf('?') > -1 ? '&' : '?') + 't=' + Date.now(), { method: 'GET', redirect: 'follow' })
+    .then(function(r) {
+      if (r.ok) showToast('Endpoint responded ' + r.status + ' OK', 'success');
+      else showToast('Endpoint responded ' + r.status + ' — check the URL', 'error');
+    })
+    .catch(function(e) { showToast('Endpoint unreachable: ' + (e.message || e), 'error'); });
+}
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
@@ -5670,8 +5758,8 @@ function updateInventoryBadge() {
 //  DELETE FROM GOOGLE SHEETS
 // ═══════════════════════════════════════════════════════════
 function deleteFromSheets(surveyId) {
-  if (!SHEETS_URL || !navigator.onLine) return;
-  fetch(SHEETS_URL, {
+  if (!getSheetsUrl() || !navigator.onLine) return;
+  fetch(getSheetsUrl(), {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'application/json' },
@@ -5850,9 +5938,9 @@ function setSyncStatus(state) {
 }
 
 function pullFromSheets() {
-  if (!SHEETS_URL || !navigator.onLine) return;
+  if (!getSheetsUrl() || !navigator.onLine) return;
   setSyncStatus('pulling');
-  fetch(SHEETS_URL + '?t=' + Date.now())
+  fetch(getSheetsUrl() + '?t=' + Date.now())
     .then(r => r.json())
     .then(data => {
       if (!data.success) { setSyncStatus('error'); return; }
@@ -5927,7 +6015,7 @@ function pullFromSheets() {
 }
 
 function syncToSheets(surveyData) {
-  if (!SHEETS_URL || !navigator.onLine) {
+  if (!getSheetsUrl() || !navigator.onLine) {
     if (!navigator.onLine) setSyncStatus('offline');
     queueSync(surveyData);
     return;
@@ -5936,7 +6024,7 @@ function syncToSheets(surveyData) {
   const payload = Object.assign({}, surveyData, {
     deviceInfo: navigator.userAgent.substring(0, 80)
   });
-  fetch(SHEETS_URL, {
+  fetch(getSheetsUrl(), {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'application/json' },
@@ -5965,7 +6053,7 @@ function syncAllToSheets() {
     }
     const s = queue.shift();
     const payload = Object.assign({}, s, { deviceInfo: navigator.userAgent.substring(0, 80) });
-    fetch(SHEETS_URL, {
+    fetch(getSheetsUrl(), {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
@@ -6007,10 +6095,10 @@ window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(
 //  EQUIPMENT SYNC
 // ═══════════════════════════════════════════════════════════
 function syncEquipToSheets(item) {
-  if (!SHEETS_URL || !item) return;
+  if (!getSheetsUrl() || !item) return;
   const payload = Object.assign({}, item, { _type: 'equipment', updatedAt: new Date().toISOString() });
   if (!navigator.onLine) { queueEquipSync(item); return; }
-  fetch(SHEETS_URL, {
+  fetch(getSheetsUrl(), {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'application/json' },
@@ -6021,7 +6109,7 @@ function syncEquipToSheets(item) {
 }
 
 function deleteEquipFromSheets(id) {
-  if (!SHEETS_URL) return;
+  if (!getSheetsUrl()) return;
   const payload = { _action: 'delete', _type: 'equipment', id: id };
   if (!navigator.onLine) {
     try {
@@ -6031,7 +6119,7 @@ function deleteEquipFromSheets(id) {
     } catch(e) {}
     return;
   }
-  fetch(SHEETS_URL, {
+  fetch(getSheetsUrl(), {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'application/json' },
@@ -6086,7 +6174,7 @@ function syncAllEquipToSheets() {
     }
     var item = queue.shift();
     var payload = Object.assign({}, item, { _type: 'equipment', updatedAt: new Date().toISOString() });
-    fetch(SHEETS_URL, {
+    fetch(getSheetsUrl(), {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
