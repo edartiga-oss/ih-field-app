@@ -3901,10 +3901,10 @@ function renderSurveyList() {
       <div class="survey-card-right">
         <span class="status-badge ${cls}">${lbl}</span>
         <div style="display:flex; gap:6px; margin-top:4px;">
-          <button class="btn btn-outline btn-sm" onclick="editSurvey('${s.id}')">Edit</button>
-          <button class="btn btn-outline btn-sm" onclick="verifySingleSurvey('${s.id}')" title="Verify against instrument report" style="color:var(--teal);">Verify</button>
-          ${(s.status === 'complete' || s.status === 'qa-fail') ? `<button class="btn btn-outline btn-sm" onclick="exportSinglePDF('${s.id}')" title="Export this survey as PDF" style="color:var(--teal);">PDF</button>` : ''}
-          <button class="btn btn-danger btn-sm" onclick="deleteSurvey('${s.id}')">Del</button>
+          <button class="btn btn-outline btn-sm" onclick="editSurvey('${escJsAttr(s.id)}')">Edit</button>
+          <button class="btn btn-outline btn-sm" onclick="verifySingleSurvey('${escJsAttr(s.id)}')" title="Verify against instrument report" style="color:var(--teal);">Verify</button>
+          ${(s.status === 'complete' || s.status === 'qa-fail') ? `<button class="btn btn-outline btn-sm" onclick="exportSinglePDF('${escJsAttr(s.id)}')" title="Export this survey as PDF" style="color:var(--teal);">PDF</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteSurvey('${escJsAttr(s.id)}')">Del</button>
         </div>
       </div>
     </div>`;
@@ -5020,6 +5020,26 @@ function updateExportIHCount() {
 // ═══════════════════════════════════════════════════════════
 function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Escape a value so it can be embedded as a single-quoted JS string
+// inside an HTML attribute (e.g. onclick="foo('${val}')"). Two layers:
+//   1. JS-string escape — backslashes and single quotes turn into \\ and \'
+//      so they don't break out of the JS string the browser will parse.
+//   2. HTML-attribute escape — &, <, >, " become entities so they don't
+//      break out of the surrounding double-quoted attribute.
+// Previously, raw \${s.id} interpolation meant any survey whose id
+// contained an apostrophe (apostrophe in JSON, surveys pulled from
+// Google Sheets with quirky generated ids, etc.) had Edit/Delete/PDF
+// buttons that silently no-op'd because the parsed JS was broken.
+function escJsAttr(str) {
+  return String(str == null ? '' : str)
+    .replace(/\\/g, '\\\\')   // \\ → \\\\  (JS escape backslash)
+    .replace(/'/g, "\\'")          // '  → \\'    (JS escape single quote)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function showToast(msg, type) {
