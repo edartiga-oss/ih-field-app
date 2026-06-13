@@ -6305,14 +6305,61 @@ function verifyParseDOCX(file, name) {
 // I With Ogonek (Į) ligature codepoints. Normalize before scanning.
 function verifyDetectTSI(text) {
   if (!text) return false;
-  if (!/Session Report/i.test(text)) return false;
-  return /Edge\s*eg-?5/i.test(text) || /Summary Data Panel/i.test(text) || /Information Panel/i.test(text);
+  // Permissive signature set — any of these means it's a TSI Session
+  // Report even if PDF.js mangled some other text. The Salinas /
+  // Jopquin samples both carry every signature, so the OR is broad on
+  // purpose. \b boundaries handle the letter-spaced case where PDF.js
+  // emits "S e s s i o n" — we still test the joined-text form here
+  // since the renderer in verifyParsePDF already y-groups items.
+  var sigs = [
+    /Session Report/i,
+    /Edge\s*eg-?5/i,
+    /Summary Data Panel/i,
+    /Information Panel/i,
+    /Device Firmware Rev/i,
+    /Calibration History/i
+  ];
+  var hits = sigs.reduce(function(a,r){ return a + (r.test(text) ? 1 : 0); }, 0);
+  return hits >= 1;
 }
 
 function verifyExtractFieldsTSI(text, filename) {
+  // Diagnostic log: when a TSI report fails to extract a serial later
+  // on, the user can open DevTools → Console and copy the raw text
+  // for us to inspect. Truncated to first 2000 chars to keep the log
+  // readable in the console window.
+  try { console.log('[TSI parser] ' + (filename || '') + ' raw:\n' + String(text || '').slice(0, 2000)); } catch(e){}
+  // Normalize ligature glyphs that some TSI font CMaps emit in place
+  // of ti / fi / ff / fl. The Read-tool dump shows U+019F for "ti"
+  // and U+012F for "fi", but production PDFs occasionally use the
+  // standard Unicode ligatures (U+FB00–U+FB04) or look-alike glyphs.
   var t = String(text || '')
-    .replace(/[\u019F]/g, 'ti')   // Ɵ → ti
-    .replace(/[\u012F]/g, 'fi');  // Į → fi
+    .replace(/[\u019F\u03B8\u0398]/g, 'ti')   // Ɵ Θ θ → ti
+    .replace(/[\u012F]/g, 'fi')                  // Į → fi
+    .replace(/\uFB00/g, 'ff')                    // ﬀ
+    .replace(/\uFB01/g, 'fi')                    // ﬁ
+    .replace(/\uFB02/g, 'fl')                    // ﬂ
+    .replace(/\uFB03/g, 'ffi')                   // ﬃ
+    .replace(/\uFB04/g, 'ffl')                   // ﬄ
+    // Normalize all unicode whitespace flavors to a regular space.
+    .replace(/[\u00A0\u2007\u202F]/g, ' ');
+
+  // Letter-spacing collapse: when PDF.js extracts character-level
+  // glyphs whose x-gaps trip the 30%-font-size space-insertion
+  // heuristic in verifyParsePDF, the rendered line ends up as
+  // "S e s s i o n   R e p o r t" — none of the label regexes can
+  // match. Detect by checking for the spaced "Session" or
+  // "Information" signatures; when present, collapse every run of
+  // ≥2 single-letter tokens separated by single spaces back into a
+  // word. Done once at the top so all downstream parsing (info kv,
+  // per-meter, calibration) sees the un-letter-spaced text.
+  if (/\bS\s+e\s+s\s+s\s+i\s+o\s+n\b/i.test(t) ||
+      /\bI\s+n\s+f\s+o\s+r\s+m\s+a\s+t\s+i\s+o\s+n\b/i.test(t)) {
+    t = t.replace(/\b([A-Za-z])(?:\s([A-Za-z]))+\b/g, function(m) {
+      return m.replace(/\s+/g, '');
+    });
+    try { console.log('[TSI parser] collapsed letter-spaced text'); } catch(e){}
+  }
 
   // Build a kvMap of the Information Panel fields that works in BOTH
   // PDF.js output modes — flat (single long line, no \n) and newline.
@@ -6370,6 +6417,35 @@ function verifyExtractFieldsTSI(text, filename) {
   var serialRaw  = infoKv['Serial Number'] || '';
   var runTimeRaw = infoKv['Run Time']      || '';
   var modelType  = infoKv['Model Type']    || '';
+
+  // Letter-spaced fallback. If PDF.js emitted glyphs with x-gaps wide
+  // enough to insert spaces inside a single label (so "Serial Number"
+  // arrives as "S e r i a l   N u m b e r"), the split-by-label step
+  // can't find the label. Re-collapse any 2+ consecutive single letters
+  // separated by single spaces and re-run the pull for the critical
+  // identification fields.
+  if (!serialRaw) {
+    var collapsed = t.replace(/\b([A-Za-z])(?:\s([A-Za-z]))+\b/g, function(m) {
+      return m.replace(/\s/g, '');
+    });
+    if (collapsed !== t) {
+      var infoKv2 = buildInfoKv(collapsed);
+      nameRaw    = nameRaw    || infoKv2['Name']          || '';
+      startRaw   = startRaw   || infoKv2['Start Time']    || '';
+      stopRaw    = stopRaw    || infoKv2['Stop Time']     || '';
+      serialRaw  = serialRaw  || infoKv2['Serial Number'] || '';
+      runTimeRaw = runTimeRaw || infoKv2['Run Time']      || '';
+      modelType  = modelType  || infoKv2['Model Type']    || '';
+    }
+  }
+  // Final fallback for serial: any "Serial Number" followed by a
+  // non-whitespace token, anywhere in the text — no label-list
+  // dependence. Captures the simplest case where the label and value
+  // are present but the surrounding structure is unusual.
+  if (!serialRaw) {
+    var sm = t.match(/Serial\s*Number\s+([A-Za-z0-9_\-]{3,})/i);
+    if (sm) serialRaw = sm[1].trim();
+  }
 
   // Employee name: strip the serial-prefix patterns. Fallback to serial
   // when nothing usable remains (matches our agreed contract).
