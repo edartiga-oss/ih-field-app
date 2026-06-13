@@ -6238,15 +6238,30 @@ function verifyParsePDF(file, name) {
         Promise.all(pagePromises).then(function(pageTexts) {
           var reports = [];
           var isSingleReport = (pdf.numPages <= 2);
-          pageTexts.forEach(function(pageText, idx) {
-            var fname = isSingleReport ? name : name + ' p' + (idx + 1);
-            var parsed = verifyExtractFields(pageText, fname);
-            // Only keep pages that yielded a serial number (Summary pages)
-            if (parsed.serial) {
-              if (isSingleReport) parsed._filename = name;
-              reports.push(parsed);
-            }
-          });
+          if (isSingleReport) {
+            // Single-report PDFs (≤2 pages): concatenate all pages and
+            // parse once. Otherwise a 2-page TSI Edge5 report — page 1
+            // Info Panel + first slice of Summary Data Panel, page 2
+            // rest of Summary + Calibration History — yields TWO rows
+            // in the Verification Results table for the same survey
+            // because each page extracts the serial independently.
+            // Concatenation also benefits Casella's 2-page Summary +
+            // Chart layout where the chart page has no extractable
+            // labels anyway.
+            var combinedText = pageTexts.join('\n');
+            var parsed = verifyExtractFields(combinedText, name);
+            parsed._filename = name;
+            if (parsed.serial) reports.push(parsed);
+          } else {
+            // Multi-report PDF (3+ pages): each Summary page is its
+            // own survey. Keep the page-by-page behavior so each row
+            // in the results table corresponds to one survey.
+            pageTexts.forEach(function(pageText, idx) {
+              var fname = name + ' p' + (idx + 1);
+              var parsed = verifyExtractFields(pageText, fname);
+              if (parsed.serial) reports.push(parsed);
+            });
+          }
           if (!reports.length) {
             reports.push({ _filename: name, _parseError: true });
           }
