@@ -6376,7 +6376,16 @@ function verifyExtractFieldsTSI(text, filename) {
   // on, the user can open DevTools → Console and copy the raw text
   // for us to inspect. Truncated to first 2000 chars to keep the log
   // readable in the console window.
-  try { console.log('[TSI parser] ' + (filename || '') + ' raw:\n' + String(text || '').slice(0, 2000)); } catch(e){}
+  // Diagnostic dump. Console.log truncates long strings — keep the
+  // inline log capped so DevTools stays usable, AND stash the full
+  // raw text on window._tsiRawByFile so the user can pull it in full
+  // with: Object.entries(window._tsiRawByFile).forEach(([k,v]) =>
+  //   console.log('=== ' + k + ' (' + v.length + ' chars) ===\n' + v))
+  try {
+    console.log('[TSI parser] ' + (filename || '') + ' raw (first 4000 of ' + String(text||'').length + '):\n' + String(text || '').slice(0, 4000));
+    if (!window._tsiRawByFile) window._tsiRawByFile = {};
+    window._tsiRawByFile[filename || '(unnamed)'] = String(text || '');
+  } catch(e){}
   // Normalize ligature glyphs that some TSI font CMaps emit in place
   // of ti / fi / ff / fl. The Read-tool dump shows U+019F for "ti"
   // and U+012F for "fi", but production PDFs occasionally use the
