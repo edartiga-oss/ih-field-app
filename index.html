@@ -2499,16 +2499,35 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyQPoV8jRYJy_TiMiZsy
   var swUrl = 'sw.js?nocache=' + Date.now();
   fetch(swUrl, { cache: 'no-store' })
     .then(function(r) {
+      // Pull both the SW version (from CACHE_NAME) AND the file's
+      // Last-Modified header in one fetch. We want to render
+      // something like "v56 — Jun 13 2026 9:53 AM CST".
       var lm = r.headers.get('Last-Modified') || r.headers.get('Date');
-      if (!lm) return;
-      var d = new Date(lm);
-      if (isNaN(d.getTime())) return;
-      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      var h = d.getHours();
-      var ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      var min = ('0' + d.getMinutes()).slice(-2);
-      el.textContent = 'Deployed ' + months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear() + ' ' + h + ':' + min + ' ' + ampm;
+      return r.text().then(function(body) {
+        var versionMatch = body.match(/CACHE_NAME\s*=\s*['"]ih-field-(v[\w.\-]+)['"]/i);
+        var version = versionMatch ? versionMatch[1] : '';
+        return { version: version, lastModified: lm };
+      });
+    })
+    .then(function(info) {
+      var parts = [];
+      if (info.version) parts.push(info.version);
+      if (info.lastModified) {
+        var d = new Date(info.lastModified);
+        if (!isNaN(d.getTime())) {
+          // Render in US Central time. toLocaleString with the Chicago
+          // zone handles DST (CST vs CDT) automatically; we then strip
+          // the trailing zone abbreviation the browser emits and append
+          // a fixed "CST" tag per the user's display preference.
+          var fmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Chicago',
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: 'numeric', minute: '2-digit', hour12: true
+          });
+          parts.push(fmt.format(d) + ' CST');
+        }
+      }
+      el.textContent = parts.join(' — ');
     })
     .catch(function() { el.textContent = ''; });
 })();
