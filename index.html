@@ -6410,7 +6410,7 @@ function verifyExtractFieldsTSI(text, filename) {
   // standard Unicode ligatures (U+FB00–U+FB04) or look-alike glyphs.
   var t = String(text || '')
     .replace(/[\u019F\u03B8\u0398]/g, 'ti')   // Ɵ Θ θ → ti
-    .replace(/[\u012F]/g, 'fi')                  // Į → fi
+    .replace(/[\u012E\u012F]/g, 'fi')           // Į (U+012E) and į (U+012F) → fi
     .replace(/\uFB00/g, 'ff')                    // ﬀ
     .replace(/\uFB01/g, 'fi')                    // ﬁ
     .replace(/\uFB02/g, 'fl')                    // ﬂ
