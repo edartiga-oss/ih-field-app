@@ -1498,7 +1498,12 @@ body { padding: 20px 18px; }
         <input type="url" id="sheetsUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="font-family:var(--mono); font-size:12px;">
         <div id="sheetsUrlNote" style="font-size:11px; color:var(--text3); margin-top:6px;">Affects Pull / Push / Delete / Sync on this device only.</div>
       </div>
-      <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+      <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px;">
+        <div style="font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">After switching sheets</div>
+        <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">Wipe this device's local survey + equipment cache and re-populate from the saved endpoint. Useful after pointing the app at a different sheet so old-sheet rows don't end up in the new one on the next Push.</div>
+        <button class="btn btn-outline btn-sm" onclick="clearLocalAndPullFresh()" style="color:#a8323a; border-color:#a8323a;">Clear local data &amp; pull fresh</button>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:14px;">
         <button class="btn btn-outline btn-sm" onclick="resetSheetsUrl()">Reset to default</button>
         <button class="btn btn-outline btn-sm" onclick="testSheetsUrl()">Test connection</button>
         <button class="btn btn-outline btn-sm" onclick="closeModal('sheetsModal')">Cancel</button>
@@ -2555,6 +2560,46 @@ function testSheetsUrl() {
       else showToast('Endpoint responded ' + r.status + ' — check the URL', 'error');
     })
     .catch(function(e) { showToast('Endpoint unreachable: ' + (e.message || e), 'error'); });
+}
+
+// Wipe this device's local surveys + equipment caches, then pull fresh
+// from whatever endpoint getSheetsUrl() currently returns. Intended for
+// the workflow where the user has just retargeted the app at a different
+// sheet and wants the device to mirror the new sheet's contents
+// (instead of carrying over stale rows from the old one).
+function clearLocalAndPullFresh() {
+  if (!confirm(
+    'This will DELETE every survey and every equipment record stored on this device, '
+    + 'then re-pull from the currently saved Google Sheets endpoint.\n\n'
+    + 'Anything not already in that sheet will be lost.\n\n'
+    + 'Continue?'
+  )) return;
+
+  try {
+    surveys = [];
+    equipment = [];
+    saveToStorage();
+    try { localStorage.setItem(EQUIP_KEY, JSON.stringify(equipment)); } catch(e) {}
+    if (typeof renderSurveyList === 'function')      renderSurveyList();
+    if (typeof renderEquipmentLists === 'function')  renderEquipmentLists();
+    if (typeof renderExportList === 'function')      renderExportList();
+  } catch(e) {
+    showToast('Could not wipe local cache: ' + (e.message || e), 'error');
+    return;
+  }
+
+  showToast('Local cache cleared. Pulling fresh from the sheet…');
+  closeModal('sheetsModal');
+  // Defer the pull a tick so the toast paints and the modal-close
+  // animation isn't fighting the pull's own status updates.
+  setTimeout(function() {
+    try {
+      if (typeof pullFromSheets === 'function') pullFromSheets();
+      else showToast('pullFromSheets() is not available — manual Pull required', 'warn');
+    } catch(e) {
+      showToast('Pull failed: ' + (e.message || e), 'error');
+    }
+  }, 250);
 }
 
 // ═══════════════════════════════════════════════════════════
