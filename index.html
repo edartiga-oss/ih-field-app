@@ -6295,6 +6295,24 @@ function verifyParsePDF(file, name) {
           });
           try { console.log('[verifyParsePDF] ' + name + ' page→serial map:', JSON.stringify(debug)); } catch(e){}
           var reports = Object.keys(bySerial).map(function(k){ return bySerial[k]; });
+          // Diagnostic: dump each merged record's key fields so we can see
+          // what's in the row that gets passed to verifyMatchAndCompare.
+          // If serial is right but postCal is null, the postRe regex
+          // missed on every page that should've matched it.
+          try {
+            reports.forEach(function(r, i) {
+              console.log('[verifyParsePDF] ' + name + ' merged report ' + (i+1) + '/' + reports.length + ':', {
+                _filename: r._filename,
+                _mergedFromPages: r._mergedFromPages,
+                serial: r.serial,
+                reportName: r.reportName,
+                twa: r.twa, dose: r.dose, lavg: r.lavg,
+                preCal: r.preCal, postCal: r.postCal,
+                calDeviation: r.calDeviation,
+                exchange: r.exchange, criterion: r.criterion, threshold: r.threshold
+              });
+            });
+          } catch(e){}
           if (!reports.length) {
             reports.push({ _filename: name, _parseError: true });
           }
