@@ -6479,14 +6479,30 @@ function verifyExtractFieldsTSI(text, filename) {
   // when nothing usable remains (matches our agreed contract).
   function extractEmployeeName() {
     if (!nameRaw) return serialRaw || '';
+    // Strip leading serial-number token (e.g. "ESR100203 Christian Salinas")
+    var stripped = nameRaw;
     if (serialRaw) {
       var serialEsc = serialRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      var stripped = nameRaw.replace(new RegExp('^' + serialEsc + '[\\s\\-_]+'), '').trim();
-      if (stripped && stripped !== nameRaw) return stripped;
+      stripped = nameRaw.replace(new RegExp('^' + serialEsc + '[\\s\\-_]+'), '').trim();
     }
     // Hash-prefixed pattern: #<num>(<serial>)_<date>_<time> — no real name in it
     if (/^#?\d+\([^)]+\)[_\d]*$/.test(nameRaw)) return serialRaw || '';
-    return nameRaw;
+
+    // The Name field on TSI dosimeters is free-form and IHs frequently append
+    // SEG / building / job-title info after the actual name
+    // ("Shawn Arriola Vechicle Maintenance SEGBldg103"). That trailing info
+    // tanks the App-vs-Report name Jaccard check even when the serial match
+    // is a perfect ID hit. Trim to the leading 1–2 Title-Case tokens
+    // (first + last) plus an optional comma-separated suffix for
+    // "Last, First" entries. Anything beyond two Title-Case words — or the
+    // first token containing digits / mixed case — is treated as trailing
+    // SEG/building junk and dropped.
+    var nm = stripped.match(/^([A-Z][a-zA-Z'\-]+(?:\s*,\s*[A-Z][a-zA-Z'\-]+)?(?:\s+[A-Z][a-zA-Z'\-]+)?)/);
+    if (nm) {
+      var clean = nm[1].trim();
+      if (clean) return clean;
+    }
+    return stripped || nameRaw;
   }
   var reportName = extractEmployeeName();
 
