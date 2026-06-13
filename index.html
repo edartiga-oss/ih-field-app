@@ -1828,7 +1828,7 @@ body { padding: 20px 18px; }
       <div style="font-size:20px; font-weight:700; color:var(--text); margin-bottom:4px;">Instrument Report Verification</div>
       <div style="font-size:13px; color:var(--text2);">
         Compare dosimeter report files against data entered by the IH.
-        Accepts Casella dBadge2 PDF, CSV, or DOCX — single file or a ZIP for batch.
+        Accepts Casella dBadge2 (PDF/CSV/DOCX) and TSI Edge5 (PDF Session Report) — single file or a ZIP for batch.
       </div>
     </div>
 
@@ -1856,7 +1856,7 @@ body { padding: 20px 18px; }
         Drop report file(s) here or click to browse
       </div>
       <div style="font-size:12px; color:var(--text3);">
-        Supported: PDF, CSV, DOCX from Casella dBadge2 &nbsp;·&nbsp; ZIP for batch (multiple reports)
+        Supported: Casella dBadge2 PDF/CSV/DOCX, TSI Edge5 PDF &nbsp;·&nbsp; ZIP for batch
       </div>
       <input type="file" id="verifyFileInput" accept=".pdf,.csv,.docx,.zip"
              multiple style="display:none" onchange="verifyHandleFiles(this.files)">
@@ -6285,8 +6285,245 @@ function verifyParseDOCX(file, name) {
 //   "D1 TWA 8Hrs\t59.0 dB"
 //   "D1 Lavg\t58.4 dB"
 //   "D1 Dose\t0.2 %"
+// ── TSI Edge5 (Session Report) parser ─────────────────────────────────
+// Different from Casella in three important ways:
+//   1. Multi-standard reports use one Summary Data Panel with a Meter
+//      number column (1, 2, 3) instead of separate D1/D2/D3 label
+//      prefixes. Each label like "Dose", "TWA", "Criterion Level"
+//      repeats per meter — disambiguated by the Meter column value.
+//   2. The Information Panel's "Name" field is a free-form string
+//      ("ESR100203 Christian Salinas" or
+//       "#34131(ESP110191)_20260331_185557") and the canonical serial
+//      lives in a separate "Serial Number" row — pull from there.
+//   3. The Calibration History row carries a "Deviation" column that's
+//      the pre-cal accuracy of the calibrator signal, NOT the pre-vs-post
+//      drift. Surface it separately as report.calDeviation; the classic
+//      |preCal − postCal| stays as report.calDrift.
+//
+// TSI's PDF generator also emits "ti" and "fi" character pairs as the
+// Latin Capital Letter O With Middle Tilde (Ɵ) and Latin Small Letter
+// I With Ogonek (Į) ligature codepoints. Normalize before scanning.
+function verifyDetectTSI(text) {
+  if (!text) return false;
+  if (!/Session Report/i.test(text)) return false;
+  return /Edge\s*eg-?5/i.test(text) || /Summary Data Panel/i.test(text) || /Information Panel/i.test(text);
+}
+
+function verifyExtractFieldsTSI(text, filename) {
+  var t = String(text || '')
+    .replace(/[\u019F]/g, 'ti')   // Ɵ → ti
+    .replace(/[\u012F]/g, 'fi');  // Į → fi
+
+  function pullLine(label) {
+    var esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match "Label  Value", value runs to EOL (or until a large whitespace gap)
+    var re = new RegExp('(?:^|\\n)\\s*' + esc + '\\s+([^\\n]+?)\\s*(?=\\n|$)', 'i');
+    var m = t.match(re);
+    return m ? m[1].trim() : '';
+  }
+
+  var nameRaw    = pullLine('Name');
+  var startRaw   = pullLine('Start Time');
+  var stopRaw    = pullLine('Stop Time');
+  var serialRaw  = pullLine('Serial Number');
+  var runTimeRaw = pullLine('Run Time');
+  var modelType  = pullLine('Model Type');
+
+  // Employee name: strip the serial-prefix patterns. Fallback to serial
+  // when nothing usable remains (matches our agreed contract).
+  function extractEmployeeName() {
+    if (!nameRaw) return serialRaw || '';
+    if (serialRaw) {
+      var serialEsc = serialRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var stripped = nameRaw.replace(new RegExp('^' + serialEsc + '[\\s\\-_]+'), '').trim();
+      if (stripped && stripped !== nameRaw) return stripped;
+    }
+    // Hash-prefixed pattern: #<num>(<serial>)_<date>_<time> — no real name in it
+    if (/^#?\d+\([^)]+\)[_\d]*$/.test(nameRaw)) return serialRaw || '';
+    return nameRaw;
+  }
+  var reportName = extractEmployeeName();
+
+  // ── Summary Data Panel: per-meter values ──
+  // Each metric line carries "<Label> <MeterNum> <Value>"; in the 2-column
+  // PDF layout two such triplets sit on one visual line, but the regexes
+  // here work whether the PDF text extractor preserves the column split
+  // or not.
+  var meters = {};
+  function set(meterNum, key, val) {
+    if (!meters[meterNum]) meters[meterNum] = {};
+    if (meters[meterNum][key] === undefined) meters[meterNum][key] = val;
+  }
+
+  // Numeric-valued fields with optional units. The unit gets stripped so
+  // downstream callers get plain numbers. Order labels longest-first so
+  // "Pdose (8:00)" matches before "Dose", "ProjectedTWA (8:00)" before "TWA".
+  var simpleSpecs = [
+    { lbl: 'ProjectedTWA \\(8:00\\)',  key: 'projectedTwa',  strip: 'dB' },
+    { lbl: 'Pdose \\(8:00\\)',         key: 'pdose',         strip: '%' },
+    { lbl: 'Integrating Threshold',    key: 'threshold',     strip: 'dB' },
+    { lbl: 'Int Threshold Enable',     key: 'intThresholdEnable' },
+    { lbl: 'Criterion Level',          key: 'criterion',     strip: 'dB' },
+    { lbl: 'Exchange Rate',            key: 'exchange',      strip: 'dB' },
+    { lbl: 'Projection Time',          key: 'projectionTime', strip: 'mins\\.' },
+    { lbl: 'Peak Weighting',           key: 'peakWeighting' },
+    { lbl: 'Dosimeter Name',           key: 'dosimeterName' },
+    { lbl: 'Weighting',                key: 'weighting' },
+    { lbl: 'Response',                 key: 'response' },
+    { lbl: 'Lasmx',                    key: 'lasmx',         strip: 'dB' },
+    { lbl: 'Lavg',                     key: 'lavg',          strip: 'dB' },
+    { lbl: 'Dose',                     key: 'dose',          strip: '%' },
+    { lbl: 'TWA',                      key: 'twa',           strip: 'dB' }
+  ];
+  simpleSpecs.forEach(function(spec) {
+    // Value token: number, True/False, single weighting letter, response
+    // keyword, or a known standard name. Followed by optional unit.
+    var unitPart = spec.strip ? '\\s*' + spec.strip : '';
+    var re = new RegExp(
+      '\\b' + spec.lbl +
+      '\\s+(\\d)\\s+' +
+      '([\\d.]+|True|False|SLOW|FAST|FastFAST|A|C|Z|ACGIH(?:\\s*/\\s*NIOSH)?|OSHA\\s+HC|OSHA\\s+PEL|Custom)' +
+      unitPart, 'g');
+    var m;
+    while ((m = re.exec(t)) !== null) set(parseInt(m[1], 10), spec.key, m[2]);
+  });
+
+  // PKtime (datetime) — separate from the simple-values pass since the
+  // value is multi-token: "3/31/2026 9:13:13 AM".
+  var pkRe = /\bPKtime\s+(\d)\s+(\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?)/g;
+  var pkm;
+  while ((pkm = pkRe.exec(t)) !== null) set(parseInt(pkm[1], 10), 'pktime', pkm[2].trim());
+
+  // ── Calibration History ──
+  // Pre-cal "Calibration": optionally trailed by calibrator metadata + Deviation.
+  // Post-cal "Verification": Level only (Deviation column is blank).
+  var preRe  = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Calibration\s+([\d.]+)(?:\s+\S+\s+\S+\s+\d{1,2}\/\d{1,2}\/\d{4})?\s*([\d.]+)?/i;
+  var postRe = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*Verification\s+([\d.]+)/i;
+  var preM  = t.match(preRe);
+  var postM = t.match(postRe);
+
+  var preCalLevel  = preM  ? parseFloat(preM[4])  : null;
+  var postCalLevel = postM ? parseFloat(postM[4]) : null;
+  var preCalDate   = preM  ? (preM[1]  + ' ' + preM[2]  + (preM[3]  ? ' ' + preM[3]  : '')) : '';
+  var postCalDate  = postM ? (postM[1] + ' ' + postM[2] + (postM[3] ? ' ' + postM[3] : '')) : '';
+  var calDeviation = (preM && preM[5] !== undefined) ? parseFloat(preM[5]) : null;
+  var calDrift     = (preCalLevel !== null && postCalLevel !== null) ? Math.abs(preCalLevel - postCalLevel) : null;
+
+  // ── Classify each meter by (ex, cr, th) and slot it ──
+  // Strict classification per the app's canonical convention:
+  //   D1 = ACGIH    (Q3 / C85 / T80)
+  //   D2 = OSHA HC  (Q5 / C90 / T80)
+  //   D3 = OSHA PEL (Q5 / C90 / T90)
+  // Anything else falls through to Custom and stays out of the slot array.
+  // When the report carries a Dosimeter Name, compare it against the
+  // inferred classification and record a mismatch for the drawer to flag.
+  function classify(m) {
+    var ex = parseFloat(m.exchange), cr = parseFloat(m.criterion), th = parseFloat(m.threshold);
+    if (ex === 3 && cr === 85 && th === 80) return 'ACGIH';
+    if (ex === 5 && cr === 90 && th === 80) return 'OSHA_HC';
+    if (ex === 5 && cr === 90 && th === 90) return 'OSHA_PEL';
+    return 'CUSTOM';
+  }
+  function normalizeName(n) {
+    if (!n) return null;
+    var u = String(n).toUpperCase().replace(/\s+/g, ' ').trim();
+    if (/^ACGIH|NIOSH/.test(u)) return 'ACGIH';
+    if (/^OSHA\s*HC$|^HC$/.test(u)) return 'OSHA_HC';
+    if (/^OSHA\s*PEL$|^PEL$/.test(u)) return 'OSHA_PEL';
+    return 'CUSTOM';
+  }
+
+  var slotIndex = { ACGIH: 1, OSHA_HC: 2, OSHA_PEL: 3 };
+  var dosSlots = [null, null, null, null];
+  var nameMismatches = [];
+
+  Object.keys(meters).sort().forEach(function(mnKey) {
+    var m = meters[mnKey];
+    var cls = classify(m);
+    if (m.dosimeterName) {
+      var labeled = normalizeName(m.dosimeterName);
+      if (labeled !== cls && labeled !== null) {
+        nameMismatches.push({
+          meter: parseInt(mnKey, 10),
+          inferred: cls,
+          labeled: m.dosimeterName
+        });
+      }
+    }
+    var idx = slotIndex[cls];
+    if (idx && !dosSlots[idx]) {
+      dosSlots[idx] = {
+        twa:       (m.twa  !== undefined) ? parseFloat(m.twa)  : null,
+        dose:      (m.dose !== undefined) ? parseFloat(m.dose) : null,
+        lavg:      (m.lavg !== undefined) ? parseFloat(m.lavg) : null,
+        exchange:  parseFloat(m.exchange) || null,
+        criterion: parseFloat(m.criterion) || null,
+        threshold: parseFloat(m.threshold) || null,
+        weighting: m.weighting || null,
+        response:  m.response  || null,
+        _meterNum: parseInt(mnKey, 10),
+        _dosimeterName: m.dosimeterName || null,
+        _classification: cls
+      };
+    }
+  });
+
+  // Top-level (primary) = first populated slot (D1 → D2 → D3)
+  var primary = dosSlots[1] || dosSlots[2] || dosSlots[3] || null;
+
+  // LASmax — pick from whichever meter recorded it (typically all do)
+  var lasmaxRaw = null;
+  Object.keys(meters).some(function(mn) {
+    if (meters[mn].lasmx) { lasmaxRaw = meters[mn].lasmx; return true; }
+    return false;
+  });
+  var lasmax = lasmaxRaw ? parseFloat(lasmaxRaw) : null;
+
+  // Survey date — first part of Start Time
+  var surveyDate = '';
+  if (startRaw) {
+    var d = new Date(startRaw);
+    if (!isNaN(d.getTime())) surveyDate = d.toISOString().slice(0, 10);
+  }
+
+  return {
+    _filename:       filename,
+    _rawText:        text,
+    _kvMap:          { _info: { nameRaw: nameRaw, modelType: modelType }, _meters: meters },
+    _dosSlots:       dosSlots,
+    _format:         'tsi-edge5',
+    _nameMismatches: nameMismatches,
+    serial:          serialRaw || null,
+    reportName:      reportName,
+    surveyDate:      surveyDate,
+    startRaw:        startRaw,
+    stopRaw:         stopRaw,
+    preCalTime:      preCalDate,
+    postCalTime:     postCalDate,
+    twa:             primary ? primary.twa : null,
+    dose:            primary ? primary.dose : null,
+    lavg:            primary ? primary.lavg : null,
+    lasmax:          lasmax,
+    runTime:         runTimeRaw || null,
+    preCal:          preCalLevel,
+    postCal:         postCalLevel,
+    calDrift:        calDrift,
+    calDeviation:    calDeviation,   // TSI-only: pre-cal accuracy from Deviation column
+    exchange:        primary ? primary.exchange  : null,
+    criterion:       primary ? primary.criterion : null,
+    threshold:       primary ? primary.threshold : null,
+    weighting:       primary ? primary.weighting : null,
+    response:        primary ? primary.response  : null
+  };
+}
+
 // Note: Inclusion Zone section repeats all D1 values — stop at first occurrence.
 function verifyExtractFields(text, filename) {
+  // Dispatch by detected report format. TSI Edge5 Session Reports are
+  // laid out completely differently from Casella; route them through
+  // the dedicated parser. The Casella code below is untouched.
+  if (verifyDetectTSI(text)) return verifyExtractFieldsTSI(text, filename);
+
 
   // Build a key→value map from the report text.
   // Three supported formats:
@@ -6607,6 +6844,7 @@ function verifyExtractFields(text, filename) {
     _rawText:    text,
     _kvMap:      kvMap,       // expose for debug mode
     _dosSlots:   dosSlots,    // [null, D1, D2, D3] — null if slot not present
+    _format:     'casella',
     serial:      serial,
     reportName:  reportName,
     surveyDate:  surveyDate,
@@ -7287,6 +7525,35 @@ function verifyOpenDrawer(row) {
   }));
   if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
     lines.push('<div style="font-size:10px; color:var(--text3); margin:-4px 0 8px; padding-left:2px;">Report stores Cal Drift (' + row._report.calDrift.toFixed(1) + ' dB); Post-Cal derived as Pre-Cal + Drift.</div>');
+  }
+  // TSI Edge5 reports carry a separate "Deviation" column on the Calibration
+  // row — pre-cal accuracy of the calibrator signal, independent of the
+  // pre-vs-post drift. Surface it as its own informational row with a
+  // green/red dot keyed off a 0.5 dB tolerance so the IH can see at a
+  // glance whether the calibrator was on-spec when the session started.
+  if (row._report && row._report.calDeviation !== null && row._report.calDeviation !== undefined) {
+    var _dev = row._report.calDeviation;
+    var _devPass = Math.abs(_dev) <= 0.5;
+    var _devColor = _devPass ? '#0a7a3f' : '#a8323a';
+    var _devMark  = _devPass ? '&#10003;' : '&#10007;';
+    lines.push('<div style="font-size:10px; color:var(--text3); margin:-4px 0 8px; padding-left:2px;">' +
+      '<span style="color:' + _devColor + '; font-weight:700;">' + _devMark + '</span> ' +
+      'Report Pre-Cal Deviation: ' + _dev.toFixed(1) + ' dB (tolerance ' + (_devPass ? '≤' : '>') + ' 0.5 dB) &mdash; ' +
+      'calibrator accuracy at session start, separate from the drift check.</div>');
+  }
+  // Flag any Dosimeter Name labels on the report that disagree with the
+  // (exchange, criterion, threshold) we inferred for that meter slot.
+  // Per spec: classification is authoritative; the name label is a
+  // QA hint — surface mismatches non-blockingly.
+  if (row._report && Array.isArray(row._report._nameMismatches) && row._report._nameMismatches.length) {
+    var _nmLabels = { ACGIH:'ACGIH/NIOSH', OSHA_HC:'OSHA HC', OSHA_PEL:'OSHA PEL', CUSTOM:'Custom' };
+    row._report._nameMismatches.forEach(function(nm) {
+      var inf = _nmLabels[nm.inferred] || nm.inferred;
+      lines.push('<div style="font-size:10px; color:#7a4f00; background:#fff8e6; border-left:3px solid #f0a500; padding:4px 8px; border-radius:4px; margin:-4px 0 8px;">' +
+        '&#9888; Meter ' + nm.meter + ' is configured as ' + inf +
+        ' by exchange/criterion/threshold but labeled "' + esc(nm.labeled) + '" in the report. ' +
+        'Slot was assigned by the configuration values; double-check the dosimeter label.</div>');
+    });
   }
   lines.push(detailRow('Start Time', c.startTime, function(k) {
     return k.diffMin !== undefined ? 'Δ ' + k.diffMin.toFixed(1) + ' min (tolerance ±1)' : '';
