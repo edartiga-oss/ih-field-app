@@ -6297,6 +6297,7 @@ function verifyParsePDF(file, name) {
           // singles; the per-serial-only heuristic that replaced it
           // missed pages where the calibration data sat on a serial-
           // less page. The mode-select below handles both.
+          var reports = [];
           var debug = [];
           var parsedPages = pageTexts.map(function(pageText, idx) {
             var fname = name + ' p' + (idx + 1);
