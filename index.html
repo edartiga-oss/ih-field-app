@@ -6236,32 +6236,65 @@ function verifyParsePDF(file, name) {
           })(pi);
         }
         Promise.all(pagePromises).then(function(pageTexts) {
-          var reports = [];
-          var isSingleReport = (pdf.numPages <= 2);
-          if (isSingleReport) {
-            // Single-report PDFs (≤2 pages): concatenate all pages and
-            // parse once. Otherwise a 2-page TSI Edge5 report — page 1
-            // Info Panel + first slice of Summary Data Panel, page 2
-            // rest of Summary + Calibration History — yields TWO rows
-            // in the Verification Results table for the same survey
-            // because each page extracts the serial independently.
-            // Concatenation also benefits Casella's 2-page Summary +
-            // Chart layout where the chart page has no extractable
-            // labels anyway.
-            var combinedText = pageTexts.join('\n');
-            var parsed = verifyExtractFields(combinedText, name);
-            parsed._filename = name;
-            if (parsed.serial) reports.push(parsed);
-          } else {
-            // Multi-report PDF (3+ pages): each Summary page is its
-            // own survey. Keep the page-by-page behavior so each row
-            // in the results table corresponds to one survey.
-            pageTexts.forEach(function(pageText, idx) {
-              var fname = name + ' p' + (idx + 1);
-              var parsed = verifyExtractFields(pageText, fname);
-              if (parsed.serial) reports.push(parsed);
-            });
-          }
+          // Parse each page independently, then MERGE pages that share
+          // the same extracted serial — that way a TSI Edge5 single-
+          // survey report split across N pages produces one row in the
+          // verification results table, while a Casella multi-survey
+          // PDF (each survey on its own Summary page with its own
+          // serial) still produces one row per survey.
+          //
+          // The earlier "numPages ≤ 2" heuristic missed the case where
+          // a single-survey TSI runs to 3 pages (Info + Summary +
+          // Chart/Calibration split across pages 2 and 3); each of
+          // those pages independently yielded the same serial and the
+          // user saw two duplicate rows with complementary "—"s.
+          var bySerial = {};
+          var debug = [];
+          pageTexts.forEach(function(pageText, idx) {
+            var fname = name + ' p' + (idx + 1);
+            var parsed = verifyExtractFields(pageText, fname);
+            debug.push({ page: idx + 1, serial: parsed.serial || null });
+            if (!parsed.serial) return;
+            if (!bySerial[parsed.serial]) {
+              parsed._filename = name;
+              parsed._mergedFromPages = [idx + 1];
+              bySerial[parsed.serial] = parsed;
+            } else {
+              // Merge this page's fields into the existing record. Only
+              // overwrite null/empty fields; never clobber a previously
+              // extracted value with null (e.g. page 1 has TWA, page 2
+              // doesn't — keep page 1's value).
+              var existing = bySerial[parsed.serial];
+              existing._mergedFromPages.push(idx + 1);
+              [
+                'twa','dose','lavg','lasmax','runTime',
+                'preCal','postCal','calDrift','calDeviation',
+                'startRaw','stopRaw','preCalTime','postCalTime',
+                'exchange','criterion','threshold','weighting','response',
+                'reportName','surveyDate'
+              ].forEach(function(k) {
+                var emp = (existing[k] === null || existing[k] === undefined || existing[k] === '');
+                var has = (parsed[k] !== null && parsed[k] !== undefined && parsed[k] !== '');
+                if (emp && has) existing[k] = parsed[k];
+              });
+              // Merge _dosSlots — keep whichever page populated each
+              // slot first; fill empty slots from this page.
+              if (Array.isArray(parsed._dosSlots)) {
+                if (!Array.isArray(existing._dosSlots)) existing._dosSlots = [null,null,null,null];
+                for (var si = 1; si <= 3; si++) {
+                  if (!existing._dosSlots[si] && parsed._dosSlots[si]) {
+                    existing._dosSlots[si] = parsed._dosSlots[si];
+                  }
+                }
+              }
+              // Merge name-mismatch warnings if either side had them.
+              if (Array.isArray(parsed._nameMismatches) && parsed._nameMismatches.length) {
+                existing._nameMismatches = (existing._nameMismatches || []).concat(parsed._nameMismatches);
+              }
+            }
+          });
+          try { console.log('[verifyParsePDF] ' + name + ' page→serial map:', JSON.stringify(debug)); } catch(e){}
+          var reports = Object.keys(bySerial).map(function(k){ return bySerial[k]; });
           if (!reports.length) {
             reports.push({ _filename: name, _parseError: true });
           }
