@@ -6314,20 +6314,62 @@ function verifyExtractFieldsTSI(text, filename) {
     .replace(/[\u019F]/g, 'ti')   // Ɵ → ti
     .replace(/[\u012F]/g, 'fi');  // Į → fi
 
-  function pullLine(label) {
-    var esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Match "Label  Value", value runs to EOL (or until a large whitespace gap)
-    var re = new RegExp('(?:^|\\n)\\s*' + esc + '\\s+([^\\n]+?)\\s*(?=\\n|$)', 'i');
-    var m = t.match(re);
-    return m ? m[1].trim() : '';
+  // Build a kvMap of the Information Panel fields that works in BOTH
+  // PDF.js output modes — flat (single long line, no \n) and newline.
+  // The old pullLine() anchored on \n and silently returned empty for
+  // every field when PDF.js extracted the page as one flat string.
+  //
+  // Strategy: match each known label longest-first so prefix collisions
+  // (e.g. "Name" inside "User Name") fire on the right field; once
+  // matched, blank out that span in a working copy of the text so
+  // shorter labels can't re-match inside it. Capture stops at the next
+  // known label or a newline or end-of-input — works for both layouts.
+  var INFO_LABELS = [
+    'Device Firmware Rev','Serial Number','Company Name','User Name',
+    'Start Time','Stop Time','Run Time','Model Type',
+    'Comments','Description','Location','Name'
+  ];
+  var SECTION_STOPS = [
+    'Summary Data Panel','Calibration History','Logged Data Chart',
+    'Information Panel','Session Report'
+  ];
+  function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function buildInfoKv(src) {
+    // Single left-to-right pass: split the text at every known label or
+    // section header, then pair each label with the slice that follows.
+    // This avoids the trap that bit a prior longest-first / lookahead
+    // approach — when a label's value was empty in the source (e.g.
+    // "User Name" sits right next to "Device Firmware Rev" with no value
+    // between), the earlier non-greedy regex's required ≥1-char capture
+    // forced it to swallow the next label's value.
+    //
+    // Section headers (Summary Data Panel, Calibration History, …) are
+    // present in the alternation so they act as terminators for the
+    // preceding label's value, but are skipped when iterating since
+    // they don't carry values themselves.
+    var allTerms = INFO_LABELS.concat(SECTION_STOPS)
+                              .sort(function(a,b){ return b.length - a.length; });
+    var allEsc = allTerms.map(reEsc).join('|');
+    var parts = src.split(new RegExp('\\b(' + allEsc + ')\\b'));
+    // parts: [pre, label1, between1, label2, between2, ..., labelN, post]
+    var kv = {};
+    var sectionSet = {};
+    SECTION_STOPS.forEach(function(s){ sectionSet[s] = true; });
+    for (var i = 1; i + 1 < parts.length; i += 2) {
+      var label = parts[i];
+      if (sectionSet[label]) continue;
+      var val = (parts[i+1] || '').trim();
+      if (val && !(label in kv)) kv[label] = val;
+    }
+    return kv;
   }
-
-  var nameRaw    = pullLine('Name');
-  var startRaw   = pullLine('Start Time');
-  var stopRaw    = pullLine('Stop Time');
-  var serialRaw  = pullLine('Serial Number');
-  var runTimeRaw = pullLine('Run Time');
-  var modelType  = pullLine('Model Type');
+  var infoKv     = buildInfoKv(t);
+  var nameRaw    = infoKv['Name']          || '';
+  var startRaw   = infoKv['Start Time']    || '';
+  var stopRaw    = infoKv['Stop Time']     || '';
+  var serialRaw  = infoKv['Serial Number'] || '';
+  var runTimeRaw = infoKv['Run Time']      || '';
+  var modelType  = infoKv['Model Type']    || '';
 
   // Employee name: strip the serial-prefix patterns. Fallback to serial
   // when nothing usable remains (matches our agreed contract).
