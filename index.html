@@ -2521,6 +2521,19 @@ function loadFromStorage() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) surveys = JSON.parse(raw);
   } catch(e) { surveys = []; }
+  // Self-heal any survey that ended up with a null / empty id — it'd
+  // render in the list but Edit / Verify / PDF / Del would silently
+  // no-op because surveys.find(s => s.id === '') matches nothing.
+  // Originally seen on a QA-flagged survey that lost its id somewhere
+  // in the save/sync pipeline.
+  var healed = 0;
+  surveys.forEach(function(s) {
+    if (!s.id) { s.id = generateId(); healed++; }
+  });
+  if (healed > 0) {
+    try { console.log('[loadFromStorage] re-issued ids for ' + healed + ' survey(s) with missing/null id'); } catch(e){}
+    saveToStorage();
+  }
 }
 
 function saveToStorage() {
@@ -3765,6 +3778,13 @@ function saveSurvey() {
 }
 
 function upsertSurvey(data) {
+  // Guard against null/empty id getting stored — it'd render in the
+  // list but every button would silently no-op. Mint a new one
+  // rather than failing silently so the user doesn't lose data.
+  if (!data.id) {
+    data.id = generateId();
+    try { console.log('[upsertSurvey] minted id ' + data.id + ' for incoming survey with missing id'); } catch(e){}
+  }
   const idx = surveys.findIndex(s => s.id === data.id);
   if (idx >= 0) surveys[idx] = data;
   else surveys.unshift(data);
