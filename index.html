@@ -6276,24 +6276,65 @@ function verifyParsePDF(file, name) {
           })(pi);
         }
         Promise.all(pagePromises).then(function(pageTexts) {
-          // Parse each page independently, then MERGE pages that share
-          // the same extracted serial — that way a TSI Edge5 single-
-          // survey report split across N pages produces one row in the
-          // verification results table, while a Casella multi-survey
-          // PDF (each survey on its own Summary page with its own
-          // serial) still produces one row per survey.
+          // Two-mode merge:
           //
-          // The earlier "numPages ≤ 2" heuristic missed the case where
-          // a single-survey TSI runs to 3 pages (Info + Summary +
-          // Chart/Calibration split across pages 2 and 3); each of
-          // those pages independently yielded the same serial and the
-          // user saw two duplicate rows with complementary "—"s.
-          var bySerial = {};
+          // 1) SINGLE-SURVEY PDF (all pages share one serial, or only
+          //    one page yields a serial at all). Concatenate every
+          //    page's text and parse the combined string once. This
+          //    pulls in Calibration History from pages where the
+          //    SerialNumber column header isn't repeated — e.g. a
+          //    2-page TSI Edge5 where page 1 has the Information
+          //    Panel + Summary Data Panel and page 2 has the Logged
+          //    Data Chart + Calibration History (no serial extracted
+          //    independently).
+          //
+          // 2) MULTI-SURVEY PDF (different serials on different pages
+          //    — Casella's "Summary pages each = one survey" layout).
+          //    Per-page parse and bucket by serial so each survey
+          //    gets its own row.
+          //
+          // The earlier "numPages ≤ 2" heuristic missed 3-page TSI
+          // singles; the per-serial-only heuristic that replaced it
+          // missed pages where the calibration data sat on a serial-
+          // less page. The mode-select below handles both.
           var debug = [];
-          pageTexts.forEach(function(pageText, idx) {
+          var parsedPages = pageTexts.map(function(pageText, idx) {
             var fname = name + ' p' + (idx + 1);
-            var parsed = verifyExtractFields(pageText, fname);
-            debug.push({ page: idx + 1, serial: parsed.serial || null });
+            var p = verifyExtractFields(pageText, fname);
+            debug.push({ page: idx + 1, serial: p.serial || null });
+            return p;
+          });
+          var serialSet = {};
+          parsedPages.forEach(function(p) { if (p.serial) serialSet[p.serial] = true; });
+          var uniqueSerialCount = Object.keys(serialSet).length;
+
+          if (uniqueSerialCount <= 1) {
+            // ── Single-survey mode ──
+            var combinedText = pageTexts.join('\n');
+            var combined = verifyExtractFields(combinedText, name);
+            combined._filename = name;
+            combined._mergedFromPages = pageTexts.map(function(_, i){ return i + 1; });
+            try { console.log('[verifyParsePDF] ' + name + ' single-survey mode; page→serial:', JSON.stringify(debug)); } catch(e){}
+            if (combined.serial) reports.push(combined);
+            else reports.push({ _filename: name, _parseError: true });
+            try {
+              console.log('[verifyParsePDF] ' + name + ' combined parse:', {
+                _filename: combined._filename, serial: combined.serial,
+                reportName: combined.reportName,
+                twa: combined.twa, dose: combined.dose, lavg: combined.lavg,
+                preCal: combined.preCal, postCal: combined.postCal,
+                calDeviation: combined.calDeviation
+              });
+            } catch(e){}
+            if (!reports.length) reports.push({ _filename: name, _parseError: true });
+            resolve(reports);
+            return;
+          }
+
+          // ── Multi-survey mode (≥2 distinct serials) ──
+          // Bucket per serial. Each unique serial → one row.
+          var bySerial = {};
+          parsedPages.forEach(function(parsed, idx) {
             if (!parsed.serial) return;
             if (!bySerial[parsed.serial]) {
               parsed._filename = name;
