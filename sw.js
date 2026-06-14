@@ -1,5 +1,5 @@
-/* IH Field App — Service Worker v56 */
-const CACHE_NAME = 'ih-field-v56';
+/* IH Field App — Service Worker v57 */
+const CACHE_NAME = 'ih-field-v57';
 
 self.addEventListener('install', e => {
   // Don't pre-cache index.html — always fetch fresh from network

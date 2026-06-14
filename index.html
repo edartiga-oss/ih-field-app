@@ -556,6 +556,7 @@ body { padding: 20px 18px; }
   <button class="nav-tab active" onclick="showView('surveys')">Surveys</button>
   <button class="nav-tab" onclick="showView('stats')">Statistics</button>
   <button class="nav-tab" onclick="showView('rac')">Noise RAC</button>
+  <button class="nav-tab" onclick="showView('air')">Air Sampling</button>
   <button class="nav-tab" onclick="showView('export')">Export</button>
 </div>
 
@@ -1964,6 +1965,21 @@ body { padding: 20px 18px; }
     <div id="verifyDrawerBackdrop" onclick="verifyCloseDrawer()"
          style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:899;"></div>
 
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ AIR SAMPLING VIEW ═══════════════════════════════ -->
+<div id="view-air" class="view">
+  <div style="max-width:1180px; margin:0 auto; padding:14px 16px 40px;">
+    <div style="margin-bottom:14px;">
+      <div style="font-size:20px; font-weight:700; color:var(--text); margin-bottom:4px;">Air Sampling</div>
+      <div style="font-size:13px; color:var(--text2);">
+        ARNG industrial hygiene air sampling record — live calculators, SGS Galson method library, Chain-of-Custody PDF.
+      </div>
+    </div>
+    <div id="airAppHost" style="background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:16px;">
+      <div style="color:var(--text3); font-size:13px;">Air Sampling module loads here. (UI coming in next step.)</div>
+    </div>
   </div>
 </div>
 
