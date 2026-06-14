@@ -499,7 +499,61 @@ body { padding: 20px 18px; }
     border-radius: 3px;
     font-weight: 400;
   }
+
+  /* ────────────────────────────────────────────────────────────
+     Official ARNG Air Sampling Form (Breathing Zone) — 3-up.
+     Activated by Air.printOfficialForm() which adds .print-air-official
+     to <body> and injects an <div id="airOfficialPrintRoot"> populated
+     from collectForm(). Hides everything else.
+     ──────────────────────────────────────────────────────────── */
+  body.print-air-official { font-size: 7pt; color: #000; background: #fff; }
+  body.print-air-official > *:not(#airOfficialPrintRoot) { display: none !important; }
+  body.print-air-official #airOfficialPrintRoot {
+    display: block;
+    width: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+  }
+  body.print-air-official #airOfficialPrintRoot h1.of-title {
+    text-align: center; font-size: 11pt; margin: 0 0 4pt; letter-spacing: 0.3pt;
+  }
+  body.print-air-official #airOfficialPrintRoot .of-pageblock {
+    page-break-after: always; break-after: page;
+  }
+  body.print-air-official #airOfficialPrintRoot .of-pageblock:last-child {
+    page-break-after: avoid; break-after: auto;
+  }
+  body.print-air-official #airOfficialPrintRoot table.of {
+    width: 100%; border-collapse: collapse; margin: 0 0 3pt;
+    table-layout: fixed;
+  }
+  body.print-air-official #airOfficialPrintRoot table.of th,
+  body.print-air-official #airOfficialPrintRoot table.of td {
+    border: 0.5pt solid #000; padding: 1.5pt 3pt; vertical-align: top;
+    font-size: 6.5pt; line-height: 1.15; word-wrap: break-word; overflow-wrap: break-word;
+  }
+  body.print-air-official #airOfficialPrintRoot .of-section-head {
+    background: #b0b0b0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-weight: bold; text-align: center; font-size: 7.5pt;
+    text-transform: uppercase; letter-spacing: 0.3pt;
+  }
+  body.print-air-official #airOfficialPrintRoot .of-sample-head {
+    background: #d8d8d8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-weight: bold; text-align: center; font-size: 7pt;
+  }
+  body.print-air-official #airOfficialPrintRoot .of-label {
+    background: #ececec !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-weight: 600; font-size: 6pt; text-transform: uppercase; letter-spacing: 0.2pt;
+  }
+  body.print-air-official #airOfficialPrintRoot .of-val { min-height: 11pt; font-size: 7pt; }
+  body.print-air-official #airOfficialPrintRoot .of-cb { font-size: 6.5pt; line-height: 1.3; }
+  body.print-air-official #airOfficialPrintRoot .of-note {
+    font-size: 5.5pt; font-style: italic; padding: 1pt 3pt;
+  }
 }
+
+/* On screen the official-print root is hidden — only renders during print. */
+#airOfficialPrintRoot { display: none; }
 
 /* On screen the print-analyte-mirror is hidden (only renders during print). */
 #airAppHost .print-analyte-mirror { display: none; }
@@ -2311,7 +2365,8 @@ body { padding: 20px 18px; }
           <button type="button" class="add" onclick="Air.generateCOC&amp;&amp;Air.generateCOC()">&#10515; SGS Galson COC (PDF)</button>
           <button type="button" onclick="Air.setAllCollapsed&amp;&amp;Air.setAllCollapsed(true)">Collapse all</button>
           <button type="button" onclick="Air.setAllCollapsed&amp;&amp;Air.setAllCollapsed(false)">Expand all</button>
-          <button type="button" onclick="Air.printForm&amp;&amp;Air.printForm()">Print / PDF</button>
+          <button type="button" onclick="Air.printForm&amp;&amp;Air.printForm()">Print Full Form</button>
+          <button type="button" class="primary" onclick="Air.printOfficialForm&amp;&amp;Air.printOfficialForm()">Print Official Form (3-up)</button>
           <button type="button" onclick="Air.saveSession&amp;&amp;Air.saveSession()">Save (.json)</button>
           <button type="button" onclick="document.getElementById('airLoadFile').click()">Load (.json)</button>
           <select onchange="if(this.value&amp;&amp;window.Air){Air.loadExample(this.value);this.selectedIndex=0;}" title="Load a worked example" style="padding:7px 10px;border-radius:7px;border:1px solid var(--ai-line);background:#fff;cursor:pointer">
