@@ -837,11 +837,22 @@ function applyPrefill(){
 
 /* ---------- print ---------- */
 function printForm(){
-  /* Toggle a body class so the @page airLandscape rule and 2-column
-     #view-air print styles only apply when WE are the ones printing. */
+  /* Inject an unnamed @page rule for landscape — more reliable than a named
+     @page with the page: property, which Safari and older Chromes ignore.
+     Pair it with .print-air on <body> so the 2-column #view-air rules apply.
+     Both are removed on the afterprint event so other tabs print portrait. */
   document.body.classList.add('print-air');
+  let styleEl = document.getElementById('airLandscapePageRule');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'airLandscapePageRule';
+    styleEl.textContent = '@page { size: landscape; margin: 0.3in; }';
+    document.head.appendChild(styleEl);
+  }
   const cleanup = () => {
     document.body.classList.remove('print-air');
+    const s = document.getElementById('airLandscapePageRule');
+    if (s) s.remove();
     window.removeEventListener('afterprint', cleanup);
   };
   window.addEventListener('afterprint', cleanup);
