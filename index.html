@@ -445,11 +445,10 @@ body { padding: 20px 18px; }
   #racPrintFilterSummary { display: block !important; }
   /* Hide filter label rows in print */
   #view-rac > div:first-child > div:first-child { display: none !important; }
-  /* Air Sampling — landscape, 2-column, tight. Landscape is opt-in via the
-     .print-air class that Air.printForm() temporarily applies to <body>, so
-     printing other tabs (Noise RAC, etc.) stays portrait. */
-  @page airLandscape { size: landscape; margin: 0.3in; }
-  body.print-air #view-air { page: airLandscape; }
+  /* Air Sampling — 2-column, tight. Triggered by Air.printForm() which adds
+     .print-air to <body>; landscape orientation is set by an injected
+     #airLandscapePageRule <style> element rather than a named @page (named
+     pages with the `size` descriptor have spotty browser support). */
   body.print-air { font-size: 8px; }
 
   #view-air .air-toolbar, #view-air .tabbar { display: none !important; }
@@ -2203,7 +2202,7 @@ body { padding: 20px 18px; }
           <label><span class="lbl">Shop Name</span>
             <select name="shop_name" id="airShopSelect" onchange="Air.onShopChange&amp;&amp;Air.onShopChange()"><option value="">— select shop —</option></select></label>
           <label><span class="lbl">Shop Priority/Tier</span>
-            <select name="shop_priority"><option value=""></option><option>Priority 1</option><option>Priority 2</option></select></label>
+            <select name="shop_priority"><option value=""></option><option>1</option><option>2</option><option>3</option></select></label>
           <label><span class="lbl">SEG</span>
             <select name="seg" id="airSegSelect"><option value="">— select shop first —</option></select></label>
           <label><span class="lbl">Building</span><input name="building"></label>
