@@ -215,42 +215,6 @@ function samplePanel(i){
   const ck=(grp,opts)=>opts.map(o=>'<label><input type="radio" name="samp'+i+'_'+grp+'" value="'+o+'">'+o+'</label>').join('');
   return ''+
   '<div class="upanel" data-uid="sample'+i+'">'+
-    '<fieldset><legend>Analyte &amp; Method (SGS Galson)</legend>'+
-      '<div class="grid c4">'+
-        '<label class="span2"><span class="lbl">Chemical / Hazard</span>'+
-          '<select name="samp'+i+'_chem" onchange="Air.onChem('+i+')">'+chemOptions()+'</select></label>'+
-        '<label><span class="lbl">CAS #</span><input name="samp'+i+'_cas" readonly></label>'+
-        '<label><span class="lbl">Sample Type</span>'+
-          '<select name="samp'+i+'_type" onchange="Air.onType('+i+')"><option value="">—</option></select></label>'+
-        '<label class="span2"><span class="lbl">Analytical Method</span>'+
-          '<select name="samp'+i+'_method" onchange="Air.onMethod('+i+')"><option value="">—</option></select></label>'+
-        '<label class="span2"><span class="lbl">Sample Media</span><input name="samp'+i+'_media" readonly></label>'+
-        '<label class="span2"><span class="lbl">Method Note</span><input name="samp'+i+'_methodNote" readonly></label>'+
-        '<label class="span2"><span class="lbl">Analytes for this method <em style="font-weight:400">(select one or more)</em></span><select multiple name="samp'+i+'_analytes" id="airAnalyteSel'+i+'" size="5" onchange="Air.onAnalyteSelect('+i+')"></select></label>'+
-        '<label><span class="lbl">Media Lot #</span><input name="samp'+i+'_media_lot"></label>'+
-        '<label><span class="lbl">Media Expiration</span><input type="date" name="samp'+i+'_media_exp"></label>'+
-      '</div>'+
-      '<div class="grid c2" style="margin-top:10px">'+
-        '<label><span class="lbl">Inspirability</span><div class="checkrow">'+ck('inspirability',['Total','Respirable','Inhalable','Thoracic','NA'])+'</div></label>'+
-        '<label><span class="lbl">Sample Media Position</span><div class="checkrow">'+ck('position',['Right Shoulder','Collar','Left Shoulder','Area','Other'])+'</div></label>'+
-      '</div>'+
-    '</fieldset>'+
-
-    '<fieldset><legend>Minimum Sample Volume &amp; Time <span style="font-weight:400;text-transform:none">— per analyte: Min Vol (L) = LOD(µg) / (OEL × Fraction)&nbsp;|&nbsp;Req Time = Vol / Flow. OEL &amp; flow pre-fill from the method/OEL library.</span></legend>'+
-      '<table class="cons mvtable"><thead><tr>'+
-        '<th>Analyte</th>'+
-        '<th>LOD (µg)</th>'+
-        '<th>OEL</th>'+
-        '<th>Desired Fraction</th>'+
-        '<th>Rec. Flow (L/min)</th>'+
-        '<th>Rec. Vol (L)</th>'+
-        '<th>Planned Flow (L/min)</th>'+
-        '<th>Min Vol (L)</th>'+
-        '<th>Req Time (min)</th>'+
-      '</tr></thead><tbody id="airMvBody'+i+'"></tbody></table>'+
-      '<div style="margin-top:8px"><button type="button" onclick="Air.addMvRow('+i+')">+ Add analyte</button></div>'+
-    '</fieldset>'+
-
     '<fieldset><legend>Identification</legend>'+
       '<div class="grid c4">'+
         '<label><span class="lbl">Field Sample ID</span><input name="samp'+i+'_field_id"></label>'+
@@ -302,6 +266,42 @@ function samplePanel(i){
         '<label><span class="lbl">Calibrator Mfg Cal Date</span><input type="date" name="samp'+i+'_cal_mfg_date"></label>'+
         '<label><span class="lbl">Calibration Due Date</span><input type="date" name="samp'+i+'_cal_due"></label>'+
       '</div>'+
+    '</fieldset>'+
+
+    '<fieldset><legend>Analyte &amp; Method (SGS Galson)</legend>'+
+      '<div class="grid c4">'+
+        '<label class="span2"><span class="lbl">Chemical / Hazard</span>'+
+          '<select name="samp'+i+'_chem" onchange="Air.onChem('+i+')">'+chemOptions()+'</select></label>'+
+        '<label><span class="lbl">CAS #</span><input name="samp'+i+'_cas" readonly></label>'+
+        '<label><span class="lbl">Sample Type</span>'+
+          '<select name="samp'+i+'_type" onchange="Air.onType('+i+')"><option value="">—</option></select></label>'+
+        '<label class="span2"><span class="lbl">Analytical Method</span>'+
+          '<select name="samp'+i+'_method" onchange="Air.onMethod('+i+')"><option value="">—</option></select></label>'+
+        '<label class="span2"><span class="lbl">Sample Media</span><input name="samp'+i+'_media" readonly></label>'+
+        '<label class="span2"><span class="lbl">Method Note</span><input name="samp'+i+'_methodNote" readonly></label>'+
+        '<label class="span2"><span class="lbl">Analytes for this method <em style="font-weight:400">(select one or more)</em></span><select multiple name="samp'+i+'_analytes" id="airAnalyteSel'+i+'" size="5" onchange="Air.onAnalyteSelect('+i+')"></select></label>'+
+        '<label><span class="lbl">Media Lot #</span><input name="samp'+i+'_media_lot"></label>'+
+        '<label><span class="lbl">Media Expiration</span><input type="date" name="samp'+i+'_media_exp"></label>'+
+      '</div>'+
+      '<div class="grid c2" style="margin-top:10px">'+
+        '<label><span class="lbl">Inspirability</span><div class="checkrow">'+ck('inspirability',['Total','Respirable','Inhalable','Thoracic','NA'])+'</div></label>'+
+        '<label><span class="lbl">Sample Media Position</span><div class="checkrow">'+ck('position',['Right Shoulder','Collar','Left Shoulder','Area','Other'])+'</div></label>'+
+      '</div>'+
+    '</fieldset>'+
+
+    '<fieldset><legend>Minimum Sample Volume &amp; Time <span style="font-weight:400;text-transform:none">— per analyte: Min Vol (L) = LOD(µg) / (OEL × Fraction)&nbsp;|&nbsp;Req Time = Vol / Flow. OEL &amp; flow pre-fill from the method/OEL library.</span></legend>'+
+      '<table class="cons mvtable"><thead><tr>'+
+        '<th>Analyte</th>'+
+        '<th>LOD (µg)</th>'+
+        '<th>OEL</th>'+
+        '<th>Desired Fraction</th>'+
+        '<th>Rec. Flow (L/min)</th>'+
+        '<th>Rec. Vol (L)</th>'+
+        '<th>Planned Flow (L/min)</th>'+
+        '<th>Min Vol (L)</th>'+
+        '<th>Req Time (min)</th>'+
+      '</tr></thead><tbody id="airMvBody'+i+'"></tbody></table>'+
+      '<div style="margin-top:8px"><button type="button" onclick="Air.addMvRow('+i+')">+ Add analyte</button></div>'+
     '</fieldset>'+
 
     '<fieldset><legend>Pre- &amp; Post-Calibration <span style="font-weight:400;text-transform:none">— invalid if difference &gt; 5%</span></legend>'+
@@ -1779,6 +1779,7 @@ function onInvoiceToPick(){
    Collapsible main sections
    ============================================================ */
 function initCollapsible(){
+  /* Top-level cards — once-per-card click handler. */
   document.querySelectorAll('#airAppHost section.air-card > h2').forEach(h=>{
     if(h.dataset.collapInit) return; h.dataset.collapInit='1';
     h.insertAdjacentHTML('afterbegin','<span class="chev" aria-hidden="true">▾</span> ');
@@ -1787,9 +1788,26 @@ function initCollapsible(){
       h.parentElement.classList.toggle('collapsed');
     });
   });
+  /* Per-sample fieldsets — event delegation on the appHost so fieldsets
+     inside newly-added sample panels work automatically without us having
+     to re-bind handlers. */
+  const root = document.getElementById('airAppHost');
+  if (root && !root.dataset.fsCollapInit) {
+    root.dataset.fsCollapInit = '1';
+    root.addEventListener('click', function(e){
+      const legend = e.target.closest('fieldset > legend');
+      if (!legend) return;
+      /* Don't toggle if the click came from an interactive element inside
+         the legend (e.g. an inline button or note span we add later). */
+      if (e.target.closest('button,select,input,a,textarea')) return;
+      const fs = legend.parentElement;
+      if (fs && fs.tagName === 'FIELDSET') fs.classList.toggle('collapsed');
+    });
+  }
 }
 function setAllCollapsed(c){
   document.querySelectorAll('#airAppHost section.air-card').forEach(s=>s.classList.toggle('collapsed', c));
+  document.querySelectorAll('#airAppHost fieldset').forEach(fs=>fs.classList.toggle('collapsed', c));
 }
 
 /* ---------- initial state ---------- */
