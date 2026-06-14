@@ -810,18 +810,17 @@ function applyAdjUI(rf){
     note.innerHTML='<b>Extended-shift OEL adjustment:</b> none (standard 8-hr OEL). Enter a <b>Work Shift</b> longer than 8 hr/day and pick <b>Brief &amp; Scala (daily)</b> to reduce the OEL for the longer shift — an <b>Adj. OEL</b> column then appears and the comparison changes to <b>% of Adj. OEL</b>.';
   }
 }
-function refreshTWA(){
-  updateCOCPreview();
-  const body=el('airTwaBody'); if(!body) return;
-  const rf=shiftRF(); applyAdjUI(rf); const adjusting = rf!==1;
-  const names=allAnalyteNames();
-  body.innerHTML='';
-  if(!names.length){ body.innerHTML='<tr><td colspan="9" style="color:var(--ai-muted)">No analytes yet — add analytes in the sample tabs.</td></tr>'; return; }
-
-  /* Group samples by employee. Samples that share the same Last Name, First
-     Name (the form's samp{i}_emp_name field) are pooled into one TWA per
-     analyte — same person, consecutive samples = one combined TWA. Different
-     people get their own rows. Empty / missing names group under "(Unassigned)". */
+function computeTwaRows(){
+  /* Single source of truth for the TWA Calculator. Returns:
+     { adjusting, rf, rows: [{worker, sampleCount, firstOfBlock, name, nSamp,
+                              totMin, twa, ndAny, unit, oel, oelKey, oelLabel,
+                              adjOel, cmp, pct}] }
+     Both refreshTWA() (renders the on-screen table) and ofTwaCalcsTable()
+     (renders the printout) consume this so a DOM-scraping difference can't
+     drop rows from one and not the other. */
+  const rf = shiftRF();
+  const adjusting = rf !== 1;
+  const names = allAnalyteNames();
   const sampleUnits = units.filter(u => u.kind === 'sample');
   const workerGroups = []; const seen = new Map();
   sampleUnits.forEach(u => {
@@ -830,13 +829,12 @@ function refreshTWA(){
     if (!seen.has(empName)) { seen.set(empName, []); workerGroups.push(empName); }
     seen.get(empName).push(u);
   });
-
+  const rows = [];
   workerGroups.forEach((worker, wIdx) => {
     const workerSamples = seen.get(worker);
     let firstAnalyteRow = true;
-    /* For each analyte that actually has data for THIS worker, render a row. */
     names.forEach(name => {
-      let totMin=0, totC=0, nSamp=0, ndAny=false, unit='';
+      let totMin = 0, totC = 0, nSamp = 0, ndAny = false, unit = '';
       workerSamples.forEach(u => {
         const i = u.idx, dur = num((el('airSampDuration'+i)||{}).value);
         document.querySelectorAll('#airResBody'+i+' tr').forEach(tr => {
@@ -847,32 +845,59 @@ function refreshTWA(){
           if (p.val != null && dur != null) { totC += p.val*dur; totMin += dur; nSamp++; if (p.nd) ndAny = true; }
         });
       });
-      if (!nSamp) return;  /* this worker has no measured data for this analyte — skip */
+      if (!nSamp) return;
       const twa = totC/480;
       const o = selectedOel(name); const oel = o.val;
       const adjOel = (oel != null) ? oel*rf : null;
       const cmp = adjusting ? adjOel : oel;
       const pct = (twa != null && cmp) ? twa/cmp*100 : null;
-      const workerCell = firstAnalyteRow
-        ? '<td style="font-weight:600;border-top:'+(wIdx>0?'2px solid var(--ai-line)':'1px solid var(--ai-line2)')+'">'+esc(worker)+' <span style="font-weight:400;color:var(--ai-muted)">('+workerSamples.length+' sample'+(workerSamples.length===1?'':'s')+')</span></td>'
-        : '<td style="color:var(--ai-muted)">&nbsp;</td>';
-      body.insertAdjacentHTML('beforeend',
-        '<tr>'+workerCell+
-        '<td>'+esc(name)+'</td>'+
-        '<td style="text-align:right">'+nSamp+'</td>'+
-        '<td class="calc-cell">'+(totMin?round(totMin,0):'—')+'</td>'+
-        '<td class="calc-cell">'+(ndAny?'<':'')+round(twa,4)+'</td>'+
-        '<td>'+esc(unit)+'</td>'+
-        '<td>'+oelCellHTML(name)+'</td>'+
-        '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(adjOel!=null?round(adjOel,4):'—')+'</td>'+
-        '<td class="calc-cell">'+(pct!=null?((ndAny?'<':'')+round(pct,1)+'%'):'—')+'</td>'+
-        '</tr>');
+      const unitsTxt = (OEL_DATA[name]||{}).unit || '';
+      /* Resolve a printable OEL label like "OSHA PEL TWA 1 mg/m³" */
+      const lim = oelLimitsFor(name);
+      const m = lim.find(l => (l.src+'|'+l.type) === o.key);
+      const oelLabel = m ? (m.src+' '+m.type+(m.val!=null?(' '+m.val+(unitsTxt?(' '+unitsTxt):'')):'')+(m.note?(' '+m.note):'')) : '';
+      rows.push({
+        worker, sampleCount: workerSamples.length, firstOfBlock: firstAnalyteRow,
+        wIdx, name, nSamp, totMin, twa, ndAny, unit,
+        oelKey: o.key, oelLabel, adjOel, pct,
+      });
       firstAnalyteRow = false;
     });
   });
-  if (!body.children.length) {
-    body.innerHTML = '<tr><td colspan="9" style="color:var(--ai-muted)">No measured results yet — enter Measured Result values in the sample tabs.</td></tr>';
+  return { adjusting, rf, rows };
+}
+
+function refreshTWA(){
+  updateCOCPreview();
+  const body = el('airTwaBody'); if (!body) return;
+  const { adjusting, rows } = computeTwaRows();
+  applyAdjUI(shiftRF());
+  body.innerHTML = '';
+  const names = allAnalyteNames();
+  if (!names.length) {
+    body.innerHTML = '<tr><td colspan="9" style="color:var(--ai-muted)">No analytes yet — add analytes in the sample tabs.</td></tr>';
+    return;
   }
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="9" style="color:var(--ai-muted)">No measured results yet — enter Measured Result values in the sample tabs.</td></tr>';
+    return;
+  }
+  rows.forEach(r => {
+    const workerCell = r.firstOfBlock
+      ? '<td style="font-weight:600;border-top:'+(r.wIdx>0?'2px solid var(--ai-line)':'1px solid var(--ai-line2)')+'">'+esc(r.worker)+' <span style="font-weight:400;color:var(--ai-muted)">('+r.sampleCount+' sample'+(r.sampleCount===1?'':'s')+')</span></td>'
+      : '<td style="color:var(--ai-muted)">&nbsp;</td>';
+    body.insertAdjacentHTML('beforeend',
+      '<tr>'+workerCell+
+      '<td>'+esc(r.name)+'</td>'+
+      '<td style="text-align:right">'+r.nSamp+'</td>'+
+      '<td class="calc-cell">'+(r.totMin?round(r.totMin,0):'—')+'</td>'+
+      '<td class="calc-cell">'+(r.ndAny?'<':'')+round(r.twa,4)+'</td>'+
+      '<td>'+esc(r.unit)+'</td>'+
+      '<td>'+oelCellHTML(r.name)+'</td>'+
+      '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(r.adjOel!=null?round(r.adjOel,4):'—')+'</td>'+
+      '<td class="calc-cell">'+(r.pct!=null?((r.ndAny?'<':'')+round(r.pct,1)+'%'):'—')+'</td>'+
+      '</tr>');
+  });
 }
 
 /* ---------- prefill (filled-out forms) ---------- */
@@ -1358,16 +1383,15 @@ function ofAmbientTable(panels){
 }
 
 function ofTwaCalcsTable(){
-  /* Pull each analyte's calculated 8-hr TWA from the live TWA Calculator
-     (#airTwaBody). Renders a compact per-analyte table for the official
-     printout — Analyte | # Samples | Total Time | 8-hr TWA | Units |
-     Selected OEL | Adj. OEL (if shift adjustment is active) | % of OEL. */
-  const rows = document.querySelectorAll('#airTwaBody tr');
-  const haveData = rows.length && !rows[0].querySelector('td[colspan]');
-  if (!haveData) {
+  /* Read directly from computeTwaRows() — same data the screen TWA Calculator
+     uses, so worker blocks can't accidentally get filtered out by DOM
+     scraping. One row per (worker, analyte) pair that actually has data;
+     workers print with their full name on every row (no merging) so it's
+     readable in landscape. */
+  const { adjusting, rows } = computeTwaRows();
+  if (!rows.length) {
     return '<div class="of-val" style="padding:4pt 6pt; font-style:italic; color:#666;">No analyte results entered.</div>';
   }
-  const adjusting = el('airTwaTable') && el('airTwaTable').classList.contains('noadj') ? false : true;
   let h = '<table class="of" style="margin:0">'+
     '<tr>'+
       '<th class="of-label" style="width:16%">Worker</th>'+
@@ -1380,29 +1404,25 @@ function ofTwaCalcsTable(){
       (adjusting ? '<th class="of-label" style="width:6%">Adj. OEL</th>' : '')+
       '<th class="of-label" style="width:6%">% of '+(adjusting?'Adj. ':'')+'OEL</th>'+
     '</tr>';
-  rows.forEach(tr => {
-    const cells = tr.querySelectorAll('td');
-    if (!cells.length) return;
-    const txt = i => (cells[i] ? cells[i].textContent.trim() : '');
-    /* OEL cell (index 6 now that Worker is column 0) holds a <select>; show
-       the selected option's text label. */
-    const oelIdx = 6;
-    const oelSel = cells[oelIdx] && cells[oelIdx].querySelector('select');
-    const oelTxt = oelSel ? (oelSel.options[oelSel.selectedIndex] ? oelSel.options[oelSel.selectedIndex].textContent.trim() : '') : txt(oelIdx);
+  rows.forEach(r => {
+    /* Show the full worker name in EVERY row of a block; the screen merges
+       repeats with a blank cell, but for the printout duplicating it is more
+       readable when the table breaks across pages. Add a thicker top border
+       on the first row of each worker block to visually delimit groups. */
+    const borderTop = r.firstOfBlock && r.wIdx > 0 ? 'border-top:1pt solid #000;' : '';
     h += '<tr>'+
-      '<td class="of-val" style="font-weight:600">'+ofVal(txt(0))+'</td>'+
-      '<td class="of-val">'+ofVal(txt(1))+'</td>'+
-      '<td class="of-val" style="text-align:right">'+ofVal(txt(2))+'</td>'+
-      '<td class="of-val" style="text-align:right">'+ofVal(txt(3))+'</td>'+
-      '<td class="of-val" style="text-align:right">'+ofVal(txt(4))+'</td>'+
-      '<td class="of-val">'+ofVal(txt(5))+'</td>'+
-      '<td class="of-val">'+ofVal(oelTxt)+'</td>'+
-      (adjusting ? '<td class="of-val" style="text-align:right">'+ofVal(txt(7))+'</td>' : '')+
-      '<td class="of-val" style="text-align:right">'+ofVal(txt(adjusting?8:7))+'</td>'+
+      '<td class="of-val" style="font-weight:600;'+borderTop+'">'+ofVal(r.worker)+(r.firstOfBlock?' <span style="font-weight:400;color:#555">('+r.sampleCount+' sample'+(r.sampleCount===1?'':'s')+')</span>':'')+'</td>'+
+      '<td class="of-val">'+ofVal(r.name)+'</td>'+
+      '<td class="of-val" style="text-align:right">'+r.nSamp+'</td>'+
+      '<td class="of-val" style="text-align:right">'+(r.totMin?round(r.totMin,0):'—')+'</td>'+
+      '<td class="of-val" style="text-align:right">'+(r.ndAny?'&lt;':'')+round(r.twa,4)+'</td>'+
+      '<td class="of-val">'+ofVal(r.unit)+'</td>'+
+      '<td class="of-val">'+ofVal(r.oelLabel)+'</td>'+
+      (adjusting ? '<td class="of-val" style="text-align:right">'+(r.adjOel!=null?round(r.adjOel,4):'—')+'</td>' : '')+
+      '<td class="of-val" style="text-align:right">'+(r.pct!=null?((r.ndAny?'&lt;':'')+round(r.pct,1)+'%'):'—')+'</td>'+
     '</tr>';
   });
   h += '</table>';
-  /* If shift adjustment is active, surface the reduction-factor note too */
   const adjModel = (el('airTwaAdjModel')||{}).value || 'none';
   const shiftHrs = (el('airTwaShift')||{}).value || '';
   if (adjModel === 'bs_daily' && shiftHrs) {
