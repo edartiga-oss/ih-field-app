@@ -172,6 +172,14 @@ function rangeTxt(a,b,unit){
 }
 
 /* ---------- Shop -> SEG / Process dropdowns ---------- */
+function populateShopSelect(){
+  const sel=el('airShopSelect'); if(!sel) return;
+  /* Keep the placeholder first option that's already in the markup. */
+  Object.keys(SHOP_DATA).forEach(n=>{
+    if(Array.from(sel.options).some(o=>o.value===n)) return;
+    sel.appendChild(Object.assign(document.createElement('option'),{value:n,textContent:n}));
+  });
+}
 function currentShop(){ return (el('airShopSelect')||{}).value||''; }
 function uniqueAll(key){ const s=new Set(); Object.values(SHOP_DATA).forEach(d=>d[key].forEach(x=>s.add(x))); return Array.from(s); }
 function segListForShop(){ const d=SHOP_DATA[currentShop()]; return (d&&d.segs.length)?d.segs:uniqueAll('segs'); }
@@ -1059,6 +1067,7 @@ function setAllCollapsed(c){
 let initialized=false;
 function initForm(){
   if(!document.getElementById('airForm')) return;
+  populateShopSelect();
   addSample(); addBlank();
   showTab('sample1');
   fillSegSelect(); fillProcessSelects();
