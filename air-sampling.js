@@ -820,9 +820,12 @@ function applyPrefill(){
 /* ---------- reset ---------- */
 function resetForm(){
   if(!confirm('Clear all fields and start over?')) return;
+  /* Drop any leftover PREFILL so initForm()->applyPrefill() doesn't immediately
+     re-fill the form with the last loaded example. */
+  window.PREFILL = null;
   document.getElementById('airForm').reset();
   el('airPanelHost').innerHTML=''; el('airTabBar').innerHTML='';
-  sIdx=0; bIdx=0; units=[]; activeUid=null; aCount={}; oelChoice={};
+  sIdx=0; bIdx=0; units=[]; activeUid=null; aCount={}; oelChoice={}; mvCount={};
   initForm();
 }
 
