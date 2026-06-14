@@ -1302,6 +1302,58 @@ function ofAmbientTable(panels){
     '</table>';
 }
 
+function ofTwaCalcsTable(){
+  /* Pull each analyte's calculated 8-hr TWA from the live TWA Calculator
+     (#airTwaBody). Renders a compact per-analyte table for the official
+     printout — Analyte | # Samples | Total Time | 8-hr TWA | Units |
+     Selected OEL | Adj. OEL (if shift adjustment is active) | % of OEL. */
+  const rows = document.querySelectorAll('#airTwaBody tr');
+  const haveData = rows.length && !rows[0].querySelector('td[colspan]');
+  if (!haveData) {
+    return '<div class="of-val" style="padding:4pt 6pt; font-style:italic; color:#666;">No analyte results entered.</div>';
+  }
+  const adjusting = el('airTwaTable') && el('airTwaTable').classList.contains('noadj') ? false : true;
+  let h = '<table class="of" style="margin:0">'+
+    '<tr>'+
+      '<th class="of-label" style="width:24%">Analyte</th>'+
+      '<th class="of-label" style="width:10%"># Samples</th>'+
+      '<th class="of-label" style="width:12%">Total Time (min)</th>'+
+      '<th class="of-label" style="width:14%">8-hr TWA</th>'+
+      '<th class="of-label" style="width:8%">Units</th>'+
+      '<th class="of-label" style="width:20%">OEL (basis)</th>'+
+      (adjusting ? '<th class="of-label" style="width:6%">Adj. OEL</th>' : '')+
+      '<th class="of-label" style="width:6%">% of '+(adjusting?'Adj. ':'')+'OEL</th>'+
+    '</tr>';
+  rows.forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    if (!cells.length) return;
+    const txt = i => (cells[i] ? cells[i].textContent.trim() : '');
+    /* OEL cell holds a <select>; show the selected option's text label. */
+    const oelSel = cells[5] && cells[5].querySelector('select');
+    const oelTxt = oelSel ? (oelSel.options[oelSel.selectedIndex] ? oelSel.options[oelSel.selectedIndex].textContent.trim() : '') : txt(5);
+    h += '<tr>'+
+      '<td class="of-val">'+ofVal(txt(0))+'</td>'+
+      '<td class="of-val" style="text-align:right">'+ofVal(txt(1))+'</td>'+
+      '<td class="of-val" style="text-align:right">'+ofVal(txt(2))+'</td>'+
+      '<td class="of-val" style="text-align:right">'+ofVal(txt(3))+'</td>'+
+      '<td class="of-val">'+ofVal(txt(4))+'</td>'+
+      '<td class="of-val">'+ofVal(oelTxt)+'</td>'+
+      (adjusting ? '<td class="of-val" style="text-align:right">'+ofVal(txt(6))+'</td>' : '')+
+      '<td class="of-val" style="text-align:right">'+ofVal(txt(adjusting?7:6))+'</td>'+
+    '</tr>';
+  });
+  h += '</table>';
+  /* If shift adjustment is active, surface the reduction-factor note too */
+  const adjModel = (el('airTwaAdjModel')||{}).value || 'none';
+  const shiftHrs = (el('airTwaShift')||{}).value || '';
+  if (adjModel === 'bs_daily' && shiftHrs) {
+    h = '<div class="of-note" style="font-style:italic; padding:1pt 4pt;">'+
+        'Brief &amp; Scala (daily) adjustment applied for '+ofEsc(shiftHrs)+'-hr shift.'+
+        '</div>' + h;
+  }
+  return h;
+}
+
 function ofLabAndSignoffTable(g){
   return ''+
     '<table class="of">'+
@@ -1336,7 +1388,11 @@ function ofLabAndSignoffTable(g){
       '<tr><td class="of-val" style="min-height:24pt">'+ofVal(g.comments)+'</td></tr>'+
     '</table>'+
     '<table class="of">'+
-      '<tr><td class="of-section-head">Notes &amp; Calculations (8-hr TWA or Adjusted TWA)</td></tr>'+
+      '<tr><td class="of-section-head">Calculation of 8-Hour TWA (or Adjusted TWA)</td></tr>'+
+      '<tr><td style="padding:0">'+ofTwaCalcsTable()+'</td></tr>'+
+    '</table>'+
+    '<table class="of">'+
+      '<tr><td class="of-section-head">Notes</td></tr>'+
       '<tr><td class="of-val" style="min-height:24pt">'+ofVal(g.notes_calcs)+'</td></tr>'+
     '</table>'+
     '<table class="of">'+
