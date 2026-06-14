@@ -1969,16 +1969,315 @@ body { padding: 20px 18px; }
 </div>
 
 <!-- ═══════════════════════════════ AIR SAMPLING VIEW ═══════════════════════════════ -->
+<script>window.Air = window.Air || {};</script>
+<style id="airSamplingStyles">
+/* Scoped to #airAppHost so nothing leaks into the rest of the app. */
+#airAppHost{
+  font:14px/1.45 "Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --ai-ink:#1c2430; --ai-muted:#5a6675; --ai-line:#c9d2dd; --ai-line2:#e3e8ef;
+  --ai-bg:#f4f6f9; --ai-panel:#ffffff; --ai-accent:#0b5cab; --ai-accent-soft:#e8f1fb;
+  --ai-calc:#0a7d56; --ai-calc-soft:#e7f6ef; --ai-warn:#b42318; --ai-warn-soft:#fdecea;
+  --ai-ok:#0a7d56; --ai-readonly:#eef2f7; --ai-blank:#7a4fb5; --ai-blank-soft:#f1ebfa;
+  color:var(--ai-ink);
+}
+#airAppHost *{box-sizing:border-box}
+#airAppHost .air-head{display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+#airAppHost .air-head h2{font-size:18px;margin:0;letter-spacing:.2px;color:var(--ai-ink);}
+#airAppHost .air-head .sub{color:var(--ai-muted);font-size:12.5px;margin-top:2px;}
+#airAppHost .air-toolbar{display:flex;gap:8px;flex-wrap:wrap;}
+#airAppHost button{font:inherit;cursor:pointer;border:1px solid var(--ai-line);
+  background:#fff;color:var(--ai-ink);padding:7px 13px;border-radius:7px;}
+#airAppHost button:hover{background:#f0f4f9;}
+#airAppHost button.primary{background:var(--ai-accent);border-color:var(--ai-accent);color:#fff;}
+#airAppHost button.primary:hover{background:#0a4f93;}
+#airAppHost button.add{background:var(--ai-accent-soft);border-color:#bcd8f3;color:var(--ai-accent);font-weight:600;}
+#airAppHost button.add.blank{background:var(--ai-blank-soft);border-color:#d8c8ee;color:var(--ai-blank);}
+#airAppHost button.rm{border:none;background:transparent;color:var(--ai-muted);font-size:18px;
+  line-height:1;padding:2px 8px;border-radius:6px;}
+#airAppHost button.rm:hover{background:var(--ai-warn-soft);color:var(--ai-warn);}
+
+#airAppHost section.air-card{background:var(--ai-panel);border:1px solid var(--ai-line);
+  border-radius:11px;margin-bottom:16px;overflow:hidden;}
+#airAppHost section.air-card>h2{margin:0;font-size:13px;text-transform:uppercase;
+  letter-spacing:.6px;background:var(--ai-accent-soft);color:var(--ai-accent);
+  padding:10px 16px;border-bottom:1px solid var(--ai-line);
+  display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+#airAppHost section.air-card>h2 .hint{font-weight:400;text-transform:none;letter-spacing:0;
+  color:var(--ai-muted);font-size:11.5px;margin-left:auto;}
+#airAppHost section.air-card>h2 .chev{font-size:11px;color:inherit;
+  transition:transform .15s ease;display:inline-block;}
+#airAppHost section.air-card.collapsed>h2 .chev{transform:rotate(-90deg);}
+#airAppHost section.air-card.collapsed>.body{display:none;}
+#airAppHost .air-card .body{padding:14px 16px;}
+
+#airAppHost .grid{display:grid;gap:12px 16px;}
+#airAppHost .c2{grid-template-columns:repeat(2,1fr);}
+#airAppHost .c3{grid-template-columns:repeat(3,1fr);}
+#airAppHost .c4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:820px){
+  #airAppHost .c2,#airAppHost .c3,#airAppHost .c4{grid-template-columns:1fr;}
+}
+
+#airAppHost label{display:flex;flex-direction:column;gap:4px;font-size:12px;
+  color:var(--ai-muted);font-weight:600;}
+#airAppHost label .lbl{display:flex;align-items:center;gap:6px;}
+#airAppHost input,#airAppHost select,#airAppHost textarea{font:inherit;color:var(--ai-ink);
+  background:#fff;border:1px solid var(--ai-line);border-radius:6px;padding:7px 9px;width:100%;}
+#airAppHost input:focus,#airAppHost select:focus,#airAppHost textarea:focus{
+  outline:2px solid var(--ai-accent-soft);border-color:var(--ai-accent);}
+#airAppHost textarea{resize:vertical;min-height:54px;font-weight:400;}
+#airAppHost select[multiple]{height:auto;min-height:92px;padding:4px 6px;}
+#airAppHost input[readonly]{background:var(--ai-readonly);color:var(--ai-muted);font-weight:600;}
+#airAppHost .span2{grid-column:span 2;}
+#airAppHost .span3{grid-column:span 3;}
+#airAppHost .span4{grid-column:span 4;}
+@media(max-width:820px){
+  #airAppHost .span2,#airAppHost .span3,#airAppHost .span4{grid-column:1;}
+}
+
+#airAppHost section.air-card.calc>h2{background:var(--ai-calc-soft);color:var(--ai-calc);}
+#airAppHost .calc-out{display:flex;align-items:baseline;gap:8px;background:var(--ai-calc-soft);
+  border:1px solid #bfe6d4;border-radius:8px;padding:10px 12px;}
+#airAppHost .calc-out .val{font-size:20px;font-weight:700;color:var(--ai-calc);}
+#airAppHost .calc-out .unit{color:var(--ai-muted);font-size:12px;}
+#airAppHost .calc-out .lab{font-size:11.5px;color:var(--ai-muted);font-weight:600;
+  text-transform:uppercase;letter-spacing:.4px;margin-right:4px;}
+
+#airAppHost .unit-card{border:1px solid var(--ai-line);border-radius:10px;margin-bottom:14px;overflow:hidden;}
+#airAppHost .unit-card>.uhead{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  background:var(--ai-accent-soft);border-bottom:1px solid var(--ai-line);}
+#airAppHost .unit-card.blankcard>.uhead{background:var(--ai-blank-soft);}
+#airAppHost .uhead .utitle{font-weight:700;color:var(--ai-accent);font-size:13px;}
+#airAppHost .unit-card.blankcard .uhead .utitle{color:var(--ai-blank);}
+#airAppHost .uhead .ubadge{font-size:10.5px;font-weight:700;letter-spacing:.4px;
+  text-transform:uppercase;padding:2px 8px;border-radius:999px;background:#fff;
+  border:1px solid var(--ai-line);color:var(--ai-muted);}
+#airAppHost .uhead .spacer{margin-left:auto;}
+#airAppHost .ubody{padding:12px;}
+#airAppHost fieldset{border:1px dashed var(--ai-line);border-radius:8px;padding:10px 12px;margin:0 0 12px;}
+#airAppHost fieldset:last-child{margin-bottom:0;}
+#airAppHost fieldset legend{font-size:11.5px;font-weight:700;color:var(--ai-muted);
+  text-transform:uppercase;letter-spacing:.4px;padding:0 6px;}
+
+#airAppHost .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;}
+#airAppHost .pill.ok{background:var(--ai-calc-soft);color:var(--ai-ok);}
+#airAppHost .pill.bad{background:var(--ai-warn-soft);color:var(--ai-warn);}
+#airAppHost .pill.idle{background:#eef2f7;color:var(--ai-muted);}
+
+#airAppHost table.cons{width:100%;border-collapse:collapse;font-size:12.5px;}
+#airAppHost table.cons th,#airAppHost table.cons td{
+  border:1px solid var(--ai-line2);padding:5px 6px;text-align:left;}
+#airAppHost table.cons th{background:var(--ai-accent-soft);color:var(--ai-accent);font-size:11px;
+  text-transform:uppercase;letter-spacing:.3px;}
+#airAppHost table.cons input{border:none;padding:5px 4px;border-radius:4px;}
+#airAppHost table.cons input:focus{outline:1px solid var(--ai-accent);}
+#airAppHost table.cons td.calc-cell{background:var(--ai-calc-soft);color:var(--ai-calc);
+  font-weight:600;text-align:right;}
+#airAppHost table.cons .ounit{color:var(--ai-muted);font-size:11px;margin-left:3px;white-space:nowrap;}
+#airAppHost table.cons.mvtable{width:auto;min-width:60%;}
+#airAppHost table.cons.mvtable th,#airAppHost table.cons.mvtable td{white-space:nowrap;}
+#airAppHost table.cons.mvtable th{text-transform:none;}
+#airAppHost table.cons.fit,#airAppHost table.cons.mvtable{width:auto;min-width:60%;}
+#airAppHost table.cons.fit th,#airAppHost table.cons.fit td{white-space:nowrap;}
+#airAppHost table.cons.fit td:first-child input{width:100%;min-width:120px;}
+#airAppHost table.cons.mvtable td:first-child input{width:100%;min-width:120px;}
+#airAppHost table.cons .reccell{background:var(--ai-readonly);color:var(--ai-muted);
+  font-weight:600;text-align:center;white-space:nowrap;}
+#airAppHost table.cons input.warn{background:var(--ai-warn-soft);border:1px solid var(--ai-warn);
+  color:var(--ai-warn);font-weight:700;}
+#airAppHost table.cons td.calc-cell.warn{background:var(--ai-warn-soft);color:var(--ai-warn);}
+#airAppHost table.cons td.calc-cell.good{background:var(--ai-calc-soft);color:var(--ai-calc);}
+#airAppHost #airTwaTable.noadj .adjcol{display:none;}
+
+#airAppHost .checkrow{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;
+  font-weight:400;color:var(--ai-ink);}
+#airAppHost .checkrow label{flex-direction:row;align-items:center;gap:5px;font-weight:400;color:var(--ai-ink);}
+#airAppHost .checkrow input{width:auto;}
+#airAppHost .note{font-size:11.5px;color:var(--ai-muted);background:#fbfcfe;
+  border-left:3px solid var(--ai-line);padding:7px 11px;border-radius:0 6px 6px 0;
+  margin:0 0 12px;font-weight:400;}
+
+#airAppHost .tabbar{display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid var(--ai-line);margin-bottom:14px;}
+#airAppHost .tabbar .tab{border:1px solid var(--ai-line);border-bottom:none;
+  background:#f0f4f9;color:var(--ai-muted);font-weight:600;border-radius:8px 8px 0 0;
+  padding:7px 13px;cursor:pointer;margin-bottom:-2px;}
+#airAppHost .tabbar .tab.active{background:#fff;color:var(--ai-accent);box-shadow:inset 0 2px 0 var(--ai-accent);}
+#airAppHost .tabbar .tab.blanktab{color:var(--ai-blank);}
+#airAppHost .tabbar .tab.blanktab.active{box-shadow:inset 0 2px 0 var(--ai-blank);}
+#airAppHost .tabbar .tab .x{margin-left:8px;color:var(--ai-muted);font-weight:700;
+  border-radius:4px;padding:0 3px;}
+#airAppHost .tabbar .tab .x:hover{color:var(--ai-warn);background:var(--ai-warn-soft);}
+#airAppHost .tabbar .addtab{border:1px dashed #bcd8f3;background:var(--ai-accent-soft);
+  color:var(--ai-accent);font-weight:700;border-radius:8px;padding:7px 12px;
+  cursor:pointer;margin-bottom:-2px;}
+#airAppHost .tabbar .addtab.blank{border-color:#d8c8ee;background:var(--ai-blank-soft);color:var(--ai-blank);}
+#airAppHost .upanel{display:none;}
+#airAppHost .upanel.active{display:block;}
+</style>
+
 <div id="view-air" class="view">
   <div style="max-width:1180px; margin:0 auto; padding:14px 16px 40px;">
-    <div style="margin-bottom:14px;">
-      <div style="font-size:20px; font-weight:700; color:var(--text); margin-bottom:4px;">Air Sampling</div>
-      <div style="font-size:13px; color:var(--text2);">
-        ARNG industrial hygiene air sampling record — live calculators, SGS Galson method library, Chain-of-Custody PDF.
+    <div id="airAppHost">
+
+      <div class="air-head">
+        <div>
+          <h2>Air Sampling Data Entry</h2>
+          <div class="sub">ARNG industrial hygiene sampling record &middot; live calculators &middot; SGS Galson method library</div>
+        </div>
+        <div class="air-toolbar">
+          <button type="button" class="add" onclick="Air.generateCOC&amp;&amp;Air.generateCOC()">&#10515; SGS Galson COC (PDF)</button>
+          <button type="button" onclick="Air.setAllCollapsed&amp;&amp;Air.setAllCollapsed(true)">Collapse all</button>
+          <button type="button" onclick="Air.setAllCollapsed&amp;&amp;Air.setAllCollapsed(false)">Expand all</button>
+          <button type="button" onclick="window.print()">Print / PDF</button>
+          <button type="button" onclick="Air.saveSession&amp;&amp;Air.saveSession()">Save (.json)</button>
+          <button type="button" onclick="document.getElementById('airLoadFile').click()">Load (.json)</button>
+          <select onchange="if(this.value&amp;&amp;window.Air){Air.loadExample(this.value);this.selectedIndex=0;}" title="Load a worked example" style="padding:7px 10px;border-radius:7px;border:1px solid var(--ai-line);background:#fff;cursor:pointer">
+            <option value="">Load Example…</option>
+            <option value="1">Example 1 — 9-Metal Panel (RRAD)</option>
+            <option value="2">Example 2 — Total Particulate / PNOS</option>
+            <option value="3">Example 3 — VOC / Heptane (Hydraulic Shop RRAD)</option>
+            <option value="4">Example 4 — VOC / IPA + Xylene (AASF Hammond, LA)</option>
+            <option value="5">Example 5 — VOC / Acetone-Methanol-Toluene (UTES Slidell, LA)</option>
+            <option value="6">Example 6 — JP-8 / BTEX (AASF 1 Aircraft Refueling)</option>
+            <option value="7">Example 7 — Metals NIOSH 7300 (FMS 3 Del Valle grinding)</option>
+            <option value="8">Example 8 — VOC charcoal tube (CSMS-W Fort Johnson, LA)</option>
+            <option value="9">Example 9 — Total Particulate (UTES Camp Minden, LA)</option>
+            <option value="10">Example 10 — Welding Fume Metals NIOSH 7300 (UTES 3 Bastrop, TX)</option>
+          </select>
+          <button type="button" class="primary" onclick="Air.resetForm&amp;&amp;Air.resetForm()">Clear form</button>
+          <input type="file" id="airLoadFile" accept=".json,application/json" style="display:none" onchange="Air.onLoadFile&amp;&amp;Air.onLoadFile(event)">
+        </div>
       </div>
-    </div>
-    <div id="airAppHost" style="background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:16px;">
-      <div style="color:var(--text3); font-size:13px;">Air Sampling module loads here. (UI coming in next step.)</div>
+
+      <form id="airForm" autocomplete="off">
+
+      <datalist id="airSegList"></datalist>
+      <datalist id="airProcList"></datalist>
+
+      <section class="air-card">
+        <h2>General Information</h2>
+        <div class="body grid c4">
+          <label><span class="lbl">Survey / Sample Date</span><input type="date" name="survey_date"></label>
+          <label><span class="lbl">Shop Name</span>
+            <select name="shop_name" id="airShopSelect" onchange="Air.onShopChange&amp;&amp;Air.onShopChange()"><option value="">— select shop —</option></select></label>
+          <label><span class="lbl">Shop Priority</span>
+            <select name="shop_priority"><option value=""></option><option>Priority 1</option><option>Priority 2</option></select></label>
+          <label><span class="lbl">SEG</span>
+            <select name="seg" id="airSegSelect"><option value="">— select shop first —</option></select></label>
+          <label><span class="lbl">Building</span><input name="building"></label>
+          <label><span class="lbl">Parent Location</span><input name="parent_location"></label>
+          <label class="span2"><span class="lbl">Work Location (Bldg / Area)</span><input name="work_location"></label>
+          <label class="span4"><span class="lbl">Associated Processes</span>
+            <select name="associated_processes" class="procSel"><option value="">— select shop first —</option></select></label>
+        </div>
+      </section>
+
+      <section class="air-card">
+        <h2>Samples &amp; Blanks <span class="hint">Each tab = one sample or blank &middot; chemical &rarr; type &rarr; method auto-fills media, flow &amp; volume</span></h2>
+        <div class="body">
+          <div class="tabbar" id="airTabBar"></div>
+          <div id="airPanelHost"></div>
+        </div>
+      </section>
+
+      <section class="air-card calc">
+        <h2>TWA Calculator
+          <span class="hint">8-hr TWA = &Sigma;(Result &times; Duration) / 480 min &middot; one row per analyte, across all sample tabs</span></h2>
+        <div class="body">
+          <div class="grid c3" style="margin-bottom:12px">
+            <label><span class="lbl">Worker</span><input name="cons_worker"></label>
+            <label><span class="lbl">Process</span><select name="cons_process" id="airConsProcess" class="procSel"><option value="">— select shop first —</option></select></label>
+            <label><span class="lbl">OEL Basis (default)</span><select id="airOelBasis" onchange="Air.onOelBasis&amp;&amp;Air.onOelBasis()"><option>OSHA</option><option>ACGIH</option><option>NIOSH</option></select></label>
+            <label><span class="lbl">Default Limit</span><select id="airOelLimit" onchange="Air.onOelBasis&amp;&amp;Air.onOelBasis()"><option>TWA</option><option>Action Level</option><option>STEL</option><option>Ceiling</option></select></label>
+            <label><span class="lbl">Work Shift (hrs/day)</span><input type="number" step="any" name="twa_shift" id="airTwaShift" value="8" min="1" max="24" oninput="Air.refreshTWA&amp;&amp;Air.refreshTWA()"></label>
+            <label><span class="lbl">Extended-Shift OEL Adjustment</span><select name="twa_adj_model" id="airTwaAdjModel" onchange="Air.refreshTWA&amp;&amp;Air.refreshTWA()"><option value="none">None (standard 8-hr OEL)</option><option value="bs_daily">Brief &amp; Scala (daily)</option></select></label>
+          </div>
+          <table class="cons" id="airTwaTable">
+            <thead><tr>
+              <th>Analyte</th>
+              <th style="width:80px"># Samples</th>
+              <th style="width:120px">Total Time (min)</th>
+              <th style="width:120px">8-hr TWA</th>
+              <th style="width:70px">Units</th>
+              <th style="width:185px">OEL (basis)</th>
+              <th style="width:120px" class="adjcol" id="airThAdjOel">Adj. OEL</th>
+              <th style="width:90px" id="airThPct">% of OEL</th>
+            </tr></thead>
+            <tbody id="airTwaBody"></tbody>
+          </table>
+          <p class="note" style="margin-top:10px">One row per analyte, consolidated across all sample tabs. Enter each sample's <b>Measured Result</b>, start/stop times and per-analyte <b>OEL</b> in the sample tabs — this updates automatically.</p>
+          <p class="note" id="airTwaRF" style="margin-top:8px"></p>
+        </div>
+      </section>
+
+      <section class="air-card air-coc-card">
+        <h2>Chain of Custody &mdash; SGS Galson <span class="hint">fills the official SGS Galson COC PDF &middot; header defaults from General Info &middot; one COC row per sample &amp; blank</span></h2>
+        <div class="body">
+          <div class="grid c4">
+            <label class="span2"><span class="lbl">Report To &mdash; pick client</span>
+              <select id="airReportToSel" onchange="Air.onReportToPick&amp;&amp;Air.onReportToPick()"><option value="">— select —</option></select></label>
+            <label class="span2"><span class="lbl">Invoice To &mdash; pick</span>
+              <select id="airInvoiceToSel" onchange="Air.onInvoiceToPick&amp;&amp;Air.onInvoiceToPick()"><option value="">— select —</option></select></label>
+            <label class="span2"><span class="lbl">Report To (name / company / address)</span><textarea name="coc_report_to" rows="3"></textarea></label>
+            <label class="span2"><span class="lbl">Invoice To (if different)</span><textarea name="coc_invoice_to" rows="3"></textarea></label>
+            <label><span class="lbl">Report-To Phone</span><input name="coc_report_phone"></label>
+            <label><span class="lbl">Report-To Cell</span><input name="coc_report_cell"></label>
+            <label class="span2"><span class="lbl">Email (send results to)</span><input name="coc_email"></label>
+            <label class="span2"><span class="lbl">Project Name</span><input name="coc_project"></label>
+            <label class="span2"><span class="lbl">Site Name</span><input name="coc_site"></label>
+            <label><span class="lbl">State</span><input name="coc_state"></label>
+            <label><span class="lbl">P.O. Number</span><input name="coc_po"></label>
+            <label><span class="lbl">Client / Account #</span><input name="coc_acct" list="airAcctList"><datalist id="airAcctList"></datalist></label>
+            <label><span class="lbl">Sampled By</span><input name="coc_sampled_by"></label>
+            <label class="span2"><span class="lbl">Industry Description</span><input name="coc_industry"></label>
+            <label class="span2"><span class="lbl">Process Description (metals)</span><input name="coc_process_desc"></label>
+            <label><span class="lbl">Turn-around / Need Results By</span><input name="coc_turnaround"></label>
+            <label><span class="lbl">Page</span><input name="coc_page" value="1"></label>
+            <label><span class="lbl">Of</span><input name="coc_of" value="1"></label>
+            <label class="span4"><span class="lbl">COC Comments</span><input name="coc_comments"></label>
+            <label class="span2"><span class="lbl">Relinquished By</span><input name="coc_relinquished_by"></label>
+            <label><span class="lbl">Relinquished Date</span><input type="date" name="coc_relinquished_date"></label>
+            <label><span class="lbl">Relinquished Time</span><input type="time" name="coc_relinquished_time"></label>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button type="button" class="add" onclick="Air.syncCOCDefaults&amp;&amp;Air.syncCOCDefaults(true)">&#8635; Pull defaults from General Info</button>
+            <button type="button" class="add" onclick="Air.generateCOC&amp;&amp;Air.generateCOC()">&#10515; Generate filled SGS Galson COC PDF</button>
+            <span class="hint" style="color:var(--ai-muted)">Air Volume shown on the COC = total sampled volume (L). Edit any field above before generating.</span>
+          </div>
+          <p class="note" style="margin-top:12px">COC sample rows (auto-mapped &mdash; preview):</p>
+          <table class="cons" id="airCocPreview">
+            <thead><tr><th style="width:30px">#</th><th>Sample ID</th><th style="width:90px">Date</th><th>Collection Medium</th><th style="width:90px">Air Vol</th><th>Analysis Requested</th><th>Method Ref</th></tr></thead>
+            <tbody id="airCocPreviewBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="air-card">
+        <h2>Lab Information</h2>
+        <div class="body grid c4">
+          <label class="span2"><span class="lbl">Lab Name</span><input name="lab_name" value="SGS Galson"></label>
+          <label><span class="lbl">Phone Number</span><input name="lab_phone" value="888.432.5227"></label>
+          <label><span class="lbl">Requested Turn-around (days)</span><input type="number" name="lab_turnaround"></label>
+          <label><span class="lbl">Date Sent</span><input type="date" name="lab_date_sent"></label>
+          <label><span class="lbl">Date Analyzed</span><input type="date" name="lab_date_analyzed"></label>
+          <label><span class="lbl">Date Reported</span><input type="date" name="lab_date_reported"></label>
+          <label><span class="lbl">Date Returned</span><input type="date" name="lab_date_returned"></label>
+        </div>
+      </section>
+
+      <section class="air-card">
+        <h2>Evaluation, Comments &amp; Sign-off</h2>
+        <div class="body grid c2">
+          <label class="span2"><span class="lbl">Detailed Evaluation / Follow-up</span><textarea name="evaluation"></textarea></label>
+          <label class="span2"><span class="lbl">Comments / Time Course of Events</span><textarea name="comments"></textarea></label>
+          <label class="span2"><span class="lbl">Notes &amp; Calculations (8-hr TWA or Adjusted TWA)</span><textarea name="notes_calcs"></textarea></label>
+          <label><span class="lbl">Template Completed By (name &amp; date)</span><input name="completed_by"></label>
+          <label><span class="lbl">QA Review By (name &amp; date)</span><input name="qa_review_by"></label>
+        </div>
+      </section>
+
+      </form>
     </div>
   </div>
 </div>
