@@ -285,12 +285,18 @@ function samplePanel(i){
       '</div>'+
     '</fieldset>'+
 
-    '<fieldset><legend>Equipment</legend>'+
+    '<fieldset><legend>Equipment <span style="font-weight:400;text-transform:none">— pick from the Equipment library to auto-fill the fields below.</span></legend>'+
+      '<div class="grid c2" style="margin-bottom:10px">'+
+        '<label><span class="lbl">Pump (from library)</span>'+
+          '<select id="airSampPumpPick'+i+'" onchange="Air.onAirPumpPick('+i+')"><option value="">— pick pump —</option></select></label>'+
+        '<label><span class="lbl">Calibrator (from library)</span>'+
+          '<select id="airSampCalPick'+i+'" onchange="Air.onAirCalPick('+i+')"><option value="">— pick calibrator —</option></select></label>'+
+      '</div>'+
       '<div class="grid c4">'+
-        '<label><span class="lbl">Pump / Dosimeter Mfg</span><input name="samp'+i+'_pump_mfg"></label>'+
-        '<label><span class="lbl">Pump / Dosimeter Model</span><input name="samp'+i+'_pump_model"></label>'+
+        '<label><span class="lbl">Pump Mfg</span><input name="samp'+i+'_pump_mfg"></label>'+
+        '<label><span class="lbl">Pump Model</span><input name="samp'+i+'_pump_model"></label>'+
         '<label><span class="lbl">Pump Serial #</span><input name="samp'+i+'_pump_serial"></label>'+
-        '<label><span class="lbl">Pump / Dosimeter #</span><input name="samp'+i+'_pump_num"></label>'+
+        '<label><span class="lbl">Pump Asset / Tag #</span><input name="samp'+i+'_pump_num"></label>'+
         '<label><span class="lbl">Calibrator Mfg / Model</span><input name="samp'+i+'_cal_model"></label>'+
         '<label><span class="lbl">Calibrator Serial #</span><input name="samp'+i+'_cal_serial"></label>'+
         '<label><span class="lbl">Calibrator Mfg Cal Date</span><input type="date" name="samp'+i+'_cal_mfg_date"></label>'+
@@ -406,8 +412,59 @@ function addSample(){
   el('airPanelHost').insertAdjacentHTML('beforeend', samplePanel(sIdx));
   units.push({uid:uid, kind:'sample', idx:sIdx});
   fillSelect(document.querySelector('#airForm [name="samp'+sIdx+'_process"]'), procListForShop());
+  populateEquipPickersForSample(sIdx);
   aCount[sIdx]=0; addAnalyte(sIdx);
   showTab(uid); refreshTWA();
+}
+
+/* ---------- Equipment library pickers ---------- */
+function airEquipLib(){
+  /* Read the noise app's window.equipment array (filled by index.html's
+     equipment management code). The two arrays we want are air_pump and
+     air_calibrator. */
+  return Array.isArray(window.equipment) ? window.equipment : [];
+}
+function populateEquipPickersForSample(i){
+  const lib = airEquipLib();
+  const pumps = lib.filter(e => e.type === 'air_pump');
+  const cals  = lib.filter(e => e.type === 'air_calibrator');
+  const pumpSel = el('airSampPumpPick'+i);
+  const calSel  = el('airSampCalPick'+i);
+  if (pumpSel) {
+    const cur = pumpSel.value;
+    pumpSel.innerHTML = '<option value="">— pick pump —</option>' +
+      pumps.map(p => '<option value="'+esc(p.id)+'">'+esc(p.make+' '+p.model+' — S/N '+p.serial)+'</option>').join('');
+    if (cur && pumps.some(p => p.id === cur)) pumpSel.value = cur;
+  }
+  if (calSel) {
+    const cur = calSel.value;
+    calSel.innerHTML = '<option value="">— pick calibrator —</option>' +
+      cals.map(c => '<option value="'+esc(c.id)+'">'+esc(c.make+' '+c.model+' — S/N '+c.serial)+'</option>').join('');
+    if (cur && cals.some(c => c.id === cur)) calSel.value = cur;
+  }
+}
+function refreshEquipPickers(){
+  /* Called by renderEquipmentLists() in index.html whenever the equipment
+     library changes, so freshly-checked-in pumps/calibrators show up in the
+     sample-tab dropdowns without a page reload. */
+  units.filter(u => u.kind === 'sample').forEach(u => populateEquipPickersForSample(u.idx));
+}
+function onAirPumpPick(i){
+  const id = el('airSampPumpPick'+i).value; if (!id) return;
+  const eq = airEquipLib().find(e => e.id === id); if (!eq) return;
+  setVal('samp'+i+'_pump_mfg',    eq.make   || '');
+  setVal('samp'+i+'_pump_model',  eq.model  || '');
+  setVal('samp'+i+'_pump_serial', eq.serial || '');
+  setVal('samp'+i+'_pump_num',    eq.asset  || '');
+}
+function onAirCalPick(i){
+  const id = el('airSampCalPick'+i).value; if (!id) return;
+  const eq = airEquipLib().find(e => e.id === id); if (!eq) return;
+  /* Combine make + model into the single "Calibrator Mfg / Model" field. */
+  setVal('samp'+i+'_cal_model',    ((eq.make||'') + ' ' + (eq.model||'')).trim());
+  setVal('samp'+i+'_cal_serial',   eq.serial || '');
+  setVal('samp'+i+'_cal_mfg_date', eq.factoryCal || '');
+  setVal('samp'+i+'_cal_due',      eq.calDue || '');
 }
 function addBlank(){
   bIdx++; const uid='blank'+bIdx;
@@ -1133,6 +1190,9 @@ function initForm(){
   syncCOCDefaults(false);
   updateCOCPreview();
   initCollapsible();
+  /* Re-populate equipment pickers — the addSample() call above ran before the
+     noise app may have hydrated window.equipment from localStorage. */
+  refreshEquipPickers();
   initialized=true;
 }
 
@@ -1140,6 +1200,8 @@ function initForm(){
 window.Air = Object.assign(window.Air||{}, {
   // tab + view
   onShopChange, addSample, addBlank, setAllCollapsed,
+  // equipment-library pickers (called from index.html and per-sample handlers)
+  refreshEquipPickers, onAirPumpPick, onAirCalPick,
   // sample panel callbacks
   onChem, onType, onMethod, onAnalyteSelect,
   addMvRow, calcMvRow, onMvNameInput, onMvOelInput,
