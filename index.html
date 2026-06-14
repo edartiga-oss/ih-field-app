@@ -550,6 +550,14 @@ body { padding: 20px 18px; }
   body.print-air-official #airOfficialPrintRoot .of-note {
     font-size: 5.5pt; font-style: italic; padding: 1pt 3pt;
   }
+  /* Blank columns get a uniform grey fill so they're easy to spot at a
+     glance vs. real samples. */
+  body.print-air-official #airOfficialPrintRoot .of-blank,
+  body.print-air-official #airOfficialPrintRoot .of-blank-head {
+    background: #d0d0d0 !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    color: #333;
+  }
 }
 
 /* On screen the official-print root is hidden — only renders during print. */
