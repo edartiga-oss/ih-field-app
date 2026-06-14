@@ -5863,7 +5863,7 @@ function saveEquipment() {
       checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
       notes:            document.getElementById('eq_dosNotes').value.trim(),
     };
-  } else {
+  } else if (type === 'calibrator') {
     const make   = document.getElementById('eq_calMake').value.trim();
     const model  = document.getElementById('eq_calModel').value.trim();
     const serial = document.getElementById('eq_calSerial').value.trim();
