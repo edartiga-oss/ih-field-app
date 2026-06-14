@@ -898,7 +898,527 @@ function applyPrefill(){
   refreshTWA();
 }
 
-/* ---------- print ---------- */
+/* ============================================================
+   Official ARNG Air Sampling Form (Breathing Zone) — print layout.
+   Builds a hidden DOM matching the DOCX template (landscape, 3 samples
+   per page block), populates from collectForm(), prints, then removes.
+   ============================================================ */
+const CB = '☐';   /* unchecked checkbox glyph */
+const CK = '☒';   /* checked checkbox glyph (heavy box) */
+function ofEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function ofVal(v){ return v ? ofEsc(v) : '&nbsp;'; }
+function ofMark(checked){ return checked ? CK : CB; }
+function ofUsDate(iso){ if(!iso) return ''; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return m?(m[2]+'/'+m[3]+'/'+m[1]):iso; }
+
+function ofSamplePanel(idx){
+  /* Pull fields for a sample from the LIVE form DOM, not collectForm(), so
+     calculated readonly fields (duration, volume, gravNet, calDiff) are in
+     sync. Returns a flat object with all fields the official form needs. */
+  const i = idx;
+  const get = nm => { const f = document.querySelector('#airForm [name="samp'+i+'_'+nm+'"]'); return f ? f.value : ''; };
+  const radio = nm => {
+    const f = document.querySelector('#airForm [name="samp'+i+'_'+nm+'"]:checked');
+    return f ? f.value : '';
+  };
+  /* Active sample analytes (one row per analyte) from #airResBody{i} */
+  const analytes = [];
+  document.querySelectorAll('#airResBody'+i+' tr').forEach(tr => {
+    const r = tr.dataset.row;
+    const nm = get('a'+r+'_name'); if (!nm) return;
+    analytes.push({
+      name: nm,
+      mdl: get('a'+r+'_mdl'),
+      result: get('a'+r+'_result'),
+      units: get('a'+r+'_units'),
+      corrected: get('a'+r+'_corrected'),
+      sae: '',
+    });
+  });
+  return {
+    pump_num: get('pump_num'),
+    pump_mfg: get('pump_mfg'),
+    pump_model: get('pump_model'),
+    pump_serial: get('pump_serial'),
+    cal_model: get('cal_model'),
+    cal_serial: get('cal_serial'),
+    cal_mfg_date: get('cal_mfg_date'),
+    cal_due: get('cal_due'),
+    chem: get('chem'),
+    method: get('method'),
+    media: get('media'),
+    media_lot: get('media_lot'),
+    media_exp: get('media_exp'),
+    inspirability: radio('inspirability'),
+    position: radio('position'),
+    emp_name: get('emp_name'),
+    emp_id: get('emp_id'),
+    job_title: get('job_title'),
+    shift_hrs: get('shift_hrs'),
+    exp_origin: get('exp_origin'),
+    process: get('process'),
+    materials: get('materials'),
+    activity: get('activity'),
+    task_desc: get('task_desc'),
+    ppe: get('ppe'),
+    engineering: get('engineering'),
+    administrative: get('administrative'),
+    respirator: get('respirator'),
+    ppe_worn: get('ppe_worn'),
+    precal_date: get('precal_date'),
+    precal_time: get('precal_time'),
+    precal_flow: get('precal_flow'),
+    postcal_date: get('postcal_date'),
+    postcal_time: get('postcal_time'),
+    postcal_flow: get('postcal_flow'),
+    cal_diff: get('cal_diff'),
+    field_id: get('field_id'),
+    doehrs_id: get('doehrs_id'),
+    lab_id: get('lab_id'),
+    task_id: get('task_id'),
+    start_date: get('start_date'),
+    start_time: get('start_time'),
+    stop_date: get('stop_date'),
+    stop_time: get('stop_time'),
+    downtime: get('downtime'),
+    duration: get('duration'),
+    flow: get('flow'),
+    volume: get('volume'),
+    grav_pre: get('grav_pre'),
+    grav_post: get('grav_post'),
+    grav_net: get('grav_net'),
+    baro_start: get('baro_start'),
+    baro_end: get('baro_end'),
+    temp_start: get('temp_start'),
+    temp_end: get('temp_end'),
+    rh: get('rh'),
+    wind_speed: get('wind_speed'),
+    wind_dir: get('wind_dir'),
+    analytes: analytes,
+  };
+}
+
+function ofBlankPanel(idx){
+  const i = idx;
+  const get = nm => { const f = document.querySelector('#airForm [name="blank'+i+'_'+nm+'"]'); return f ? f.value : ''; };
+  return {
+    category: get('category') || 'Field Blank',
+    id: get('id'),
+    chem: get('chem'),
+    method: get('method'),
+    media: get('media'),
+    media_lot: get('media_lot'),
+    media_exp: get('media_exp'),
+    comments: get('comments'),
+  };
+}
+
+function ofGeneralFields(){
+  const get = nm => { const f = document.querySelector('#airForm [name="'+nm+'"]'); return f ? f.value : ''; };
+  return {
+    survey_date: get('survey_date'),
+    shop_name: get('shop_name'),
+    shop_priority: get('shop_priority'),
+    seg: get('seg'),
+    building: get('building'),
+    parent_location: get('parent_location'),
+    work_location: get('work_location'),
+    associated_processes: get('associated_processes'),
+    lab_name: get('lab_name'),
+    lab_phone: get('lab_phone'),
+    lab_turnaround: get('lab_turnaround'),
+    lab_date_sent: get('lab_date_sent'),
+    lab_date_analyzed: get('lab_date_analyzed'),
+    lab_date_reported: get('lab_date_reported'),
+    lab_date_returned: get('lab_date_returned'),
+    evaluation: get('evaluation'),
+    comments: get('comments'),
+    notes_calcs: get('notes_calcs'),
+    completed_by: get('completed_by'),
+    qa_review_by: get('qa_review_by'),
+  };
+}
+
+function ofGeneralInfoTable(g){
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="6">General Information</td></tr>'+
+      '<tr>'+
+        '<td class="of-label">Survey Date</td>'+
+        '<td class="of-label">Shop Priority / Tier</td>'+
+        '<td class="of-label">Shop Name</td>'+
+        '<td class="of-label">Building</td>'+
+        '<td class="of-label">Parent Location</td>'+
+        '<td class="of-label">SEG</td>'+
+      '</tr>'+
+      '<tr>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.survey_date))+'</td>'+
+        '<td class="of-val">'+ofVal(g.shop_priority)+'</td>'+
+        '<td class="of-val">'+ofVal(g.shop_name)+'</td>'+
+        '<td class="of-val">'+ofVal(g.building)+'</td>'+
+        '<td class="of-val">'+ofVal(g.parent_location)+'</td>'+
+        '<td class="of-val">'+ofVal(g.seg)+'</td>'+
+      '</tr>'+
+      '<tr><td class="of-label" colspan="6">Associated Processes</td></tr>'+
+      '<tr><td class="of-val" colspan="6">'+ofVal(g.associated_processes)+'</td></tr>'+
+    '</table>';
+}
+
+function ofGenSampleTable(panels){
+  /* General Sample Information — 3 sample columns */
+  const inspirOptions = ['Total','Respirable','Inhalable','Thoracic','NA'];
+  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
+  const inspirCell = s => '<td class="of-cb">'+
+    inspirOptions.map(o => ofMark(s && s.inspirability===o)+' '+o).join('&nbsp;&nbsp;')+'</td>';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">General Sample Information</td></tr>'+
+      '<tr>'+
+        '<td class="of-label" style="width:18%">Passive Dosimeter # / Pump #</td>'+
+        '<td class="of-sample-head">Sample 1</td>'+
+        '<td class="of-sample-head">Sample 2</td>'+
+        '<td class="of-sample-head">Sample 3</td>'+
+      '</tr>'+
+      '<tr><td class="of-label">Passive Dosimeter # / Pump #</td>'+
+        cell(panels[0],'pump_num')+cell(panels[1],'pump_num')+cell(panels[2],'pump_num')+'</tr>'+
+      '<tr><td class="of-label">Hazard</td>'+
+        cell(panels[0],'chem')+cell(panels[1],'chem')+cell(panels[2],'chem')+'</tr>'+
+      '<tr><td class="of-label">Sampling Method</td>'+
+        cell(panels[0],'method')+cell(panels[1],'method')+cell(panels[2],'method')+'</tr>'+
+      '<tr><td class="of-label">Inspirability</td>'+
+        inspirCell(panels[0])+inspirCell(panels[1])+inspirCell(panels[2])+'</tr>'+
+      '<tr><td class="of-label">Sample Media</td>'+
+        cell(panels[0],'media')+cell(panels[1],'media')+cell(panels[2],'media')+'</tr>'+
+      '<tr><td class="of-label">Sample Media Lot #</td>'+
+        cell(panels[0],'media_lot')+cell(panels[1],'media_lot')+cell(panels[2],'media_lot')+'</tr>'+
+      '<tr><td class="of-label">Sample Media Expiration Date</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(panels[0]&&panels[0].media_exp))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(panels[1]&&panels[1].media_exp))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(panels[2]&&panels[2].media_exp))+'</td>'+
+      '</tr>'+
+    '</table>';
+}
+
+function ofPersonnelTable(panels){
+  const posOptions = ['Right Shoulder','Collar','Left Shoulder','Area','Other'];
+  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
+  const exposureCell = s => '<td class="of-cb">'+
+    ofMark(s && s.exp_origin==='Ambient Conditions')+' Ambient Conditions<br>'+
+    ofMark(s && s.exp_origin==='Operator Position')+' Operator Position</td>';
+  const positionCell = s => '<td class="of-cb">'+
+    posOptions.map(o => ofMark(s && s.position===o)+' '+o).join('&nbsp;&nbsp;')+'</td>';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">Personnel Information</td></tr>'+
+      '<tr><td class="of-label" style="width:18%">Last Name, First Name</td>'+
+        cell(panels[0],'emp_name')+cell(panels[1],'emp_name')+cell(panels[2],'emp_name')+'</tr>'+
+      '<tr><td class="of-label">Last 4 / EDIPN ID</td>'+
+        cell(panels[0],'emp_id')+cell(panels[1],'emp_id')+cell(panels[2],'emp_id')+'</tr>'+
+      '<tr><td class="of-label">Length of Work Shift (hrs)</td>'+
+        cell(panels[0],'shift_hrs')+cell(panels[1],'shift_hrs')+cell(panels[2],'shift_hrs')+'</tr>'+
+      '<tr><td class="of-label">Exposure Origin</td>'+
+        exposureCell(panels[0])+exposureCell(panels[1])+exposureCell(panels[2])+'</tr>'+
+      '<tr><td class="of-label">Sample Position</td>'+
+        positionCell(panels[0])+positionCell(panels[1])+positionCell(panels[2])+'</tr>'+
+    '</table>';
+}
+
+function ofControlsTable(panels){
+  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">Control Information</td></tr>'+
+      '<tr><td class="of-label" style="width:18%">PPE (incl. NIOSH TC # e.g. TC-84A-XXXX)</td>'+
+        cell(panels[0],'ppe')+cell(panels[1],'ppe')+cell(panels[2],'ppe')+'</tr>'+
+      '<tr><td class="of-label">Engineering</td>'+
+        cell(panels[0],'engineering')+cell(panels[1],'engineering')+cell(panels[2],'engineering')+'</tr>'+
+      '<tr><td class="of-label">Administrative</td>'+
+        cell(panels[0],'administrative')+cell(panels[1],'administrative')+cell(panels[2],'administrative')+'</tr>'+
+    '</table>';
+}
+
+function ofEquipmentTable(panels){
+  /* Per-sample pump + calibrator block, 3 sample columns */
+  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">Program Office Equipment Information</td></tr>'+
+      '<tr><td class="of-label" style="width:18%">Pump Mfg</td>'+
+        cell(panels[0],'pump_mfg')+cell(panels[1],'pump_mfg')+cell(panels[2],'pump_mfg')+'</tr>'+
+      '<tr><td class="of-label">Pump Model</td>'+
+        cell(panels[0],'pump_model')+cell(panels[1],'pump_model')+cell(panels[2],'pump_model')+'</tr>'+
+      '<tr><td class="of-label">Pump Serial #</td>'+
+        cell(panels[0],'pump_serial')+cell(panels[1],'pump_serial')+cell(panels[2],'pump_serial')+'</tr>'+
+      '<tr><td class="of-label">Calibrator Mfg / Model</td>'+
+        cell(panels[0],'cal_model')+cell(panels[1],'cal_model')+cell(panels[2],'cal_model')+'</tr>'+
+      '<tr><td class="of-label">Calibrator Serial #</td>'+
+        cell(panels[0],'cal_serial')+cell(panels[1],'cal_serial')+cell(panels[2],'cal_serial')+'</tr>'+
+      '<tr><td class="of-label">Calibrator Mfg Cal Date</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(panels[0]&&panels[0].cal_mfg_date))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(panels[1]&&panels[1].cal_mfg_date))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(panels[2]&&panels[2].cal_mfg_date))+'</td>'+
+      '</tr>'+
+    '</table>';
+}
+
+function ofPrePostCalTable(panels){
+  const cell = (s,key,dateLike) => '<td class="of-val">'+ofVal(dateLike ? ofUsDate(s && s[key]) : (s && s[key]))+'</td>';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">Pre- and Post-Calibration Information <span style="font-weight:normal">(invalid if &gt; 5% diff)</span></td></tr>'+
+      '<tr><td class="of-label" style="width:18%">Pre-Cal Date</td>'+
+        cell(panels[0],'precal_date',1)+cell(panels[1],'precal_date',1)+cell(panels[2],'precal_date',1)+'</tr>'+
+      '<tr><td class="of-label">Pre-Cal Time</td>'+
+        cell(panels[0],'precal_time')+cell(panels[1],'precal_time')+cell(panels[2],'precal_time')+'</tr>'+
+      '<tr><td class="of-label">Pre- Flow Rate (LPM)</td>'+
+        cell(panels[0],'precal_flow')+cell(panels[1],'precal_flow')+cell(panels[2],'precal_flow')+'</tr>'+
+      '<tr><td class="of-label">Post-Cal Date</td>'+
+        cell(panels[0],'postcal_date',1)+cell(panels[1],'postcal_date',1)+cell(panels[2],'postcal_date',1)+'</tr>'+
+      '<tr><td class="of-label">Post-Cal Time</td>'+
+        cell(panels[0],'postcal_time')+cell(panels[1],'postcal_time')+cell(panels[2],'postcal_time')+'</tr>'+
+      '<tr><td class="of-label">Post- Flow Rate (LPM)</td>'+
+        cell(panels[0],'postcal_flow')+cell(panels[1],'postcal_flow')+cell(panels[2],'postcal_flow')+'</tr>'+
+      '<tr><td class="of-label">Pre/Post % Difference</td>'+
+        cell(panels[0],'cal_diff')+cell(panels[1],'cal_diff')+cell(panels[2],'cal_diff')+'</tr>'+
+    '</table>';
+}
+
+function ofCollectionTable(panels){
+  const cell = (s,key,dateLike) => '<td class="of-val">'+ofVal(dateLike ? ofUsDate(s && s[key]) : (s && s[key]))+'</td>';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">Individual Samples Collection Information</td></tr>'+
+      '<tr><td class="of-label" style="width:18%">DOEHRS Sample ID</td>'+
+        cell(panels[0],'doehrs_id')+cell(panels[1],'doehrs_id')+cell(panels[2],'doehrs_id')+'</tr>'+
+      '<tr><td class="of-label">Field Sample ID</td>'+
+        cell(panels[0],'field_id')+cell(panels[1],'field_id')+cell(panels[2],'field_id')+'</tr>'+
+      '<tr><td class="of-label">Sample / Blank Category</td>'+
+        '<td class="of-cb">'+CK+' Sample &nbsp; '+CB+' Field Blank &nbsp; '+CB+' Lab/Media Blank</td>'+
+        '<td class="of-cb">'+CK+' Sample &nbsp; '+CB+' Field Blank &nbsp; '+CB+' Lab/Media Blank</td>'+
+        '<td class="of-cb">'+CK+' Sample &nbsp; '+CB+' Field Blank &nbsp; '+CB+' Lab/Media Blank</td>'+
+      '</tr>'+
+      '<tr><td class="of-label">Lab Sample ID</td>'+
+        cell(panels[0],'lab_id')+cell(panels[1],'lab_id')+cell(panels[2],'lab_id')+'</tr>'+
+      '<tr><td class="of-label">Start Date</td>'+
+        cell(panels[0],'start_date',1)+cell(panels[1],'start_date',1)+cell(panels[2],'start_date',1)+'</tr>'+
+      '<tr><td class="of-label">Start Time</td>'+
+        cell(panels[0],'start_time')+cell(panels[1],'start_time')+cell(panels[2],'start_time')+'</tr>'+
+      '<tr><td class="of-label">Stop Date</td>'+
+        cell(panels[0],'stop_date',1)+cell(panels[1],'stop_date',1)+cell(panels[2],'stop_date',1)+'</tr>'+
+      '<tr><td class="of-label">Stop Time</td>'+
+        cell(panels[0],'stop_time')+cell(panels[1],'stop_time')+cell(panels[2],'stop_time')+'</tr>'+
+      '<tr><td class="of-label">Total Downtime (min)</td>'+
+        cell(panels[0],'downtime')+cell(panels[1],'downtime')+cell(panels[2],'downtime')+'</tr>'+
+      '<tr><td class="of-label">Total Sampling Time (min)</td>'+
+        cell(panels[0],'duration')+cell(panels[1],'duration')+cell(panels[2],'duration')+'</tr>'+
+      '<tr><td class="of-label">Flow Rate (LPM)</td>'+
+        cell(panels[0],'flow')+cell(panels[1],'flow')+cell(panels[2],'flow')+'</tr>'+
+      '<tr><td class="of-label">Total Volume (L)</td>'+
+        cell(panels[0],'volume')+cell(panels[1],'volume')+cell(panels[2],'volume')+'</tr>'+
+    '</table>';
+}
+
+function ofGravTable(panels){
+  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
+  /* Show only if any sample has gravimetric data — keeps the printout shorter */
+  const any = panels.some(p => p && (p.grav_pre || p.grav_post || p.grav_net));
+  if (!any) return '';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">Gravimetric Analysis (in-house filter analysis only)</td></tr>'+
+      '<tr><td class="of-label" style="width:18%">Pre-Sampled Weight (g)</td>'+
+        cell(panels[0],'grav_pre')+cell(panels[1],'grav_pre')+cell(panels[2],'grav_pre')+'</tr>'+
+      '<tr><td class="of-label">Post-Sampled Weight (g)</td>'+
+        cell(panels[0],'grav_post')+cell(panels[1],'grav_post')+cell(panels[2],'grav_post')+'</tr>'+
+      '<tr><td class="of-label">Net Sampled Weight (g)</td>'+
+        cell(panels[0],'grav_net')+cell(panels[1],'grav_net')+cell(panels[2],'grav_net')+'</tr>'+
+    '</table>';
+}
+
+function ofMeasurementTable(panels){
+  /* Per-sample column showing the analyte rows. Each sample column gets its
+     own analyte list rendered as a nested 5-col table. */
+  const sampleBlock = s => {
+    if (!s || !s.analytes || !s.analytes.length) return '<div class="of-val">&nbsp;</div>';
+    let h = '<table class="of" style="margin:0;width:100%"><tr>'+
+      '<th class="of-label" style="width:30%">Hazard</th>'+
+      '<th class="of-label" style="width:18%">MDL / LOD</th>'+
+      '<th class="of-label" style="width:18%">Measured Result</th>'+
+      '<th class="of-label" style="width:18%">Corrected Result</th>'+
+      '<th class="of-label" style="width:16%">SAE</th>'+
+      '</tr>';
+    s.analytes.forEach(a => {
+      const units = a.units ? ' '+a.units : '';
+      h += '<tr>'+
+        '<td>'+ofVal(a.name)+'</td>'+
+        '<td>'+ofVal(a.mdl)+'</td>'+
+        '<td>'+(a.result ? ofEsc(a.result)+ofEsc(units) : '&nbsp;')+'</td>'+
+        '<td>'+ofVal(a.corrected)+'</td>'+
+        '<td>'+ofVal(a.sae)+'</td>'+
+      '</tr>';
+    });
+    h += '</table>';
+    return h;
+  };
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="3">Measurement Information</td></tr>'+
+      '<tr>'+
+        '<td class="of-sample-head" style="width:33%">Sample 1</td>'+
+        '<td class="of-sample-head" style="width:33%">Sample 2</td>'+
+        '<td class="of-sample-head" style="width:34%">Sample 3</td>'+
+      '</tr>'+
+      '<tr>'+
+        '<td style="padding:0">'+sampleBlock(panels[0])+'</td>'+
+        '<td style="padding:0">'+sampleBlock(panels[1])+'</td>'+
+        '<td style="padding:0">'+sampleBlock(panels[2])+'</td>'+
+      '</tr>'+
+    '</table>';
+}
+
+function ofAmbientTable(panels){
+  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
+  const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+  const dirCell = s => '<td class="of-cb">'+dirs.map(d => ofMark(s && s.wind_dir===d)+' '+d).join('&nbsp;&nbsp;')+'</td>';
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="4">Ambient Conditions</td></tr>'+
+      '<tr><td class="of-label" style="width:18%">Baro. Pressure (in Hg) Start / End</td>'+
+        '<td class="of-val">'+ofVal(panels[0]&&panels[0].baro_start)+' / '+ofVal(panels[0]&&panels[0].baro_end)+'</td>'+
+        '<td class="of-val">'+ofVal(panels[1]&&panels[1].baro_start)+' / '+ofVal(panels[1]&&panels[1].baro_end)+'</td>'+
+        '<td class="of-val">'+ofVal(panels[2]&&panels[2].baro_start)+' / '+ofVal(panels[2]&&panels[2].baro_end)+'</td>'+
+      '</tr>'+
+      '<tr><td class="of-label">Temperature (°F) Start / End</td>'+
+        '<td class="of-val">'+ofVal(panels[0]&&panels[0].temp_start)+' / '+ofVal(panels[0]&&panels[0].temp_end)+'</td>'+
+        '<td class="of-val">'+ofVal(panels[1]&&panels[1].temp_start)+' / '+ofVal(panels[1]&&panels[1].temp_end)+'</td>'+
+        '<td class="of-val">'+ofVal(panels[2]&&panels[2].temp_start)+' / '+ofVal(panels[2]&&panels[2].temp_end)+'</td>'+
+      '</tr>'+
+      '<tr><td class="of-label">Relative Humidity (%) / Wind Speed (mph)</td>'+
+        '<td class="of-val">'+ofVal(panels[0]&&panels[0].rh)+' / '+ofVal(panels[0]&&panels[0].wind_speed)+'</td>'+
+        '<td class="of-val">'+ofVal(panels[1]&&panels[1].rh)+' / '+ofVal(panels[1]&&panels[1].wind_speed)+'</td>'+
+        '<td class="of-val">'+ofVal(panels[2]&&panels[2].rh)+' / '+ofVal(panels[2]&&panels[2].wind_speed)+'</td>'+
+      '</tr>'+
+      '<tr><td class="of-label">Wind Direction</td>'+
+        dirCell(panels[0])+dirCell(panels[1])+dirCell(panels[2])+'</tr>'+
+    '</table>';
+}
+
+function ofLabAndSignoffTable(g){
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="8">Lab Information</td></tr>'+
+      '<tr>'+
+        '<td class="of-label">Lab Name</td>'+
+        '<td class="of-label">Phone Number</td>'+
+        '<td class="of-label">Requested TAT (days)</td>'+
+        '<td class="of-label">Date Sent</td>'+
+        '<td class="of-label">Date Analyzed</td>'+
+        '<td class="of-label">Date Reported</td>'+
+        '<td class="of-label">Date Returned</td>'+
+        '<td class="of-label">Expected Return</td>'+
+      '</tr>'+
+      '<tr>'+
+        '<td class="of-val">'+ofVal(g.lab_name)+'</td>'+
+        '<td class="of-val">'+ofVal(g.lab_phone)+'</td>'+
+        '<td class="of-val">'+ofVal(g.lab_turnaround)+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_sent))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_analyzed))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_reported))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_returned))+'</td>'+
+        '<td class="of-val">&nbsp;</td>'+
+      '</tr>'+
+    '</table>'+
+    '<table class="of">'+
+      '<tr><td class="of-section-head">Detailed Evaluation / Follow-Up</td></tr>'+
+      '<tr><td class="of-val" style="min-height:30pt">'+ofVal(g.evaluation)+'</td></tr>'+
+    '</table>'+
+    '<table class="of">'+
+      '<tr><td class="of-section-head">Comments / Time Course of Events</td></tr>'+
+      '<tr><td class="of-val" style="min-height:24pt">'+ofVal(g.comments)+'</td></tr>'+
+    '</table>'+
+    '<table class="of">'+
+      '<tr><td class="of-section-head">Notes &amp; Calculations (8-hr TWA or Adjusted TWA)</td></tr>'+
+      '<tr><td class="of-val" style="min-height:24pt">'+ofVal(g.notes_calcs)+'</td></tr>'+
+    '</table>'+
+    '<table class="of">'+
+      '<tr>'+
+        '<td class="of-label" style="width:50%">Template Completed By (Name &amp; Date)</td>'+
+        '<td class="of-label" style="width:50%">QA Review By (Name &amp; Date)</td>'+
+      '</tr>'+
+      '<tr>'+
+        '<td class="of-val" style="min-height:16pt">'+ofVal(g.completed_by)+'</td>'+
+        '<td class="of-val" style="min-height:16pt">'+ofVal(g.qa_review_by)+'</td>'+
+      '</tr>'+
+    '</table>';
+}
+
+function buildOfficialPageBlock(g, samples, includeHeaderAndGlobal){
+  /* Build one page-block: header + per-3-sample sections. The global Lab Info
+     / Evaluation / Sign-off block only renders on the LAST page block. */
+  const panels = [samples[0]||null, samples[1]||null, samples[2]||null];
+  return '<div class="of-pageblock">'+
+    (includeHeaderAndGlobal ?
+      '<h1 class="of-title">Air Sampling Form — Breathing Zone</h1>'+
+      ofGeneralInfoTable(g) : '')+
+    ofGenSampleTable(panels)+
+    ofPersonnelTable(panels)+
+    ofControlsTable(panels)+
+    ofEquipmentTable(panels)+
+    ofPrePostCalTable(panels)+
+    ofCollectionTable(panels)+
+    ofGravTable(panels)+
+    ofMeasurementTable(panels)+
+    ofAmbientTable(panels)+
+    '</div>';
+}
+
+function buildOfficialDOM(){
+  const existing = document.getElementById('airOfficialPrintRoot');
+  if (existing) existing.remove();
+  const g = ofGeneralFields();
+  const sampleIdxs = units.filter(u => u.kind === 'sample').map(u => u.idx);
+  const samples = sampleIdxs.map(i => ofSamplePanel(i));
+  const root = document.createElement('div');
+  root.id = 'airOfficialPrintRoot';
+  /* Page blocks of 3 samples each; first block carries the global General Info */
+  if (!samples.length) {
+    root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, [], true));
+  } else {
+    for (let i = 0; i < samples.length; i += 3) {
+      const group = samples.slice(i, i+3);
+      root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, group, i === 0));
+    }
+  }
+  /* Final page: global Lab / Evaluation / Sign-off — render as its own block
+     so it always lands on a fresh page (avoids being orphaned with the last
+     sample's small sections). */
+  const finalBlock = document.createElement('div');
+  finalBlock.className = 'of-pageblock';
+  finalBlock.innerHTML = ofLabAndSignoffTable(g);
+  root.appendChild(finalBlock);
+  document.body.appendChild(root);
+}
+
+function printOfficialForm(){
+  buildOfficialDOM();
+  document.body.classList.add('print-air-official');
+  let styleEl = document.getElementById('airOfficialPageRule');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'airOfficialPageRule';
+    styleEl.textContent = '@page { size: landscape; margin: 0.4in; }';
+    document.head.appendChild(styleEl);
+  }
+  const cleanup = () => {
+    document.body.classList.remove('print-air-official');
+    const s = document.getElementById('airOfficialPageRule'); if (s) s.remove();
+    const d = document.getElementById('airOfficialPrintRoot'); if (d) d.remove();
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+}
+
+/* ---------- existing comprehensive print ---------- */
 function buildAnalyteMirrors(){
   /* For each <select multiple> of analytes, insert a sibling div listing only
      the selected options. The print CSS hides the multi-select and shows the
@@ -1218,7 +1738,7 @@ window.Air = Object.assign(window.Air||{}, {
   // TWA + OEL
   refreshTWA, setOel, onOelBasis,
   // save/load/example/reset/print
-  saveSession, loadExample, onLoadFile, resetForm, printForm,
+  saveSession, loadExample, onLoadFile, resetForm, printForm, printOfficialForm,
   // COC
   syncCOCDefaults, generateCOC, onReportToPick, onInvoiceToPick,
   // init hook (called by showView)
