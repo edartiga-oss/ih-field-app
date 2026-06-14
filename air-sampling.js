@@ -1317,6 +1317,33 @@ function ofGravTable(panels){
     '</table>';
 }
 
+function ofLabInfoTable(g){
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head" colspan="8">Lab Information</td></tr>'+
+      '<tr>'+
+        '<td class="of-label">Lab Name</td>'+
+        '<td class="of-label">Phone Number</td>'+
+        '<td class="of-label">Requested TAT (days)</td>'+
+        '<td class="of-label">Date Sent</td>'+
+        '<td class="of-label">Date Analyzed</td>'+
+        '<td class="of-label">Date Reported</td>'+
+        '<td class="of-label">Date Returned</td>'+
+        '<td class="of-label">Expected Return</td>'+
+      '</tr>'+
+      '<tr>'+
+        '<td class="of-val">'+ofVal(g.lab_name)+'</td>'+
+        '<td class="of-val">'+ofVal(g.lab_phone)+'</td>'+
+        '<td class="of-val">'+ofVal(g.lab_turnaround)+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_sent))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_analyzed))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_reported))+'</td>'+
+        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_returned))+'</td>'+
+        '<td class="of-val">&nbsp;</td>'+
+      '</tr>'+
+    '</table>';
+}
+
 function ofMeasurementTable(panels, sampleNos){
   /* Per-sample column showing the analyte rows. Each sample column gets its
      own analyte list rendered as a nested 5-col table. */
@@ -1345,7 +1372,7 @@ function ofMeasurementTable(panels, sampleNos){
   const head = (n,w) => '<td class="of-sample-head" style="width:'+w+'%">'+(n ? 'Sample '+n : '&nbsp;')+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="3">Measurement Information</td></tr>'+
+      '<tr><td class="of-section-head" colspan="3">Lab Results</td></tr>'+
       '<tr>'+head(sampleNos[0],33)+head(sampleNos[1],33)+head(sampleNos[2],34)+'</tr>'+
       '<tr>'+
         '<td style="padding:0">'+sampleBlock(panels[0])+'</td>'+
@@ -1434,30 +1461,10 @@ function ofTwaCalcsTable(){
 }
 
 function ofLabAndSignoffTable(g){
+  /* Lab Information used to live here; it now renders in every per-sample
+     page block (before the Lab Results section) so the IH sees lab context
+     alongside the results. */
   return ''+
-    '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="8">Lab Information</td></tr>'+
-      '<tr>'+
-        '<td class="of-label">Lab Name</td>'+
-        '<td class="of-label">Phone Number</td>'+
-        '<td class="of-label">Requested TAT (days)</td>'+
-        '<td class="of-label">Date Sent</td>'+
-        '<td class="of-label">Date Analyzed</td>'+
-        '<td class="of-label">Date Reported</td>'+
-        '<td class="of-label">Date Returned</td>'+
-        '<td class="of-label">Expected Return</td>'+
-      '</tr>'+
-      '<tr>'+
-        '<td class="of-val">'+ofVal(g.lab_name)+'</td>'+
-        '<td class="of-val">'+ofVal(g.lab_phone)+'</td>'+
-        '<td class="of-val">'+ofVal(g.lab_turnaround)+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_sent))+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_analyzed))+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_reported))+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(g.lab_date_returned))+'</td>'+
-        '<td class="of-val">&nbsp;</td>'+
-      '</tr>'+
-    '</table>'+
     '<table class="of">'+
       '<tr><td class="of-section-head">Detailed Evaluation / Follow-Up</td></tr>'+
       '<tr><td class="of-val" style="min-height:30pt">'+ofVal(g.evaluation)+'</td></tr>'+
@@ -1507,6 +1514,7 @@ function buildOfficialPageBlock(g, samples, includeHeader, startIdx){
     ofPrePostCalTable(panels)+
     ofCollectionTable(panels)+
     ofGravTable(panels)+
+    ofLabInfoTable(g)+
     ofMeasurementTable(panels, sampleNos)+
     ofAmbientTable(panels)+
     '</div>';
