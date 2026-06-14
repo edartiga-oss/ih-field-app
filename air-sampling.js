@@ -836,12 +836,33 @@ function applyPrefill(){
 }
 
 /* ---------- print ---------- */
+function buildAnalyteMirrors(){
+  /* For each <select multiple> of analytes, insert a sibling div listing only
+     the selected options. The print CSS hides the multi-select and shows the
+     mirror so the printout doesn't waste space on unselected options. */
+  document.querySelectorAll('#airForm select[multiple]').forEach(sel => {
+    const names = Array.from(sel.selectedOptions).map(o => o.textContent.trim()).filter(Boolean);
+    let mirror = sel.parentNode.querySelector(':scope > .print-analyte-mirror');
+    if (!mirror) {
+      mirror = document.createElement('div');
+      mirror.className = 'print-analyte-mirror';
+      sel.parentNode.appendChild(mirror);
+    }
+    mirror.textContent = names.length ? names.join(', ') : '(none selected)';
+  });
+}
+function tearDownAnalyteMirrors(){
+  document.querySelectorAll('#airForm .print-analyte-mirror').forEach(m => m.remove());
+}
 function printForm(){
   /* Inject an unnamed @page rule for landscape — more reliable than a named
      @page with the page: property, which Safari and older Chromes ignore.
      Pair it with .print-air on <body> so the 2-column #view-air rules apply.
-     Both are removed on the afterprint event so other tabs print portrait. */
+     Mirror multi-selects so only chosen analytes print. All three side effects
+     are torn down in the afterprint handler so screen view returns to normal
+     and other tabs print portrait. */
   document.body.classList.add('print-air');
+  buildAnalyteMirrors();
   let styleEl = document.getElementById('airLandscapePageRule');
   if (!styleEl) {
     styleEl = document.createElement('style');
@@ -851,6 +872,7 @@ function printForm(){
   }
   const cleanup = () => {
     document.body.classList.remove('print-air');
+    tearDownAnalyteMirrors();
     const s = document.getElementById('airLandscapePageRule');
     if (s) s.remove();
     window.removeEventListener('afterprint', cleanup);

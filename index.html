@@ -454,35 +454,55 @@ body { padding: 20px 18px; }
   #view-air .air-toolbar, #view-air .tabbar { display: none !important; }
   /* COC prints as its own SGS Galson AcroForm PDF — don't waste pages here. */
   #view-air .air-coc-card { display: none !important; }
-  #view-air .air-head { margin-bottom: 4px; }
-  #view-air .air-head h2 { font-size: 13px; }
-  #view-air .air-head .sub { color: #333; font-size: 8px; }
-  #view-air section.air-card { border-color: #999; break-inside: auto; margin-bottom: 4px; }
-  #view-air section.air-card > h2 { padding: 2px 8px; font-size: 8.5px; }
+  #view-air .air-head { margin-bottom: 2px; }
+  #view-air .air-head h2 { font-size: 12px; }
+  #view-air .air-head .sub { color: #333; font-size: 7.5px; }
+  #view-air section.air-card { border-color: #999; break-inside: auto; margin: 0 0 3px; }
+  #view-air section.air-card > h2 { padding: 1px 6px; font-size: 8px; }
   #view-air section.air-card > h2 .chev { display: none; }
   #view-air section.air-card.collapsed > .body { display: block !important; }
-  #view-air .air-card .body { padding: 4px 8px; }
-  /* Pack each sample's field groups into 2 newspaper-style columns; the wide
-     analyte tables span both columns so all columns stay readable. */
+  #view-air .air-card .body { padding: 3px 6px; }
+  /* Each sample panel renders as a 2-column CSS grid (column-count fragments
+     poorly across page boundaries and was leaving huge whitespace on page 1).
+     Wide tables (Min Vol & Time, Measurement Results) span both columns. */
   #view-air .upanel {
-    display: block !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 8px;
+    align-items: start;
     break-inside: auto;
-    column-count: 2;
-    column-gap: 12px;
   }
   #view-air .upanel > fieldset { break-inside: avoid; }
-  #view-air .upanel > fieldset:has(table) { column-span: all; }
-  #view-air .grid { gap: 3px 7px; }
+  #view-air .upanel > fieldset:has(table) { grid-column: 1 / -1; }
+  /* Keep each sample together when possible, force a page break between them
+     so Sample 2's header doesn't end up alone at the bottom of Sample 1's page. */
+  #view-air .upanel + .upanel { break-before: page; }
+  #view-air .grid { gap: 2px 6px; }
   #view-air label { gap: 0; font-size: 7.5px; }
-  #view-air input, #view-air select, #view-air textarea { padding: 1px 3px; }
-  #view-air textarea { min-height: 16px; }
-  #view-air fieldset { padding: 3px 6px; margin: 0 0 4px; }
-  #view-air fieldset legend { font-size: 7.5px; }
+  #view-air input, #view-air select, #view-air textarea { padding: 0 3px; min-height: 0; }
+  #view-air textarea { min-height: 14px; }
+  #view-air fieldset { padding: 2px 5px; margin: 0 0 2px; }
+  #view-air fieldset legend { font-size: 7.5px; padding: 0 3px; }
   #view-air table.cons th, #view-air table.cons td { padding: 1px 3px; font-size: 7.5px; }
-  #view-air .note { padding: 2px 6px; font-size: 7.5px; margin-bottom: 4px; }
-  #view-air .pill { font-size: 7.5px; }
-  #view-air select[multiple] { min-height: 48px; }
+  #view-air .note { padding: 1px 4px; font-size: 7px; margin: 0 0 2px; }
+  #view-air .pill { font-size: 7px; padding: 0 5px; }
+  /* Replace the multi-select with a comma-separated list of just the
+     selected analyte names — Air.printForm() builds the mirror. */
+  #view-air select[multiple] { display: none !important; }
+  #view-air .print-analyte-mirror {
+    display: block;
+    font-size: 7.5px;
+    color: #1c2430;
+    padding: 2px 4px;
+    background: #f4f6f9;
+    border: 1px solid #c9d2dd;
+    border-radius: 3px;
+    font-weight: 400;
+  }
 }
+
+/* On screen the print-analyte-mirror is hidden (only renders during print). */
+#airAppHost .print-analyte-mirror { display: none; }
 </style>
 
 
