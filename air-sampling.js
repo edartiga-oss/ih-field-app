@@ -1394,6 +1394,19 @@ function ofAmbientTable(panels){
     '</table>';
 }
 
+function ofTwaSectionTable(){
+  /* Wraps the per-(worker, analyte) TWA table in a section heading so it
+     drops into the per-sample page block alongside the other sections. The
+     TWA is a survey-wide aggregate, so it prints the same on every page
+     block — keeps the calculated values next to the Lab Results / Ambient
+     context they came from. */
+  return ''+
+    '<table class="of">'+
+      '<tr><td class="of-section-head">Calculation of 8-Hour TWA (or Adjusted TWA)</td></tr>'+
+      '<tr><td style="padding:0">'+ofTwaCalcsTable()+'</td></tr>'+
+    '</table>';
+}
+
 function ofTwaCalcsTable(){
   /* Read directly from computeTwaRows() — same data the screen TWA Calculator
      uses, so worker blocks can't accidentally get filtered out by DOM
@@ -1458,10 +1471,9 @@ function ofLabAndSignoffTable(g){
       '<tr><td class="of-section-head">Comments / Time Course of Events</td></tr>'+
       '<tr><td class="of-val" style="min-height:24pt">'+ofVal(g.comments)+'</td></tr>'+
     '</table>'+
-    '<table class="of">'+
-      '<tr><td class="of-section-head">Calculation of 8-Hour TWA (or Adjusted TWA)</td></tr>'+
-      '<tr><td style="padding:0">'+ofTwaCalcsTable()+'</td></tr>'+
-    '</table>'+
+    /* Calculation of 8-Hour TWA section now lives in every per-sample page
+       block (before Ambient Conditions) so the calculated values print
+       alongside the Lab Results context. */
     '<table class="of">'+
       '<tr><td class="of-section-head">Notes</td></tr>'+
       '<tr><td class="of-val" style="min-height:24pt">'+ofVal(g.notes_calcs)+'</td></tr>'+
@@ -1497,6 +1509,7 @@ function buildOfficialPageBlock(g, samples, includeHeader, startIdx){
     ofGravTable(panels)+
     ofLabInfoTable(g)+
     ofMeasurementTable(panels, sampleNos)+
+    ofTwaSectionTable()+
     ofAmbientTable(panels)+
     '</div>';
 }
