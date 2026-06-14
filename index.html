@@ -436,15 +436,20 @@ body { padding: 20px 18px; }
   header, .nav-tabs, .header-actions, #installBanner,
   #racIHChips, #racLocationChips, #racSegChips,
   .btn, button { display: none !important; }
-  .view { display: block !important; }
-  .view:not(#view-rac) { display: none !important; }
+  .view:not(.active) { display: none !important; }
+  .view.active { display: block !important; }
   body, main { background: white !important; padding: 0 !important; }
   .card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
   .card-header { background: #1a2a3a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  #racResults, #view-rac { display: block !important; }
+  #racResults { display: block !important; }
   #racPrintFilterSummary { display: block !important; }
   /* Hide filter label rows in print */
   #view-rac > div:first-child > div:first-child { display: none !important; }
+  /* Air Sampling: expand all sections + drop toolbar so the printout shows the
+     filled form, not just the cards the user happens to have open. */
+  #view-air .air-toolbar, #view-air .tabbar { display: none !important; }
+  #view-air section.air-card.collapsed > .body { display: block !important; }
+  #view-air .upanel { display: block !important; break-inside: auto; }
 }
 </style>
 
@@ -2164,7 +2169,7 @@ body { padding: 20px 18px; }
           <label><span class="lbl">Survey / Sample Date</span><input type="date" name="survey_date"></label>
           <label><span class="lbl">Shop Name</span>
             <select name="shop_name" id="airShopSelect" onchange="Air.onShopChange&amp;&amp;Air.onShopChange()"><option value="">— select shop —</option></select></label>
-          <label><span class="lbl">Shop Priority</span>
+          <label><span class="lbl">Shop Priority/Tier</span>
             <select name="shop_priority"><option value=""></option><option>Priority 1</option><option>Priority 2</option></select></label>
           <label><span class="lbl">SEG</span>
             <select name="seg" id="airSegSelect"><option value="">— select shop first —</option></select></label>
