@@ -1063,20 +1063,20 @@ function ofGeneralInfoTable(g){
     '</table>';
 }
 
-function ofGenSampleTable(panels){
-  /* General Sample Information — 3 sample columns */
+function ofGenSampleTable(panels, sampleNos){
+  /* General Sample Information — 3 sample columns. sampleNos is the array
+     [n1,n2,n3] of 1-based sample numbers for this page block. */
   const inspirOptions = ['Total','Respirable','Inhalable','Thoracic','NA'];
   const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
   const inspirCell = s => '<td class="of-cb">'+
     inspirOptions.map(o => ofMark(s && s.inspirability===o)+' '+o).join('&nbsp;&nbsp;')+'</td>';
+  const head = n => '<td class="of-sample-head">'+(n ? 'Sample '+n : '&nbsp;')+'</td>';
   return ''+
     '<table class="of">'+
       '<tr><td class="of-section-head" colspan="4">General Sample Information</td></tr>'+
       '<tr>'+
         '<td class="of-label" style="width:18%">Passive Dosimeter # / Pump #</td>'+
-        '<td class="of-sample-head">Sample 1</td>'+
-        '<td class="of-sample-head">Sample 2</td>'+
-        '<td class="of-sample-head">Sample 3</td>'+
+        head(sampleNos[0])+head(sampleNos[1])+head(sampleNos[2])+
       '</tr>'+
       '<tr><td class="of-label">Passive Dosimeter # / Pump #</td>'+
         cell(panels[0],'pump_num')+cell(panels[1],'pump_num')+cell(panels[2],'pump_num')+'</tr>'+
@@ -1234,7 +1234,7 @@ function ofGravTable(panels){
     '</table>';
 }
 
-function ofMeasurementTable(panels){
+function ofMeasurementTable(panels, sampleNos){
   /* Per-sample column showing the analyte rows. Each sample column gets its
      own analyte list rendered as a nested 5-col table. */
   const sampleBlock = s => {
@@ -1259,14 +1259,11 @@ function ofMeasurementTable(panels){
     h += '</table>';
     return h;
   };
+  const head = (n,w) => '<td class="of-sample-head" style="width:'+w+'%">'+(n ? 'Sample '+n : '&nbsp;')+'</td>';
   return ''+
     '<table class="of">'+
       '<tr><td class="of-section-head" colspan="3">Measurement Information</td></tr>'+
-      '<tr>'+
-        '<td class="of-sample-head" style="width:33%">Sample 1</td>'+
-        '<td class="of-sample-head" style="width:33%">Sample 2</td>'+
-        '<td class="of-sample-head" style="width:34%">Sample 3</td>'+
-      '</tr>'+
+      '<tr>'+head(sampleNos[0],33)+head(sampleNos[1],33)+head(sampleNos[2],34)+'</tr>'+
       '<tr>'+
         '<td style="padding:0">'+sampleBlock(panels[0])+'</td>'+
         '<td style="padding:0">'+sampleBlock(panels[1])+'</td>'+
@@ -1407,22 +1404,28 @@ function ofLabAndSignoffTable(g){
     '</table>';
 }
 
-function buildOfficialPageBlock(g, samples, includeHeaderAndGlobal){
-  /* Build one page-block: header + per-3-sample sections. The global Lab Info
-     / Evaluation / Sign-off block only renders on the LAST page block. */
+function buildOfficialPageBlock(g, samples, includeHeader, startIdx){
+  /* Build one page-block: header + per-3-sample sections. startIdx is the
+     1-based number of the FIRST sample in this block so we can label the
+     columns Sample N / Sample N+1 / Sample N+2 instead of always 1/2/3. */
   const panels = [samples[0]||null, samples[1]||null, samples[2]||null];
+  const sampleNos = [
+    panels[0] ? startIdx     : 0,
+    panels[1] ? startIdx + 1 : 0,
+    panels[2] ? startIdx + 2 : 0,
+  ];
   return '<div class="of-pageblock">'+
-    (includeHeaderAndGlobal ?
+    (includeHeader ?
       '<h1 class="of-title">Air Sampling Form — Breathing Zone</h1>'+
       ofGeneralInfoTable(g) : '')+
-    ofGenSampleTable(panels)+
+    ofGenSampleTable(panels, sampleNos)+
     ofPersonnelTable(panels)+
     ofControlsTable(panels)+
     ofEquipmentTable(panels)+
     ofPrePostCalTable(panels)+
     ofCollectionTable(panels)+
     ofGravTable(panels)+
-    ofMeasurementTable(panels)+
+    ofMeasurementTable(panels, sampleNos)+
     ofAmbientTable(panels)+
     '</div>';
 }
@@ -1437,11 +1440,12 @@ function buildOfficialDOM(){
   root.id = 'airOfficialPrintRoot';
   /* Page blocks of 3 samples each; first block carries the global General Info */
   if (!samples.length) {
-    root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, [], true));
+    root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, [], true, 1));
   } else {
     for (let i = 0; i < samples.length; i += 3) {
       const group = samples.slice(i, i+3);
-      root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, group, i === 0));
+      /* i is 0,3,6... — convert to 1-based starting sample number */
+      root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, group, i === 0, i + 1));
     }
   }
   /* Final page: global Lab / Evaluation / Sign-off — render as its own block
