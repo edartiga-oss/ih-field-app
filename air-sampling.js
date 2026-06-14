@@ -1245,7 +1245,7 @@ function ofCollectionTable(panels){
   return ''+
     '<table class="of">'+
       '<tr><td class="of-section-head" colspan="4">Individual Samples Collection Information</td></tr>'+
-      '<tr><td class="of-label" style="width:18%">DOEHRS Sample ID</td>'+
+      '<tr><td class="of-label" style="width:18%">IMS (Information Management System) Sample ID</td>'+
         cell(panels[0],'doehrs_id')+cell(panels[1],'doehrs_id')+cell(panels[2],'doehrs_id')+'</tr>'+
       '<tr><td class="of-label">Field Sample ID</td>'+
         cell(panels[0],'field_id')+cell(panels[1],'field_id')+cell(panels[2],'field_id')+'</tr>'+
