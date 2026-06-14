@@ -1129,44 +1129,49 @@ function ofGeneralInfoTable(g){
     '</table>';
 }
 
+/* ── Shared helpers for variable-width tables ── */
+function ofPanelCells(panels, key, dateLike){
+  return panels.map(s => '<td class="of-val">'+ofVal(dateLike ? ofUsDate(s && s[key]) : (s && s[key]))+'</td>').join('');
+}
+function ofCustomCells(panels, fn){
+  return panels.map(fn).join('');
+}
+function ofColspan(panels){ return String(1 + panels.length); }
+
 function ofGenSampleTable(panels, sampleNos){
-  /* General Sample Information — 3 sample columns. sampleNos is the array
-     [n1,n2,n3] of 1-based sample numbers for this page block. */
+  /* General Sample Information — panels.length sample columns (1, 2, or 3).
+     sampleNos is the array of 1-based sample numbers for this page block. */
   const inspirOptions = ['Total','Respirable','Inhalable','Thoracic','NA'];
-  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
   const inspirCell = s => '<td class="of-cb">'+
     inspirOptions.map(o => ofMark(s && s.inspirability===o)+' '+o).join('&nbsp;&nbsp;')+'</td>';
   const head = n => '<td class="of-sample-head">'+(n ? 'Sample '+n : '&nbsp;')+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">General Sample Information</td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">General Sample Information</td></tr>'+
       '<tr>'+
         '<td class="of-label" style="width:18%">Passive Dosimeter # / Pump #</td>'+
-        head(sampleNos[0])+head(sampleNos[1])+head(sampleNos[2])+
+        sampleNos.map(head).join('')+
       '</tr>'+
       '<tr><td class="of-label">Passive Dosimeter # / Pump #</td>'+
-        cell(panels[0],'pump_num')+cell(panels[1],'pump_num')+cell(panels[2],'pump_num')+'</tr>'+
+        ofPanelCells(panels,'pump_num')+'</tr>'+
       '<tr><td class="of-label">Hazard</td>'+
-        cell(panels[0],'chem')+cell(panels[1],'chem')+cell(panels[2],'chem')+'</tr>'+
+        ofPanelCells(panels,'chem')+'</tr>'+
       '<tr><td class="of-label">Sampling Method</td>'+
-        cell(panels[0],'method')+cell(panels[1],'method')+cell(panels[2],'method')+'</tr>'+
+        ofPanelCells(panels,'method')+'</tr>'+
       '<tr><td class="of-label">Inspirability</td>'+
-        inspirCell(panels[0])+inspirCell(panels[1])+inspirCell(panels[2])+'</tr>'+
+        ofCustomCells(panels, inspirCell)+'</tr>'+
       '<tr><td class="of-label">Sample Media</td>'+
-        cell(panels[0],'media')+cell(panels[1],'media')+cell(panels[2],'media')+'</tr>'+
+        ofPanelCells(panels,'media')+'</tr>'+
       '<tr><td class="of-label">Sample Media Lot #</td>'+
-        cell(panels[0],'media_lot')+cell(panels[1],'media_lot')+cell(panels[2],'media_lot')+'</tr>'+
+        ofPanelCells(panels,'media_lot')+'</tr>'+
       '<tr><td class="of-label">Sample Media Expiration Date</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(panels[0]&&panels[0].media_exp))+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(panels[1]&&panels[1].media_exp))+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(panels[2]&&panels[2].media_exp))+'</td>'+
+        ofPanelCells(panels,'media_exp',true)+
       '</tr>'+
     '</table>';
 }
 
 function ofPersonnelTable(panels){
   const posOptions = ['Right Shoulder','Collar','Left Shoulder','Area','Other'];
-  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
   const exposureCell = s => '<td class="of-cb">'+
     ofMark(s && s.exp_origin==='Ambient Conditions')+' Ambient Conditions<br>'+
     ofMark(s && s.exp_origin==='Operator Position')+' Operator Position</td>';
@@ -1174,77 +1179,71 @@ function ofPersonnelTable(panels){
     posOptions.map(o => ofMark(s && s.position===o)+' '+o).join('&nbsp;&nbsp;')+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">Personnel Information</td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Personnel Information</td></tr>'+
       '<tr><td class="of-label" style="width:18%">Last Name, First Name</td>'+
-        cell(panels[0],'emp_name')+cell(panels[1],'emp_name')+cell(panels[2],'emp_name')+'</tr>'+
+        ofPanelCells(panels,'emp_name')+'</tr>'+
       '<tr><td class="of-label">Last 4 / EDIPN ID</td>'+
-        cell(panels[0],'emp_id')+cell(panels[1],'emp_id')+cell(panels[2],'emp_id')+'</tr>'+
+        ofPanelCells(panels,'emp_id')+'</tr>'+
       '<tr><td class="of-label">Length of Work Shift (hrs)</td>'+
-        cell(panels[0],'shift_hrs')+cell(panels[1],'shift_hrs')+cell(panels[2],'shift_hrs')+'</tr>'+
+        ofPanelCells(panels,'shift_hrs')+'</tr>'+
       '<tr><td class="of-label">Exposure Origin</td>'+
-        exposureCell(panels[0])+exposureCell(panels[1])+exposureCell(panels[2])+'</tr>'+
+        ofCustomCells(panels, exposureCell)+'</tr>'+
       '<tr><td class="of-label">Sample Position</td>'+
-        positionCell(panels[0])+positionCell(panels[1])+positionCell(panels[2])+'</tr>'+
+        ofCustomCells(panels, positionCell)+'</tr>'+
     '</table>';
 }
 
 function ofControlsTable(panels){
-  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">Control Information</td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Control Information</td></tr>'+
       '<tr><td class="of-label" style="width:18%">PPE (incl. NIOSH TC # e.g. TC-84A-XXXX)</td>'+
-        cell(panels[0],'ppe')+cell(panels[1],'ppe')+cell(panels[2],'ppe')+'</tr>'+
+        ofPanelCells(panels,'ppe')+'</tr>'+
       '<tr><td class="of-label">Engineering</td>'+
-        cell(panels[0],'engineering')+cell(panels[1],'engineering')+cell(panels[2],'engineering')+'</tr>'+
+        ofPanelCells(panels,'engineering')+'</tr>'+
       '<tr><td class="of-label">Administrative</td>'+
-        cell(panels[0],'administrative')+cell(panels[1],'administrative')+cell(panels[2],'administrative')+'</tr>'+
+        ofPanelCells(panels,'administrative')+'</tr>'+
     '</table>';
 }
 
 function ofEquipmentTable(panels){
-  /* Per-sample pump + calibrator block, 3 sample columns */
-  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">Program Office Equipment Information</td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Program Office Equipment Information</td></tr>'+
       '<tr><td class="of-label" style="width:18%">Pump Mfg</td>'+
-        cell(panels[0],'pump_mfg')+cell(panels[1],'pump_mfg')+cell(panels[2],'pump_mfg')+'</tr>'+
+        ofPanelCells(panels,'pump_mfg')+'</tr>'+
       '<tr><td class="of-label">Pump Model</td>'+
-        cell(panels[0],'pump_model')+cell(panels[1],'pump_model')+cell(panels[2],'pump_model')+'</tr>'+
+        ofPanelCells(panels,'pump_model')+'</tr>'+
       '<tr><td class="of-label">Pump Serial #</td>'+
-        cell(panels[0],'pump_serial')+cell(panels[1],'pump_serial')+cell(panels[2],'pump_serial')+'</tr>'+
+        ofPanelCells(panels,'pump_serial')+'</tr>'+
       '<tr><td class="of-label">Calibrator Mfg / Model</td>'+
-        cell(panels[0],'cal_model')+cell(panels[1],'cal_model')+cell(panels[2],'cal_model')+'</tr>'+
+        ofPanelCells(panels,'cal_model')+'</tr>'+
       '<tr><td class="of-label">Calibrator Serial #</td>'+
-        cell(panels[0],'cal_serial')+cell(panels[1],'cal_serial')+cell(panels[2],'cal_serial')+'</tr>'+
+        ofPanelCells(panels,'cal_serial')+'</tr>'+
       '<tr><td class="of-label">Calibrator Mfg Cal Date</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(panels[0]&&panels[0].cal_mfg_date))+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(panels[1]&&panels[1].cal_mfg_date))+'</td>'+
-        '<td class="of-val">'+ofVal(ofUsDate(panels[2]&&panels[2].cal_mfg_date))+'</td>'+
+        ofPanelCells(panels,'cal_mfg_date',true)+
       '</tr>'+
     '</table>';
 }
 
 function ofPrePostCalTable(panels){
-  const cell = (s,key,dateLike) => '<td class="of-val">'+ofVal(dateLike ? ofUsDate(s && s[key]) : (s && s[key]))+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">Pre- and Post-Calibration Information <span style="font-weight:normal">(invalid if &gt; 5% diff)</span></td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Pre- and Post-Calibration Information <span style="font-weight:normal">(invalid if &gt; 5% diff)</span></td></tr>'+
       '<tr><td class="of-label" style="width:18%">Pre-Cal Date</td>'+
-        cell(panels[0],'precal_date',1)+cell(panels[1],'precal_date',1)+cell(panels[2],'precal_date',1)+'</tr>'+
+        ofPanelCells(panels,'precal_date',true)+'</tr>'+
       '<tr><td class="of-label">Pre-Cal Time</td>'+
-        cell(panels[0],'precal_time')+cell(panels[1],'precal_time')+cell(panels[2],'precal_time')+'</tr>'+
+        ofPanelCells(panels,'precal_time')+'</tr>'+
       '<tr><td class="of-label">Pre- Flow Rate (LPM)</td>'+
-        cell(panels[0],'precal_flow')+cell(panels[1],'precal_flow')+cell(panels[2],'precal_flow')+'</tr>'+
+        ofPanelCells(panels,'precal_flow')+'</tr>'+
       '<tr><td class="of-label">Post-Cal Date</td>'+
-        cell(panels[0],'postcal_date',1)+cell(panels[1],'postcal_date',1)+cell(panels[2],'postcal_date',1)+'</tr>'+
+        ofPanelCells(panels,'postcal_date',true)+'</tr>'+
       '<tr><td class="of-label">Post-Cal Time</td>'+
-        cell(panels[0],'postcal_time')+cell(panels[1],'postcal_time')+cell(panels[2],'postcal_time')+'</tr>'+
+        ofPanelCells(panels,'postcal_time')+'</tr>'+
       '<tr><td class="of-label">Post- Flow Rate (LPM)</td>'+
-        cell(panels[0],'postcal_flow')+cell(panels[1],'postcal_flow')+cell(panels[2],'postcal_flow')+'</tr>'+
+        ofPanelCells(panels,'postcal_flow')+'</tr>'+
       '<tr><td class="of-label">Pre/Post % Difference</td>'+
-        cell(panels[0],'cal_diff')+cell(panels[1],'cal_diff')+cell(panels[2],'cal_diff')+'</tr>'+
+        ofPanelCells(panels,'cal_diff')+'</tr>'+
     '</table>';
 }
 
@@ -1266,54 +1265,50 @@ function ofCategoryCell(s){
 }
 
 function ofCollectionTable(panels){
-  const cell = (s,key,dateLike) => '<td class="of-val">'+ofVal(dateLike ? ofUsDate(s && s[key]) : (s && s[key]))+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">Individual Samples Collection Information</td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Individual Samples Collection Information</td></tr>'+
       '<tr><td class="of-label" style="width:18%">IMS (Information Management System) Sample ID</td>'+
-        cell(panels[0],'doehrs_id')+cell(panels[1],'doehrs_id')+cell(panels[2],'doehrs_id')+'</tr>'+
+        ofPanelCells(panels,'doehrs_id')+'</tr>'+
       '<tr><td class="of-label">Field Sample ID</td>'+
-        cell(panels[0],'field_id')+cell(panels[1],'field_id')+cell(panels[2],'field_id')+'</tr>'+
+        ofPanelCells(panels,'field_id')+'</tr>'+
       '<tr><td class="of-label">Sample / Blank Category</td>'+
-        ofCategoryCell(panels[0])+
-        ofCategoryCell(panels[1])+
-        ofCategoryCell(panels[2])+
+        ofCustomCells(panels, ofCategoryCell)+
       '</tr>'+
       '<tr><td class="of-label">Lab Sample ID</td>'+
-        cell(panels[0],'lab_id')+cell(panels[1],'lab_id')+cell(panels[2],'lab_id')+'</tr>'+
+        ofPanelCells(panels,'lab_id')+'</tr>'+
       '<tr><td class="of-label">Start Date</td>'+
-        cell(panels[0],'start_date',1)+cell(panels[1],'start_date',1)+cell(panels[2],'start_date',1)+'</tr>'+
+        ofPanelCells(panels,'start_date',true)+'</tr>'+
       '<tr><td class="of-label">Start Time</td>'+
-        cell(panels[0],'start_time')+cell(panels[1],'start_time')+cell(panels[2],'start_time')+'</tr>'+
+        ofPanelCells(panels,'start_time')+'</tr>'+
       '<tr><td class="of-label">Stop Date</td>'+
-        cell(panels[0],'stop_date',1)+cell(panels[1],'stop_date',1)+cell(panels[2],'stop_date',1)+'</tr>'+
+        ofPanelCells(panels,'stop_date',true)+'</tr>'+
       '<tr><td class="of-label">Stop Time</td>'+
-        cell(panels[0],'stop_time')+cell(panels[1],'stop_time')+cell(panels[2],'stop_time')+'</tr>'+
+        ofPanelCells(panels,'stop_time')+'</tr>'+
       '<tr><td class="of-label">Total Downtime (min)</td>'+
-        cell(panels[0],'downtime')+cell(panels[1],'downtime')+cell(panels[2],'downtime')+'</tr>'+
+        ofPanelCells(panels,'downtime')+'</tr>'+
       '<tr><td class="of-label">Total Sampling Time (min)</td>'+
-        cell(panels[0],'duration')+cell(panels[1],'duration')+cell(panels[2],'duration')+'</tr>'+
+        ofPanelCells(panels,'duration')+'</tr>'+
       '<tr><td class="of-label">Flow Rate (LPM)</td>'+
-        cell(panels[0],'flow')+cell(panels[1],'flow')+cell(panels[2],'flow')+'</tr>'+
+        ofPanelCells(panels,'flow')+'</tr>'+
       '<tr><td class="of-label">Total Volume (L)</td>'+
-        cell(panels[0],'volume')+cell(panels[1],'volume')+cell(panels[2],'volume')+'</tr>'+
+        ofPanelCells(panels,'volume')+'</tr>'+
     '</table>';
 }
 
 function ofGravTable(panels){
-  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
   /* Show only if any sample has gravimetric data — keeps the printout shorter */
   const any = panels.some(p => p && (p.grav_pre || p.grav_post || p.grav_net));
   if (!any) return '';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">Gravimetric Analysis (in-house filter analysis only)</td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Gravimetric Analysis (in-house filter analysis only)</td></tr>'+
       '<tr><td class="of-label" style="width:18%">Pre-Sampled Weight (g)</td>'+
-        cell(panels[0],'grav_pre')+cell(panels[1],'grav_pre')+cell(panels[2],'grav_pre')+'</tr>'+
+        ofPanelCells(panels,'grav_pre')+'</tr>'+
       '<tr><td class="of-label">Post-Sampled Weight (g)</td>'+
-        cell(panels[0],'grav_post')+cell(panels[1],'grav_post')+cell(panels[2],'grav_post')+'</tr>'+
+        ofPanelCells(panels,'grav_post')+'</tr>'+
       '<tr><td class="of-label">Net Sampled Weight (g)</td>'+
-        cell(panels[0],'grav_net')+cell(panels[1],'grav_net')+cell(panels[2],'grav_net')+'</tr>'+
+        ofPanelCells(panels,'grav_net')+'</tr>'+
     '</table>';
 }
 
@@ -1346,7 +1341,8 @@ function ofLabInfoTable(g){
 
 function ofMeasurementTable(panels, sampleNos){
   /* Per-sample column showing the analyte rows. Each sample column gets its
-     own analyte list rendered as a nested 5-col table. */
+     own analyte list rendered as a nested 5-col table. Column count matches
+     panels.length so a single-sample page uses the full width. */
   const sampleBlock = s => {
     if (!s || !s.analytes || !s.analytes.length) return '<div class="of-val">&nbsp;</div>';
     let h = '<table class="of" style="margin:0;width:100%"><tr>'+
@@ -1369,43 +1365,32 @@ function ofMeasurementTable(panels, sampleNos){
     h += '</table>';
     return h;
   };
-  const head = (n,w) => '<td class="of-sample-head" style="width:'+w+'%">'+(n ? 'Sample '+n : '&nbsp;')+'</td>';
+  const w = Math.floor(100 / Math.max(panels.length, 1));
+  const head = (n) => '<td class="of-sample-head" style="width:'+w+'%">'+(n ? 'Sample '+n : '&nbsp;')+'</td>';
+  const blockCell = s => '<td style="padding:0">'+sampleBlock(s)+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="3">Lab Results</td></tr>'+
-      '<tr>'+head(sampleNos[0],33)+head(sampleNos[1],33)+head(sampleNos[2],34)+'</tr>'+
-      '<tr>'+
-        '<td style="padding:0">'+sampleBlock(panels[0])+'</td>'+
-        '<td style="padding:0">'+sampleBlock(panels[1])+'</td>'+
-        '<td style="padding:0">'+sampleBlock(panels[2])+'</td>'+
-      '</tr>'+
+      '<tr><td class="of-section-head" colspan="'+panels.length+'">Lab Results</td></tr>'+
+      '<tr>'+sampleNos.map(head).join('')+'</tr>'+
+      '<tr>'+panels.map(blockCell).join('')+'</tr>'+
     '</table>';
 }
 
 function ofAmbientTable(panels){
-  const cell = (s,key) => '<td class="of-val">'+ofVal(s && s[key])+'</td>';
   const dirs = ['N','NE','E','SE','S','SW','W','NW'];
   const dirCell = s => '<td class="of-cb">'+dirs.map(d => ofMark(s && s.wind_dir===d)+' '+d).join('&nbsp;&nbsp;')+'</td>';
+  const pairCell = (s, ka, kb) => '<td class="of-val">'+ofVal(s && s[ka])+' / '+ofVal(s && s[kb])+'</td>';
   return ''+
     '<table class="of">'+
-      '<tr><td class="of-section-head" colspan="4">Ambient Conditions</td></tr>'+
+      '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Ambient Conditions</td></tr>'+
       '<tr><td class="of-label" style="width:18%">Baro. Pressure (in Hg) Start / End</td>'+
-        '<td class="of-val">'+ofVal(panels[0]&&panels[0].baro_start)+' / '+ofVal(panels[0]&&panels[0].baro_end)+'</td>'+
-        '<td class="of-val">'+ofVal(panels[1]&&panels[1].baro_start)+' / '+ofVal(panels[1]&&panels[1].baro_end)+'</td>'+
-        '<td class="of-val">'+ofVal(panels[2]&&panels[2].baro_start)+' / '+ofVal(panels[2]&&panels[2].baro_end)+'</td>'+
-      '</tr>'+
+        ofCustomCells(panels, s => pairCell(s,'baro_start','baro_end'))+'</tr>'+
       '<tr><td class="of-label">Temperature (°F) Start / End</td>'+
-        '<td class="of-val">'+ofVal(panels[0]&&panels[0].temp_start)+' / '+ofVal(panels[0]&&panels[0].temp_end)+'</td>'+
-        '<td class="of-val">'+ofVal(panels[1]&&panels[1].temp_start)+' / '+ofVal(panels[1]&&panels[1].temp_end)+'</td>'+
-        '<td class="of-val">'+ofVal(panels[2]&&panels[2].temp_start)+' / '+ofVal(panels[2]&&panels[2].temp_end)+'</td>'+
-      '</tr>'+
+        ofCustomCells(panels, s => pairCell(s,'temp_start','temp_end'))+'</tr>'+
       '<tr><td class="of-label">Relative Humidity (%) / Wind Speed (mph)</td>'+
-        '<td class="of-val">'+ofVal(panels[0]&&panels[0].rh)+' / '+ofVal(panels[0]&&panels[0].wind_speed)+'</td>'+
-        '<td class="of-val">'+ofVal(panels[1]&&panels[1].rh)+' / '+ofVal(panels[1]&&panels[1].wind_speed)+'</td>'+
-        '<td class="of-val">'+ofVal(panels[2]&&panels[2].rh)+' / '+ofVal(panels[2]&&panels[2].wind_speed)+'</td>'+
-      '</tr>'+
+        ofCustomCells(panels, s => pairCell(s,'rh','wind_speed'))+'</tr>'+
       '<tr><td class="of-label">Wind Direction</td>'+
-        dirCell(panels[0])+dirCell(panels[1])+dirCell(panels[2])+'</tr>'+
+        ofCustomCells(panels, dirCell)+'</tr>'+
     '</table>';
 }
 
@@ -1494,15 +1479,11 @@ function ofLabAndSignoffTable(g){
 }
 
 function buildOfficialPageBlock(g, samples, includeHeader, startIdx){
-  /* Build one page-block: header + per-3-sample sections. startIdx is the
-     1-based number of the FIRST sample in this block so we can label the
-     columns Sample N / Sample N+1 / Sample N+2 instead of always 1/2/3. */
-  const panels = [samples[0]||null, samples[1]||null, samples[2]||null];
-  const sampleNos = [
-    panels[0] ? startIdx     : 0,
-    panels[1] ? startIdx + 1 : 0,
-    panels[2] ? startIdx + 2 : 0,
-  ];
+  /* Build one page-block sized to the actual number of samples (1, 2, or 3).
+     startIdx is the 1-based number of the first sample in this block so we
+     can label the columns Sample N / Sample N+1 / Sample N+2. */
+  const panels = samples.slice();
+  const sampleNos = panels.map((_, i) => startIdx + i);
   return '<div class="of-pageblock">'+
     (includeHeader ?
       '<h1 class="of-title">Air Sampling Form — Breathing Zone</h1>'+
