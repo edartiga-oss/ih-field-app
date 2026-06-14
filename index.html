@@ -517,15 +517,28 @@ body { padding: 20px 18px; }
   body.print-air-official #airOfficialPrintRoot h1.of-title {
     text-align: center; font-size: 11pt; margin: 0 0 4pt; letter-spacing: 0.3pt;
   }
+  /* Let sections flow naturally; each section table has break-inside: avoid
+     below so a section title can't get orphaned at the bottom of a page —
+     the whole section moves to the next page when it can't fit. */
   body.print-air-official #airOfficialPrintRoot .of-pageblock {
-    page-break-after: always; break-after: page;
+    /* no forced page break here */
   }
-  body.print-air-official #airOfficialPrintRoot .of-pageblock:last-child {
-    page-break-after: avoid; break-after: auto;
+  body.print-air-official #airOfficialPrintRoot .of-pageblock + .of-pageblock {
+    /* Keep page blocks together with their predecessor when possible;
+       break only if needed. */
   }
   body.print-air-official #airOfficialPrintRoot table.of {
     width: 100%; border-collapse: collapse; margin: 0 0 3pt;
     table-layout: fixed;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Lab Results and the TWA table can grow tall (many analytes / workers);
+     allow them to split across pages when needed, rather than orphaning a
+     short next section. */
+  body.print-air-official #airOfficialPrintRoot table.of.of-long {
+    break-inside: auto;
+    page-break-inside: auto;
   }
   body.print-air-official #airOfficialPrintRoot table.of th,
   body.print-air-official #airOfficialPrintRoot table.of td {
