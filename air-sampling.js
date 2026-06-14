@@ -419,10 +419,16 @@ function addSample(){
 
 /* ---------- Equipment library pickers ---------- */
 function airEquipLib(){
-  /* Read the noise app's window.equipment array (filled by index.html's
-     equipment management code). The two arrays we want are air_pump and
-     air_calibrator. */
-  return Array.isArray(window.equipment) ? window.equipment : [];
+  /* index.html declares `let equipment = []` at script-top-level, which is
+     NOT attached to window in modern browsers (let/const skip the global
+     object). So we read the same JSON the noise app persists to localStorage
+     under EQUIP_KEY — guaranteed fresh because checkInItem / saveEquipment
+     both call saveEquipmentToStorage() before refreshEquipPickers runs. */
+  try {
+    const raw = localStorage.getItem('ih_noise_equipment_v1');
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch(e) { return []; }
 }
 function populateEquipPickersForSample(i){
   const lib = airEquipLib();
