@@ -1331,7 +1331,7 @@ function ofCollectionTable(panels, sampleNos){
     ofRow(ofRowHasData(panels,'volume'),
       '<tr><td class="of-label">Total Volume (L)</td>'+ofPanelCells(panels,'volume')+'</tr>');
   return ''+
-    '<table class="of">'+
+    '<table class="of of-long">'+
       '<tr><td class="of-section-head" colspan="'+ofColspan(panels)+'">Individual Samples Collection Information</td></tr>'+
       headerRow+
       body+
@@ -1412,7 +1412,7 @@ function ofMeasurementTable(panels, sampleNos){
   const head = (n, s) => '<td class="of-sample-head'+ofBlankClass(s)+'" style="width:'+w+'%">'+(n ? 'Sample '+n : '&nbsp;')+'</td>';
   const blockCell = s => '<td class="'+(s && s.kind==='blank' ? 'of-blank ':'')+'" style="padding:0">'+sampleBlock(s)+'</td>';
   return ''+
-    '<table class="of">'+
+    '<table class="of of-long">'+
       '<tr><td class="of-section-head" colspan="'+panels.length+'">Lab Results</td></tr>'+
       '<tr>'+sampleNos.map((n, i) => head(n, panels[i])).join('')+'</tr>'+
       '<tr>'+panels.map(blockCell).join('')+'</tr>'+
@@ -1445,9 +1445,10 @@ function ofTwaSectionTable(){
      drops into the per-sample page block alongside the other sections. The
      TWA is a survey-wide aggregate, so it prints the same on every page
      block — keeps the calculated values next to the Lab Results / Ambient
-     context they came from. */
+     context they came from. Marked .of-long so a long table can split
+     across pages rather than orphan the next section. */
   return ''+
-    '<table class="of">'+
+    '<table class="of of-long">'+
       '<tr><td class="of-section-head">Calculation of 8-Hour TWA (or Adjusted TWA)</td></tr>'+
       '<tr><td style="padding:0">'+ofTwaCalcsTable()+'</td></tr>'+
     '</table>';
