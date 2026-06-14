@@ -935,6 +935,7 @@ function ofSamplePanel(idx){
     });
   });
   return {
+    kind: 'sample',
     pump_num: get('pump_num'),
     pump_mfg: get('pump_mfg'),
     pump_model: get('pump_model'),
@@ -998,17 +999,28 @@ function ofSamplePanel(idx){
 }
 
 function ofBlankPanel(idx){
+  /* Returns a panel-shaped object for a blank so it fits the same 3-up
+     layout as a real sample. Most per-sample fields (calibration, ambient,
+     personnel, etc.) are blank for a media/field blank — the printout
+     intentionally leaves those cells empty and uses the Sample/Blank
+     Category checkbox row in the Collection Info section to indicate this
+     column is a Field Blank or Lab/Media Blank. */
   const i = idx;
   const get = nm => { const f = document.querySelector('#airForm [name="blank'+i+'_'+nm+'"]'); return f ? f.value : ''; };
+  const category = get('category') || 'Field Blank';
   return {
-    category: get('category') || 'Field Blank',
-    id: get('id'),
+    kind: 'blank',
+    category,
+    field_id: get('id'),
     chem: get('chem'),
     method: get('method'),
     media: get('media'),
     media_lot: get('media_lot'),
     media_exp: get('media_exp'),
-    comments: get('comments'),
+    /* Park the comments text in the description so it doesn't disappear. */
+    activity: get('comments'),
+    /* Empty defaults for the sample-only fields the renderer reads */
+    analytes: [],
   };
 }
 
@@ -1182,6 +1194,23 @@ function ofPrePostCalTable(panels){
     '</table>';
 }
 
+function ofCategoryCell(s){
+  /* Render the Sample / Field Blank / Lab/Media Blank checkbox row based on
+     the panel's kind + category. Empty columns get all three unchecked. */
+  if (!s) return '<td class="of-cb">'+CB+' Sample &nbsp; '+CB+' Field Blank &nbsp; '+CB+' Lab/Media Blank</td>';
+  const isSample = s.kind === 'sample';
+  const isFieldBlank = s.kind === 'blank' && /field/i.test(s.category || '');
+  const isLabBlank   = s.kind === 'blank' && /lab|media/i.test(s.category || '');
+  /* Default a blank with no category set to Field Blank — matches the form's
+     UI default. */
+  const fbMark = isFieldBlank || (s.kind === 'blank' && !isLabBlank);
+  return '<td class="of-cb">'+
+    ofMark(isSample)+' Sample &nbsp; '+
+    ofMark(fbMark)+' Field Blank &nbsp; '+
+    ofMark(isLabBlank)+' Lab/Media Blank'+
+  '</td>';
+}
+
 function ofCollectionTable(panels){
   const cell = (s,key,dateLike) => '<td class="of-val">'+ofVal(dateLike ? ofUsDate(s && s[key]) : (s && s[key]))+'</td>';
   return ''+
@@ -1192,9 +1221,9 @@ function ofCollectionTable(panels){
       '<tr><td class="of-label">Field Sample ID</td>'+
         cell(panels[0],'field_id')+cell(panels[1],'field_id')+cell(panels[2],'field_id')+'</tr>'+
       '<tr><td class="of-label">Sample / Blank Category</td>'+
-        '<td class="of-cb">'+CK+' Sample &nbsp; '+CB+' Field Blank &nbsp; '+CB+' Lab/Media Blank</td>'+
-        '<td class="of-cb">'+CK+' Sample &nbsp; '+CB+' Field Blank &nbsp; '+CB+' Lab/Media Blank</td>'+
-        '<td class="of-cb">'+CK+' Sample &nbsp; '+CB+' Field Blank &nbsp; '+CB+' Lab/Media Blank</td>'+
+        ofCategoryCell(panels[0])+
+        ofCategoryCell(panels[1])+
+        ofCategoryCell(panels[2])+
       '</tr>'+
       '<tr><td class="of-label">Lab Sample ID</td>'+
         cell(panels[0],'lab_id')+cell(panels[1],'lab_id')+cell(panels[2],'lab_id')+'</tr>'+
@@ -1434,17 +1463,18 @@ function buildOfficialDOM(){
   const existing = document.getElementById('airOfficialPrintRoot');
   if (existing) existing.remove();
   const g = ofGeneralFields();
-  const sampleIdxs = units.filter(u => u.kind === 'sample').map(u => u.idx);
-  const samples = sampleIdxs.map(i => ofSamplePanel(i));
+  /* Combine samples and blanks into a single ordered list so blanks render
+     as additional 3-up columns with the Sample/Blank Category checkbox row
+     marking them as Field Blank or Lab/Media Blank. */
+  const allPanels = units.map(u => u.kind === 'sample' ? ofSamplePanel(u.idx) : ofBlankPanel(u.idx));
   const root = document.createElement('div');
   root.id = 'airOfficialPrintRoot';
-  /* Page blocks of 3 samples each; first block carries the global General Info */
-  if (!samples.length) {
+  if (!allPanels.length) {
     root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, [], true, 1));
   } else {
-    for (let i = 0; i < samples.length; i += 3) {
-      const group = samples.slice(i, i+3);
-      /* i is 0,3,6... — convert to 1-based starting sample number */
+    for (let i = 0; i < allPanels.length; i += 3) {
+      const group = allPanels.slice(i, i+3);
+      /* i is 0,3,6... — convert to 1-based starting "column number" */
       root.insertAdjacentHTML('beforeend', buildOfficialPageBlock(g, group, i === 0, i + 1));
     }
   }
