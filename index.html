@@ -445,11 +445,44 @@ body { padding: 20px 18px; }
   #racPrintFilterSummary { display: block !important; }
   /* Hide filter label rows in print */
   #view-rac > div:first-child > div:first-child { display: none !important; }
-  /* Air Sampling: expand all sections + drop toolbar so the printout shows the
-     filled form, not just the cards the user happens to have open. */
+  /* Air Sampling — landscape, 2-column, tight. Landscape is opt-in via the
+     .print-air class that Air.printForm() temporarily applies to <body>, so
+     printing other tabs (Noise RAC, etc.) stays portrait. */
+  @page airLandscape { size: landscape; margin: 0.3in; }
+  body.print-air #view-air { page: airLandscape; }
+  body.print-air { font-size: 8px; }
+
   #view-air .air-toolbar, #view-air .tabbar { display: none !important; }
+  /* COC prints as its own SGS Galson AcroForm PDF — don't waste pages here. */
+  #view-air .air-coc-card { display: none !important; }
+  #view-air .air-head { margin-bottom: 4px; }
+  #view-air .air-head h2 { font-size: 13px; }
+  #view-air .air-head .sub { color: #333; font-size: 8px; }
+  #view-air section.air-card { border-color: #999; break-inside: auto; margin-bottom: 4px; }
+  #view-air section.air-card > h2 { padding: 2px 8px; font-size: 8.5px; }
+  #view-air section.air-card > h2 .chev { display: none; }
   #view-air section.air-card.collapsed > .body { display: block !important; }
-  #view-air .upanel { display: block !important; break-inside: auto; }
+  #view-air .air-card .body { padding: 4px 8px; }
+  /* Pack each sample's field groups into 2 newspaper-style columns; the wide
+     analyte tables span both columns so all columns stay readable. */
+  #view-air .upanel {
+    display: block !important;
+    break-inside: auto;
+    column-count: 2;
+    column-gap: 12px;
+  }
+  #view-air .upanel > fieldset { break-inside: avoid; }
+  #view-air .upanel > fieldset:has(table) { column-span: all; }
+  #view-air .grid { gap: 3px 7px; }
+  #view-air label { gap: 0; font-size: 7.5px; }
+  #view-air input, #view-air select, #view-air textarea { padding: 1px 3px; }
+  #view-air textarea { min-height: 16px; }
+  #view-air fieldset { padding: 3px 6px; margin: 0 0 4px; }
+  #view-air fieldset legend { font-size: 7.5px; }
+  #view-air table.cons th, #view-air table.cons td { padding: 1px 3px; font-size: 7.5px; }
+  #view-air .note { padding: 2px 6px; font-size: 7.5px; margin-bottom: 4px; }
+  #view-air .pill { font-size: 7.5px; }
+  #view-air select[multiple] { min-height: 48px; }
 }
 </style>
 
@@ -2137,7 +2170,7 @@ body { padding: 20px 18px; }
           <button type="button" class="add" onclick="Air.generateCOC&amp;&amp;Air.generateCOC()">&#10515; SGS Galson COC (PDF)</button>
           <button type="button" onclick="Air.setAllCollapsed&amp;&amp;Air.setAllCollapsed(true)">Collapse all</button>
           <button type="button" onclick="Air.setAllCollapsed&amp;&amp;Air.setAllCollapsed(false)">Expand all</button>
-          <button type="button" onclick="window.print()">Print / PDF</button>
+          <button type="button" onclick="Air.printForm&amp;&amp;Air.printForm()">Print / PDF</button>
           <button type="button" onclick="Air.saveSession&amp;&amp;Air.saveSession()">Save (.json)</button>
           <button type="button" onclick="document.getElementById('airLoadFile').click()">Load (.json)</button>
           <select onchange="if(this.value&amp;&amp;window.Air){Air.loadExample(this.value);this.selectedIndex=0;}" title="Load a worked example" style="padding:7px 10px;border-radius:7px;border:1px solid var(--ai-line);background:#fff;cursor:pointer">

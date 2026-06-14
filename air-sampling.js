@@ -132,7 +132,17 @@ const OEL_DATA = {
   "2-Butanone (MEK)": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:200}, {src:"ACGIH",type:"TLV TWA",val:200}, {src:"ACGIH",type:"TLV STEL",val:300}, {src:"NIOSH",type:"REL TWA",val:200}, {src:"NIOSH",type:"REL STEL",val:300} ]},
   "4-Methyl-2-pentanone (MIBK)": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:100}, {src:"ACGIH",type:"TLV TWA",val:20}, {src:"ACGIH",type:"TLV STEL",val:75}, {src:"NIOSH",type:"REL TWA",val:50}, {src:"NIOSH",type:"REL STEL",val:75} ]},
   "Acetone": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:1000}, {src:"ACGIH",type:"TLV TWA",val:250}, {src:"ACGIH",type:"TLV STEL",val:500}, {src:"NIOSH",type:"REL TWA",val:250} ]},
-  "n-Heptane": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:500}, {src:"ACGIH",type:"TLV TWA",val:400}, {src:"ACGIH",type:"TLV STEL",val:500}, {src:"NIOSH",type:"REL TWA",val:85}, {src:"NIOSH",type:"REL Ceiling",val:440} ]}
+  "n-Heptane": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:500}, {src:"ACGIH",type:"TLV TWA",val:400}, {src:"ACGIH",type:"TLV STEL",val:500}, {src:"NIOSH",type:"REL TWA",val:85}, {src:"NIOSH",type:"REL Ceiling",val:440} ]},
+  /* Additional NIOSH 7300 / 7303 panel metals — values from OSHA 29 CFR 1910.1000
+     Table Z-1, ACGIH 2024 TLVs, and the NIOSH Pocket Guide. Verify before use. */
+  "Aluminum": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA (total dust)",val:15}, {src:"OSHA",type:"PEL TWA (respirable)",val:5}, {src:"ACGIH",type:"TLV TWA (respirable)",val:1}, {src:"NIOSH",type:"REL TWA (total)",val:10}, {src:"NIOSH",type:"REL TWA (respirable)",val:5} ]},
+  "Antimony": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA",val:0.5}, {src:"ACGIH",type:"TLV TWA",val:0.5}, {src:"NIOSH",type:"REL TWA",val:0.5} ]},
+  "Arsenic": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA",val:0.010}, {src:"OSHA",type:"Action Level",val:0.005}, {src:"ACGIH",type:"TLV TWA",val:0.01,note:"(A1)"}, {src:"NIOSH",type:"REL Ceiling",val:0.002,note:"(Ca, 15-min)"} ]},
+  "Beryllium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA",val:0.0002}, {src:"OSHA",type:"Action Level",val:0.0001}, {src:"ACGIH",type:"TLV TWA (inhalable)",val:0.00005,note:"(A1)"}, {src:"NIOSH",type:"REL Ceiling",val:0.0005,note:"(Ca)"} ]},
+  "Magnesium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA (MgO fume)",val:15}, {src:"ACGIH",type:"TLV TWA (inhalable)",val:10} ]},
+  "Molybdenum": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA (insoluble)",val:15}, {src:"OSHA",type:"PEL TWA (soluble)",val:5}, {src:"ACGIH",type:"TLV TWA (inhalable)",val:10}, {src:"ACGIH",type:"TLV TWA (respirable)",val:3}, {src:"ACGIH",type:"TLV TWA (soluble, respirable)",val:0.5} ]},
+  "Titanium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA (TiO2, total)",val:15}, {src:"ACGIH",type:"TLV TWA (TiO2)",val:10,note:"(A4)"}, {src:"NIOSH",type:"REL TWA (TiO2, fine)",val:1.5,note:"(Ca)"}, {src:"NIOSH",type:"REL TWA (TiO2, ultrafine)",val:0.3,note:"(Ca)"} ]},
+  "Vanadium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL Ceiling (V2O5 dust)",val:0.5}, {src:"OSHA",type:"PEL Ceiling (V2O5 fume)",val:0.1}, {src:"ACGIH",type:"TLV TWA (respirable)",val:0.05}, {src:"NIOSH",type:"REL Ceiling",val:0.05,note:"(15-min)"} ]}
 };
 
 /* COC client address book (editable). */
@@ -825,6 +835,19 @@ function applyPrefill(){
   refreshTWA();
 }
 
+/* ---------- print ---------- */
+function printForm(){
+  /* Toggle a body class so the @page airLandscape rule and 2-column
+     #view-air print styles only apply when WE are the ones printing. */
+  document.body.classList.add('print-air');
+  const cleanup = () => {
+    document.body.classList.remove('print-air');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+}
+
 /* ---------- reset ---------- */
 function resetForm(){
   if(!confirm('Clear all fields and start over?')) return;
@@ -1093,8 +1116,8 @@ window.Air = Object.assign(window.Air||{}, {
   onBlankChem, onBlankMethod,
   // TWA + OEL
   refreshTWA, setOel, onOelBasis,
-  // save/load/example/reset
-  saveSession, loadExample, onLoadFile, resetForm,
+  // save/load/example/reset/print
+  saveSession, loadExample, onLoadFile, resetForm, printForm,
   // COC
   syncCOCDefaults, generateCOC, onReportToPick, onInvoiceToPick,
   // init hook (called by showView)
