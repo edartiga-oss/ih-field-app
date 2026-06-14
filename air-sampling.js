@@ -835,6 +835,19 @@ function applyPrefill(){
   refreshTWA();
 }
 
+/* ---------- print ---------- */
+function printForm(){
+  /* Toggle a body class so the @page airLandscape rule and 2-column
+     #view-air print styles only apply when WE are the ones printing. */
+  document.body.classList.add('print-air');
+  const cleanup = () => {
+    document.body.classList.remove('print-air');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+}
+
 /* ---------- reset ---------- */
 function resetForm(){
   if(!confirm('Clear all fields and start over?')) return;
@@ -1103,8 +1116,8 @@ window.Air = Object.assign(window.Air||{}, {
   onBlankChem, onBlankMethod,
   // TWA + OEL
   refreshTWA, setOel, onOelBasis,
-  // save/load/example/reset
-  saveSession, loadExample, onLoadFile, resetForm,
+  // save/load/example/reset/print
+  saveSession, loadExample, onLoadFile, resetForm, printForm,
   // COC
   syncCOCDefaults, generateCOC, onReportToPick, onInvoiceToPick,
   // init hook (called by showView)
