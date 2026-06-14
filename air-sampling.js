@@ -816,34 +816,63 @@ function refreshTWA(){
   const rf=shiftRF(); applyAdjUI(rf); const adjusting = rf!==1;
   const names=allAnalyteNames();
   body.innerHTML='';
-  if(!names.length){ body.innerHTML='<tr><td colspan="8" style="color:var(--ai-muted)">No analytes yet — add analytes in the sample tabs.</td></tr>'; return; }
-  names.forEach(name=>{
-    let totMin=0, totC=0, nSamp=0, ndAny=false, unit='';
-    units.filter(u=>u.kind==='sample').forEach(u=>{
-      const i=u.idx, dur=num((el('airSampDuration'+i)||{}).value);
-      document.querySelectorAll('#airResBody'+i+' tr').forEach(tr=>{
-        const nm=((tr.querySelector('[name$="_name"]')||{}).value||'').trim();
-        if(nm!==name) return;
-        const p=parseND((tr.querySelector('[name$="_result"]')||{}).value);
-        const un=(tr.querySelector('[name$="_units"]')||{}).value||''; if(un&&!unit) unit=un;
-        if(p.val!=null && dur!=null){ totC+=p.val*dur; totMin+=dur; nSamp++; if(p.nd) ndAny=true; }
-      });
-    });
-    const twa = nSamp? totC/480 : null;
-    const o = selectedOel(name); const oel=o.val;
-    const adjOel = (oel!=null)? oel*rf : null;
-    const cmp = adjusting ? adjOel : oel;
-    const pct = (twa!=null&&cmp)? twa/cmp*100 : null;
-    body.insertAdjacentHTML('beforeend',
-      '<tr><td>'+esc(name)+'</td>'+
-      '<td style="text-align:right">'+(nSamp||'—')+'</td>'+
-      '<td class="calc-cell">'+(totMin?round(totMin,0):'—')+'</td>'+
-      '<td class="calc-cell">'+(twa!=null?((ndAny?'<':'')+round(twa,4)):'—')+'</td>'+
-      '<td>'+esc(unit)+'</td>'+
-      '<td>'+oelCellHTML(name)+'</td>'+
-      '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(adjOel!=null?round(adjOel,4):'—')+'</td>'+
-      '<td class="calc-cell">'+(pct!=null?((ndAny?'<':'')+round(pct,1)+'%'):'—')+'</td></tr>');
+  if(!names.length){ body.innerHTML='<tr><td colspan="9" style="color:var(--ai-muted)">No analytes yet — add analytes in the sample tabs.</td></tr>'; return; }
+
+  /* Group samples by employee. Samples that share the same Last Name, First
+     Name (the form's samp{i}_emp_name field) are pooled into one TWA per
+     analyte — same person, consecutive samples = one combined TWA. Different
+     people get their own rows. Empty / missing names group under "(Unassigned)". */
+  const sampleUnits = units.filter(u => u.kind === 'sample');
+  const workerGroups = []; const seen = new Map();
+  sampleUnits.forEach(u => {
+    const empF = document.querySelector('#airForm [name="samp'+u.idx+'_emp_name"]');
+    const empName = (empF ? empF.value.trim() : '') || '(Unassigned)';
+    if (!seen.has(empName)) { seen.set(empName, []); workerGroups.push(empName); }
+    seen.get(empName).push(u);
   });
+
+  workerGroups.forEach((worker, wIdx) => {
+    const workerSamples = seen.get(worker);
+    let firstAnalyteRow = true;
+    /* For each analyte that actually has data for THIS worker, render a row. */
+    names.forEach(name => {
+      let totMin=0, totC=0, nSamp=0, ndAny=false, unit='';
+      workerSamples.forEach(u => {
+        const i = u.idx, dur = num((el('airSampDuration'+i)||{}).value);
+        document.querySelectorAll('#airResBody'+i+' tr').forEach(tr => {
+          const nm = ((tr.querySelector('[name$="_name"]')||{}).value||'').trim();
+          if (nm !== name) return;
+          const p = parseND((tr.querySelector('[name$="_result"]')||{}).value);
+          const un = (tr.querySelector('[name$="_units"]')||{}).value||''; if (un && !unit) unit = un;
+          if (p.val != null && dur != null) { totC += p.val*dur; totMin += dur; nSamp++; if (p.nd) ndAny = true; }
+        });
+      });
+      if (!nSamp) return;  /* this worker has no measured data for this analyte — skip */
+      const twa = totC/480;
+      const o = selectedOel(name); const oel = o.val;
+      const adjOel = (oel != null) ? oel*rf : null;
+      const cmp = adjusting ? adjOel : oel;
+      const pct = (twa != null && cmp) ? twa/cmp*100 : null;
+      const workerCell = firstAnalyteRow
+        ? '<td style="font-weight:600;border-top:'+(wIdx>0?'2px solid var(--ai-line)':'1px solid var(--ai-line2)')+'">'+esc(worker)+' <span style="font-weight:400;color:var(--ai-muted)">('+workerSamples.length+' sample'+(workerSamples.length===1?'':'s')+')</span></td>'
+        : '<td style="color:var(--ai-muted)">&nbsp;</td>';
+      body.insertAdjacentHTML('beforeend',
+        '<tr>'+workerCell+
+        '<td>'+esc(name)+'</td>'+
+        '<td style="text-align:right">'+nSamp+'</td>'+
+        '<td class="calc-cell">'+(totMin?round(totMin,0):'—')+'</td>'+
+        '<td class="calc-cell">'+(ndAny?'<':'')+round(twa,4)+'</td>'+
+        '<td>'+esc(unit)+'</td>'+
+        '<td>'+oelCellHTML(name)+'</td>'+
+        '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(adjOel!=null?round(adjOel,4):'—')+'</td>'+
+        '<td class="calc-cell">'+(pct!=null?((ndAny?'<':'')+round(pct,1)+'%'):'—')+'</td>'+
+        '</tr>');
+      firstAnalyteRow = false;
+    });
+  });
+  if (!body.children.length) {
+    body.innerHTML = '<tr><td colspan="9" style="color:var(--ai-muted)">No measured results yet — enter Measured Result values in the sample tabs.</td></tr>';
+  }
 }
 
 /* ---------- prefill (filled-out forms) ---------- */
@@ -1341,12 +1370,13 @@ function ofTwaCalcsTable(){
   const adjusting = el('airTwaTable') && el('airTwaTable').classList.contains('noadj') ? false : true;
   let h = '<table class="of" style="margin:0">'+
     '<tr>'+
-      '<th class="of-label" style="width:24%">Analyte</th>'+
-      '<th class="of-label" style="width:10%"># Samples</th>'+
-      '<th class="of-label" style="width:12%">Total Time (min)</th>'+
-      '<th class="of-label" style="width:14%">8-hr TWA</th>'+
-      '<th class="of-label" style="width:8%">Units</th>'+
-      '<th class="of-label" style="width:20%">OEL (basis)</th>'+
+      '<th class="of-label" style="width:16%">Worker</th>'+
+      '<th class="of-label" style="width:18%">Analyte</th>'+
+      '<th class="of-label" style="width:8%"># Samples</th>'+
+      '<th class="of-label" style="width:10%">Total Time (min)</th>'+
+      '<th class="of-label" style="width:12%">8-hr TWA</th>'+
+      '<th class="of-label" style="width:7%">Units</th>'+
+      '<th class="of-label" style="width:17%">OEL (basis)</th>'+
       (adjusting ? '<th class="of-label" style="width:6%">Adj. OEL</th>' : '')+
       '<th class="of-label" style="width:6%">% of '+(adjusting?'Adj. ':'')+'OEL</th>'+
     '</tr>';
@@ -1354,18 +1384,21 @@ function ofTwaCalcsTable(){
     const cells = tr.querySelectorAll('td');
     if (!cells.length) return;
     const txt = i => (cells[i] ? cells[i].textContent.trim() : '');
-    /* OEL cell holds a <select>; show the selected option's text label. */
-    const oelSel = cells[5] && cells[5].querySelector('select');
-    const oelTxt = oelSel ? (oelSel.options[oelSel.selectedIndex] ? oelSel.options[oelSel.selectedIndex].textContent.trim() : '') : txt(5);
+    /* OEL cell (index 6 now that Worker is column 0) holds a <select>; show
+       the selected option's text label. */
+    const oelIdx = 6;
+    const oelSel = cells[oelIdx] && cells[oelIdx].querySelector('select');
+    const oelTxt = oelSel ? (oelSel.options[oelSel.selectedIndex] ? oelSel.options[oelSel.selectedIndex].textContent.trim() : '') : txt(oelIdx);
     h += '<tr>'+
-      '<td class="of-val">'+ofVal(txt(0))+'</td>'+
-      '<td class="of-val" style="text-align:right">'+ofVal(txt(1))+'</td>'+
+      '<td class="of-val" style="font-weight:600">'+ofVal(txt(0))+'</td>'+
+      '<td class="of-val">'+ofVal(txt(1))+'</td>'+
       '<td class="of-val" style="text-align:right">'+ofVal(txt(2))+'</td>'+
       '<td class="of-val" style="text-align:right">'+ofVal(txt(3))+'</td>'+
-      '<td class="of-val">'+ofVal(txt(4))+'</td>'+
+      '<td class="of-val" style="text-align:right">'+ofVal(txt(4))+'</td>'+
+      '<td class="of-val">'+ofVal(txt(5))+'</td>'+
       '<td class="of-val">'+ofVal(oelTxt)+'</td>'+
-      (adjusting ? '<td class="of-val" style="text-align:right">'+ofVal(txt(6))+'</td>' : '')+
-      '<td class="of-val" style="text-align:right">'+ofVal(txt(adjusting?7:6))+'</td>'+
+      (adjusting ? '<td class="of-val" style="text-align:right">'+ofVal(txt(7))+'</td>' : '')+
+      '<td class="of-val" style="text-align:right">'+ofVal(txt(adjusting?8:7))+'</td>'+
     '</tr>';
   });
   h += '</table>';
