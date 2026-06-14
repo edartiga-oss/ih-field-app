@@ -1297,6 +1297,8 @@ body { padding: 20px 18px; }
         <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
           <button class="toggle-chip active" id="invTypeBtn-dosimeter" onclick="setInvType('dosimeter')">Dosimeter</button>
           <button class="toggle-chip" id="invTypeBtn-calibrator" onclick="setInvType('calibrator')">Calibrator</button>
+          <button class="toggle-chip" id="invTypeBtn-air_pump" onclick="setInvType('air_pump')">Air Sampling Pump</button>
+          <button class="toggle-chip" id="invTypeBtn-air_calibrator" onclick="setInvType('air_calibrator')">Air Sampling Calibrator</button>
         </div>
 
         <!-- Dosimeter check-in fields -->
@@ -1360,6 +1362,50 @@ body { padding: 20px 18px; }
           </div>
         </div>
 
+        <!-- Air Sampling Pump check-in fields -->
+        <div id="invAirPumpFields" style="display:none;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:10px;">
+            <div class="field"><label>Make <span class="req">*</span></label><input type="text" id="inv_apMake" placeholder="e.g., SKC, Gilian, Sensidyne"></div>
+            <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="inv_apModel" placeholder="e.g., AirChek TOUCH"></div>
+            <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="inv_apSerial" placeholder="e.g., 5C-12345"></div>
+            <div class="field"><label>Asset / Tag #</label><input type="text" id="inv_apAsset" placeholder="Internal tag"></div>
+            <div class="field"><label>Factory Cal. Date</label><input type="date" id="inv_apFactoryCal"></div>
+            <div class="field"><label>Cal. Due Date</label><input type="date" id="inv_apCalDue"></div>
+            <div class="field"><label>Flow Range Low (L/min)</label><input type="number" id="inv_apFlowMin" step="0.01" placeholder="e.g., 0.005"></div>
+            <div class="field"><label>Flow Range High (L/min)</label><input type="number" id="inv_apFlowMax" step="0.01" placeholder="e.g., 5"></div>
+            <div class="field"><label>Condition</label>
+              <select id="inv_apCondition">
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Needs service">Needs service</option>
+                <option value="Out of service">Out of service</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="inv_apNotes" placeholder="e.g., low-flow only, battery replaced today"></div>
+          </div>
+        </div>
+
+        <!-- Air Sampling Calibrator check-in fields -->
+        <div id="invAirCalFields" style="display:none;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:10px;">
+            <div class="field"><label>Make <span class="req">*</span></label><input type="text" id="inv_acMake" placeholder="e.g., Mesa Labs (BIOS), TSI"></div>
+            <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="inv_acModel" placeholder="e.g., Defender 530+"></div>
+            <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="inv_acSerial" placeholder="e.g., BIOS-2024-0042"></div>
+            <div class="field"><label>Asset / Tag #</label><input type="text" id="inv_acAsset" placeholder="Internal tag"></div>
+            <div class="field"><label>Last Factory Cal. Date</label><input type="date" id="inv_acFactoryCal"></div>
+            <div class="field"><label>Cal. Due Date</label><input type="date" id="inv_acCalDue"></div>
+            <div class="field"><label>Condition</label>
+              <select id="inv_acCondition">
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Needs service">Needs service</option>
+                <option value="Out of service">Out of service</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="inv_acNotes" placeholder="e.g., primary flow standard for pumps"></div>
+          </div>
+        </div>
+
         <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <button class="btn btn-teal" onclick="checkInItem()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
@@ -1416,6 +1462,34 @@ body { padding: 20px 18px; }
     </div>
   </div>
 
+  <!-- AIR SAMPLING PUMPS -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+      Air Sampling Pumps
+      <span class="badge" id="apBadgeLib">0</span>
+    </div>
+    <div id="equipAirPumpList" style="min-height:60px;">
+      <div class="empty-state" style="padding:28px 16px;">
+        <div class="empty-sub">No air sampling pumps saved yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AIR SAMPLING CALIBRATORS -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+      Air Sampling Calibrators
+      <span class="badge" id="acBadgeLib">0</span>
+    </div>
+    <div id="equipAirCalList" style="min-height:60px;">
+      <div class="empty-state" style="padding:28px 16px;">
+        <div class="empty-sub">No air sampling calibrators saved yet.</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- EQUIPMENT MODAL -->
@@ -1426,9 +1500,11 @@ body { padding: 20px 18px; }
       <button class="modal-close" onclick="closeModal('equipModal')">×</button>
     </div>
     <div class="modal-body">
-      <div style="display:flex; gap:10px; margin-bottom:18px;">
+      <div style="display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;">
         <button class="toggle-chip active" id="equipTypeBtn-dosimeter" onclick="setEquipType('dosimeter')">Dosimeter</button>
         <button class="toggle-chip" id="equipTypeBtn-calibrator" onclick="setEquipType('calibrator')">Calibrator</button>
+        <button class="toggle-chip" id="equipTypeBtn-air_pump" onclick="setEquipType('air_pump')">Air Sampling Pump</button>
+        <button class="toggle-chip" id="equipTypeBtn-air_calibrator" onclick="setEquipType('air_calibrator')">Air Sampling Calibrator</button>
       </div>
       <input type="hidden" id="equipEditId">
 
@@ -1492,6 +1568,52 @@ body { padding: 20px 18px; }
           </div>
           <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_calCondNote" placeholder="Optional note for this update"></div>
           <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_calNotes" placeholder="Optional notes"></div>
+        </div>
+      </div>
+
+      <!-- AIR SAMPLING PUMP FIELDS -->
+      <div id="equipAirPumpFields" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Make / Manufacturer <span class="req">*</span></label><input type="text" id="eq_apMake" placeholder="e.g., SKC, Gilian, Sensidyne"></div>
+          <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="eq_apModel" placeholder="e.g., AirChek TOUCH"></div>
+          <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="eq_apSerial" placeholder="e.g., 5C-12345"></div>
+          <div class="field"><label>Asset / Tag #</label><input type="text" id="eq_apAsset" placeholder="Internal asset tag"></div>
+          <div class="field"><label>Factory Cal. Date</label><input type="date" id="eq_apFactoryCal"></div>
+          <div class="field"><label>Cal. Due Date</label><input type="date" id="eq_apCalDue"></div>
+          <div class="field"><label>Flow Range Low (L/min)</label><input type="number" id="eq_apFlowMin" step="0.01" placeholder="e.g., 0.005"></div>
+          <div class="field"><label>Flow Range High (L/min)</label><input type="number" id="eq_apFlowMax" step="0.01" placeholder="e.g., 5"></div>
+          <div class="field"><label>Condition</label>
+            <select id="eq_apCondition">
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Needs service">Needs service</option>
+              <option value="Out of service">Out of service</option>
+            </select>
+          </div>
+          <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_apCondNote" placeholder="Optional note for this update"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_apNotes" placeholder="Optional notes"></div>
+        </div>
+      </div>
+
+      <!-- AIR SAMPLING CALIBRATOR FIELDS -->
+      <div id="equipAirCalFields" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Make / Manufacturer <span class="req">*</span></label><input type="text" id="eq_acMake" placeholder="e.g., Mesa Labs (BIOS), TSI"></div>
+          <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="eq_acModel" placeholder="e.g., Defender 530+"></div>
+          <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="eq_acSerial" placeholder="e.g., BIOS-2024-0042"></div>
+          <div class="field"><label>Asset / Tag #</label><input type="text" id="eq_acAsset" placeholder="Internal asset tag"></div>
+          <div class="field"><label>Last Factory Cal. Date</label><input type="date" id="eq_acFactoryCal"></div>
+          <div class="field"><label>Cal. Due Date</label><input type="date" id="eq_acCalDue"></div>
+          <div class="field"><label>Condition</label>
+            <select id="eq_acCondition">
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Needs service">Needs service</option>
+              <option value="Out of service">Out of service</option>
+            </select>
+          </div>
+          <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_acCondNote" placeholder="Optional note for this update"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_acNotes" placeholder="Optional notes"></div>
         </div>
       </div>
     </div>
@@ -5622,23 +5744,34 @@ let currentEquipType = 'dosimeter';
 
 function setEquipType(type) {
   currentEquipType = type;
-  document.getElementById('equipDosFields').style.display = type === 'dosimeter' ? '' : 'none';
-  document.getElementById('equipCalFields').style.display = type === 'calibrator' ? '' : 'none';
-  document.getElementById('equipTypeBtn-dosimeter').classList.toggle('active', type === 'dosimeter');
-  document.getElementById('equipTypeBtn-calibrator').classList.toggle('active', type === 'calibrator');
+  const types = ['dosimeter','calibrator','air_pump','air_calibrator'];
+  const fieldIds = {
+    dosimeter: 'equipDosFields',
+    calibrator: 'equipCalFields',
+    air_pump: 'equipAirPumpFields',
+    air_calibrator: 'equipAirCalFields',
+  };
+  types.forEach(t => {
+    const f = document.getElementById(fieldIds[t]); if (f) f.style.display = t === type ? '' : 'none';
+    const b = document.getElementById('equipTypeBtn-' + t); if (b) b.classList.toggle('active', t === type);
+  });
 }
 
 function openEquipModal(editId) {
   document.getElementById('equipEditId').value = editId || '';
   // Clear all fields first
   ['eq_dosMake','eq_dosModel','eq_dosSerial','eq_dosAsset','eq_dosFactoryCal','eq_dosCalDue','eq_dosNotes','eq_dosCondNote',
-   'eq_calMake','eq_calModel','eq_calSerial','eq_calAsset','eq_calLastNistCal','eq_calNistDue','eq_calRefLevel','eq_calNotes','eq_calCondNote']
+   'eq_calMake','eq_calModel','eq_calSerial','eq_calAsset','eq_calLastNistCal','eq_calNistDue','eq_calRefLevel','eq_calNotes','eq_calCondNote',
+   'eq_apMake','eq_apModel','eq_apSerial','eq_apAsset','eq_apFactoryCal','eq_apCalDue','eq_apFlowMin','eq_apFlowMax','eq_apNotes','eq_apCondNote',
+   'eq_acMake','eq_acModel','eq_acSerial','eq_acAsset','eq_acFactoryCal','eq_acCalDue','eq_acNotes','eq_acCondNote']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('eq_dosExchange').value = '5';
   document.getElementById('eq_dosCriterion').value = '90';
   document.getElementById('eq_dosThreshold').value = '80';
   document.getElementById('eq_dosCondition').value = 'Good';
   document.getElementById('eq_calCondition').value = 'Good';
+  document.getElementById('eq_apCondition').value = 'Good';
+  document.getElementById('eq_acCondition').value = 'Good';
 
   if (editId) {
     const eq = equipment.find(e => e.id === editId);
@@ -5657,7 +5790,7 @@ function openEquipModal(editId) {
       document.getElementById('eq_dosThreshold').value = (eq.threshold !== undefined ? eq.threshold : '80');
       document.getElementById('eq_dosCondition').value = eq.condition  || 'Good';
       document.getElementById('eq_dosNotes').value     = eq.notes      || '';
-    } else {
+    } else if (eq.type === 'calibrator') {
       document.getElementById('eq_calMake').value      = eq.make      || '';
       document.getElementById('eq_calModel').value     = eq.model     || '';
       document.getElementById('eq_calSerial').value    = eq.serial    || '';
@@ -5667,6 +5800,26 @@ function openEquipModal(editId) {
       document.getElementById('eq_calRefLevel').value  = eq.refLevel  || '';
       document.getElementById('eq_calCondition').value = eq.condition || 'Good';
       document.getElementById('eq_calNotes').value     = eq.notes     || '';
+    } else if (eq.type === 'air_pump') {
+      document.getElementById('eq_apMake').value       = eq.make       || '';
+      document.getElementById('eq_apModel').value      = eq.model      || '';
+      document.getElementById('eq_apSerial').value     = eq.serial     || '';
+      document.getElementById('eq_apAsset').value      = eq.asset      || '';
+      document.getElementById('eq_apFactoryCal').value = eq.factoryCal || '';
+      document.getElementById('eq_apCalDue').value     = eq.calDue     || '';
+      document.getElementById('eq_apFlowMin').value    = eq.flowMin    || '';
+      document.getElementById('eq_apFlowMax').value    = eq.flowMax    || '';
+      document.getElementById('eq_apCondition').value  = eq.condition  || 'Good';
+      document.getElementById('eq_apNotes').value      = eq.notes      || '';
+    } else if (eq.type === 'air_calibrator') {
+      document.getElementById('eq_acMake').value       = eq.make       || '';
+      document.getElementById('eq_acModel').value      = eq.model      || '';
+      document.getElementById('eq_acSerial').value     = eq.serial     || '';
+      document.getElementById('eq_acAsset').value      = eq.asset      || '';
+      document.getElementById('eq_acFactoryCal').value = eq.factoryCal || '';
+      document.getElementById('eq_acCalDue').value     = eq.calDue     || '';
+      document.getElementById('eq_acCondition').value  = eq.condition  || 'Good';
+      document.getElementById('eq_acNotes').value      = eq.notes      || '';
     }
   } else {
     document.getElementById('equipModalTitle').textContent = 'Add Equipment';
@@ -5735,6 +5888,57 @@ function saveEquipment() {
       checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
       notes:            document.getElementById('eq_calNotes').value.trim(),
     };
+  } else if (type === 'air_pump') {
+    const make   = document.getElementById('eq_apMake').value.trim();
+    const model  = document.getElementById('eq_apModel').value.trim();
+    const serial = document.getElementById('eq_apSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model, and serial are required', 'error'); return; }
+    const newCondition = document.getElementById('eq_apCondition').value;
+    const condNote     = document.getElementById('eq_apCondNote').value.trim();
+    const condHistory  = (existing && existing.conditionHistory) ? [...existing.conditionHistory] : [];
+    if (!isEdit || newCondition !== (existing && existing.condition) || condNote) {
+      condHistory.push({ date: new Date().toISOString(), condition: newCondition, notes: condNote, by: deviceNickname || '' });
+    }
+    rec = {
+      id:               editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
+      type:             'air_pump',
+      make, model, serial,
+      asset:            document.getElementById('eq_apAsset').value.trim(),
+      factoryCal:       document.getElementById('eq_apFactoryCal').value,
+      calDue:           document.getElementById('eq_apCalDue').value,
+      flowMin:          document.getElementById('eq_apFlowMin').value,
+      flowMax:          document.getElementById('eq_apFlowMax').value,
+      condition:        newCondition,
+      conditionHistory: condHistory,
+      checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
+      checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
+      notes:            document.getElementById('eq_apNotes').value.trim(),
+    };
+  } else {
+    /* air_calibrator */
+    const make   = document.getElementById('eq_acMake').value.trim();
+    const model  = document.getElementById('eq_acModel').value.trim();
+    const serial = document.getElementById('eq_acSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model, and serial are required', 'error'); return; }
+    const newCondition = document.getElementById('eq_acCondition').value;
+    const condNote     = document.getElementById('eq_acCondNote').value.trim();
+    const condHistory  = (existing && existing.conditionHistory) ? [...existing.conditionHistory] : [];
+    if (!isEdit || newCondition !== (existing && existing.condition) || condNote) {
+      condHistory.push({ date: new Date().toISOString(), condition: newCondition, notes: condNote, by: deviceNickname || '' });
+    }
+    rec = {
+      id:               editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
+      type:             'air_calibrator',
+      make, model, serial,
+      asset:            document.getElementById('eq_acAsset').value.trim(),
+      factoryCal:       document.getElementById('eq_acFactoryCal').value,
+      calDue:           document.getElementById('eq_acCalDue').value,
+      condition:        newCondition,
+      conditionHistory: condHistory,
+      checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
+      checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
+      notes:            document.getElementById('eq_acNotes').value.trim(),
+    };
   }
 
   const idx = equipment.findIndex(e => e.id === rec.id);
@@ -5787,11 +5991,15 @@ function renderEquipmentLists() {
 
   // Apply IH filter
   var filtered = selectedIH ? equipment.filter(function(e) { return (e.checkedInBy || '') === selectedIH; }) : equipment;
-  var dosimeters  = filtered.filter(function(e) { return e.type === 'dosimeter'; });
-  var calibrators = filtered.filter(function(e) { return e.type === 'calibrator'; });
+  var dosimeters       = filtered.filter(function(e) { return e.type === 'dosimeter'; });
+  var calibrators      = filtered.filter(function(e) { return e.type === 'calibrator'; });
+  var airPumps         = filtered.filter(function(e) { return e.type === 'air_pump'; });
+  var airCalibrators   = filtered.filter(function(e) { return e.type === 'air_calibrator'; });
 
   document.getElementById('dosBadge').textContent = dosimeters.length;
   document.getElementById('calBadgeLib').textContent = calibrators.length;
+  var apBadge = document.getElementById('apBadgeLib'); if (apBadge) apBadge.textContent = airPumps.length;
+  var acBadge = document.getElementById('acBadgeLib'); if (acBadge) acBadge.textContent = airCalibrators.length;
 
   // ── QA: Cal due date alerts (overdue or within 30 days) ──
   var today  = new Date();
@@ -5799,7 +6007,7 @@ function renderEquipmentLists() {
   equipment.forEach(function(eq) {
     var label = eq.make + ' ' + eq.model + ' S/N ' + eq.serial;
     // Check 1: Cal due date vs today
-    var dueDateStr = eq.type === 'dosimeter' ? (eq.calDue || '') : (eq.nistDue || '');
+    var dueDateStr = eq.type === 'calibrator' ? (eq.nistDue || '') : (eq.calDue || '');
     if (dueDateStr) {
       var days = Math.round((new Date(dueDateStr) - today) / 86400000);
       if (days < 0)        alerts.push(label + ' — Cal OVERDUE by ' + Math.abs(days) + ' days');
@@ -5827,7 +6035,9 @@ function renderEquipmentLists() {
     var condBgs    = { 'Good': '#e1f5ee', 'Fair': '#fff8e6', 'Needs service': '#fcebeb', 'Out of service': '#fcebeb' };
     var condColor  = condColors[eq.condition] || 'var(--text2)';
     var condBg     = condBgs[eq.condition]    || 'var(--surface)';
-    var calDateStr = eq.type === 'dosimeter' ? (eq.calDue || eq.factoryCal) : eq.nistDue;
+    var calDateStr = eq.type === 'calibrator'
+      ? (eq.nistDue || '')
+      : (eq.calDue || eq.factoryCal || '');
     var calSt      = getCalStatus(calDateStr);
     var calBadge   = calSt
       ? '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:' + calSt.bg + '; color:' + calSt.color + '; border:1px solid ' + calSt.border + '; margin-left:6px;">' + calSt.label + '</span>'
@@ -5878,9 +6088,23 @@ function renderEquipmentLists() {
       }
     }
 
-    var detailLine = eq.type === 'dosimeter'
-      ? (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : '')) + ' · ' + (eq.exchange || '5') + ' dB ER · ' + (eq.criterion || '90') + ' dB criterion'
-      : (eq.lastNistCal ? ' · Last cal: ' + eq.lastNistCal : '') + (eq.nistDue ? ' · NIST due: ' + eq.nistDue : '') + (eq.refLevel ? ' · Ref: ' + eq.refLevel + ' dB' : '');
+    var detailLine = '';
+    if (eq.type === 'dosimeter') {
+      detailLine = (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : ''))
+        + ' · ' + (eq.exchange || '5') + ' dB ER · ' + (eq.criterion || '90') + ' dB criterion';
+    } else if (eq.type === 'calibrator') {
+      detailLine = (eq.lastNistCal ? ' · Last cal: ' + eq.lastNistCal : '')
+        + (eq.nistDue ? ' · NIST due: ' + eq.nistDue : '')
+        + (eq.refLevel ? ' · Ref: ' + eq.refLevel + ' dB' : '');
+    } else if (eq.type === 'air_pump') {
+      var flowRange = '';
+      if (eq.flowMin || eq.flowMax) {
+        flowRange = ' · Flow: ' + (eq.flowMin || '?') + '–' + (eq.flowMax || '?') + ' L/min';
+      }
+      detailLine = (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : '')) + flowRange;
+    } else if (eq.type === 'air_calibrator') {
+      detailLine = (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : ''));
+    }
 
     return '<div style="padding:13px 18px; border-bottom:1px solid var(--surface2);">'
       + '<div style="display:grid; grid-template-columns:1fr auto; align-items:start; gap:12px;">'
@@ -5910,6 +6134,19 @@ function renderEquipmentLists() {
   calCont.innerHTML = calibrators.length
     ? calibrators.map(renderEqCard).join('')
     : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No calibrators' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
+
+  var apCont = document.getElementById('equipAirPumpList');
+  if (apCont) apCont.innerHTML = airPumps.length
+    ? airPumps.map(renderEqCard).join('')
+    : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No air sampling pumps' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
+
+  var acCont = document.getElementById('equipAirCalList');
+  if (acCont) acCont.innerHTML = airCalibrators.length
+    ? airCalibrators.map(renderEqCard).join('')
+    : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No air sampling calibrators' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
+
+  /* Let the Air Sampling tab repopulate its per-sample equipment dropdowns. */
+  if (window.Air && Air.refreshEquipPickers) Air.refreshEquipPickers();
 }
 
 function refreshEquipmentPickers() {
@@ -5985,10 +6222,17 @@ let currentInvType = 'dosimeter';
 
 function setInvType(type) {
   currentInvType = type;
-  document.getElementById('invDosFields').style.display = type === 'dosimeter' ? '' : 'none';
-  document.getElementById('invCalFields').style.display  = type === 'calibrator' ? '' : 'none';
-  document.getElementById('invTypeBtn-dosimeter').classList.toggle('active', type === 'dosimeter');
-  document.getElementById('invTypeBtn-calibrator').classList.toggle('active', type === 'calibrator');
+  const types = ['dosimeter','calibrator','air_pump','air_calibrator'];
+  const fieldIds = {
+    dosimeter: 'invDosFields',
+    calibrator: 'invCalFields',
+    air_pump: 'invAirPumpFields',
+    air_calibrator: 'invAirCalFields',
+  };
+  types.forEach(t => {
+    const f = document.getElementById(fieldIds[t]); if (f) f.style.display = t === type ? '' : 'none';
+    const b = document.getElementById('invTypeBtn-' + t); if (b) b.classList.toggle('active', t === type);
+  });
 }
 
 function checkInItem() {
@@ -6013,7 +6257,7 @@ function checkInItem() {
       checkedInBy: deviceNickname || '',
       checkedInAt: new Date().toISOString(),
     };
-  } else {
+  } else if (type === 'calibrator') {
     const make   = document.getElementById('inv_calMake').value.trim();
     const model  = document.getElementById('inv_calModel').value.trim();
     const serial = document.getElementById('inv_calSerial').value.trim();
@@ -6028,6 +6272,39 @@ function checkInItem() {
       notes:        document.getElementById('inv_calNotes').value.trim(),
       checkedInBy:  deviceNickname || '',
       checkedInAt:  new Date().toISOString(),
+    };
+  } else if (type === 'air_pump') {
+    const make   = document.getElementById('inv_apMake').value.trim();
+    const model  = document.getElementById('inv_apModel').value.trim();
+    const serial = document.getElementById('inv_apSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model and serial are required', 'error'); return; }
+    rec = {
+      type, make, model, serial,
+      asset:       document.getElementById('inv_apAsset').value.trim(),
+      factoryCal:  document.getElementById('inv_apFactoryCal').value,
+      calDue:      document.getElementById('inv_apCalDue').value,
+      flowMin:     document.getElementById('inv_apFlowMin').value,
+      flowMax:     document.getElementById('inv_apFlowMax').value,
+      condition:   document.getElementById('inv_apCondition').value,
+      notes:       document.getElementById('inv_apNotes').value.trim(),
+      checkedInBy: deviceNickname || '',
+      checkedInAt: new Date().toISOString(),
+    };
+  } else {
+    /* air_calibrator */
+    const make   = document.getElementById('inv_acMake').value.trim();
+    const model  = document.getElementById('inv_acModel').value.trim();
+    const serial = document.getElementById('inv_acSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model and serial are required', 'error'); return; }
+    rec = {
+      type, make, model, serial,
+      asset:       document.getElementById('inv_acAsset').value.trim(),
+      factoryCal:  document.getElementById('inv_acFactoryCal').value,
+      calDue:      document.getElementById('inv_acCalDue').value,
+      condition:   document.getElementById('inv_acCondition').value,
+      notes:       document.getElementById('inv_acNotes').value.trim(),
+      checkedInBy: deviceNickname || '',
+      checkedInAt: new Date().toISOString(),
     };
   }
 
@@ -6054,10 +6331,18 @@ function checkInItem() {
       if (rec.calDue)     existing.calDue     = rec.calDue;
       existing.exchange  = rec.exchange;
       existing.criterion = rec.criterion;
-    } else {
+    } else if (type === 'calibrator') {
       if (rec.lastNistCal) existing.lastNistCal = rec.lastNistCal;
       if (rec.nistDue)     existing.nistDue     = rec.nistDue;
       if (rec.refLevel)    existing.refLevel    = rec.refLevel;
+    } else if (type === 'air_pump') {
+      if (rec.factoryCal) existing.factoryCal = rec.factoryCal;
+      if (rec.calDue)     existing.calDue     = rec.calDue;
+      if (rec.flowMin)    existing.flowMin    = rec.flowMin;
+      if (rec.flowMax)    existing.flowMax    = rec.flowMax;
+    } else if (type === 'air_calibrator') {
+      if (rec.factoryCal) existing.factoryCal = rec.factoryCal;
+      if (rec.calDue)     existing.calDue     = rec.calDue;
     }
     if (rec.notes) existing.notes = rec.notes;
     existing.checkedInBy = rec.checkedInBy || existing.checkedInBy || '';
@@ -6082,9 +6367,17 @@ function checkInItem() {
         calDue:     rec.calDue,
         exchange:   rec.exchange,
         criterion:  rec.criterion,
-      } : {
+      } : type === 'calibrator' ? {
         nistDue:  rec.nistDue,
         refLevel: rec.refLevel,
+      } : type === 'air_pump' ? {
+        factoryCal: rec.factoryCal,
+        calDue:     rec.calDue,
+        flowMin:    rec.flowMin,
+        flowMax:    rec.flowMax,
+      } : /* air_calibrator */ {
+        factoryCal: rec.factoryCal,
+        calDue:     rec.calDue,
       }),
     };
     equipment.push(newRec);
@@ -6118,13 +6411,19 @@ function clearInvForm() {
   ['inv_dosMake','inv_dosModel','inv_dosSerial','inv_dosAsset',
    'inv_dosFactoryCal','inv_dosCalDue','inv_dosNotes',
    'inv_calMake','inv_calModel','inv_calSerial','inv_calAsset',
-   'inv_calNistDue','inv_calRefLevel','inv_calNotes']
+   'inv_calNistDue','inv_calRefLevel','inv_calNotes','inv_calLastNistCal',
+   'inv_apMake','inv_apModel','inv_apSerial','inv_apAsset',
+   'inv_apFactoryCal','inv_apCalDue','inv_apFlowMin','inv_apFlowMax','inv_apNotes',
+   'inv_acMake','inv_acModel','inv_acSerial','inv_acAsset',
+   'inv_acFactoryCal','inv_acCalDue','inv_acNotes']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const ex = document.getElementById('inv_dosExchange');   if (ex) ex.value = '5';
   const cr = document.getElementById('inv_dosCriterion');  if (cr) cr.value = '90';
   const th = document.getElementById('inv_dosThreshold');  if (th) th.value = '80';
   const dc = document.getElementById('inv_dosCondition');  if (dc) dc.value = 'Good';
   const cc = document.getElementById('inv_calCondition');  if (cc) cc.value = 'Good';
+  const apC = document.getElementById('inv_apCondition');  if (apC) apC.value = 'Good';
+  const acC = document.getElementById('inv_acCondition');  if (acC) acC.value = 'Good';
 }
 
 function renderInventoryLog() {
