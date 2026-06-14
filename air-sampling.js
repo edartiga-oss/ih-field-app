@@ -948,8 +948,126 @@ function applyPrefill(){
     Object.keys(f).forEach(k=>{ if(['chem','method'].indexOf(k)<0) setVal('blank'+i+'_'+k, f[k]); });
   });
   Object.keys(g).forEach(k=>{ if(k!=='shop_name') setVal(k, g[k]); });
+  if (P.timeCourse) applyTimeCourse(P.timeCourse);
   if(units.length){ activeUid=units[0].uid; showTab(activeUid); }
   refreshTWA();
+}
+
+/* ============================================================
+   Time Course of Events — per-hour entries with optional photo.
+   The shift duration + unit drive how many "Hour N" textareas show.
+   Photos are downscaled client-side and stored as base64 data URIs in
+   tcPhotos[hour] so collectForm / applyPrefill round-trip them with the
+   rest of the form state. ============================================================ */
+let tcPhotos = {};  /* { 1: 'data:image/jpeg;base64,...', 2: ..., ... } */
+
+function tcDurationHours(){
+  const d = num((el('airTcDuration')||{}).value);
+  const u = (el('airTcUnit')||{}).value || 'hours';
+  if (d == null || d <= 0) return 8;
+  /* Always render hourly buckets. Minutes < 60 round up to 1, otherwise
+     ceil to nearest hour so a 90-min shift -> Hour 1 + Hour 2. */
+  return u === 'minutes' ? Math.max(1, Math.ceil(d/60)) : Math.min(24, Math.max(1, Math.round(d)));
+}
+function tcEntryHTML(hour){
+  const txtName = 'tc_hour_'+hour;
+  const photo = tcPhotos[hour] || '';
+  const hasPic = photo ? ' has-pic' : '';
+  return '<div class="tc-entry" data-hour="'+hour+'">'+
+    '<div class="tc-label">Hour '+hour+'</div>'+
+    '<textarea name="'+txtName+'" placeholder="Tasks, location, exposure events during hour '+hour+'..."></textarea>'+
+    '<div class="tc-pic'+hasPic+'">'+
+      '<img class="tc-thumb" src="'+esc(photo)+'" alt="Hour '+hour+' photo">'+
+      '<label class="tc-add">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Air.onTcPhoto('+hour+', this)"></label>'+
+      '<button type="button" class="tc-rm" onclick="Air.removeTcPhoto('+hour+')">Remove</button>'+
+    '</div>'+
+  '</div>';
+}
+function rebuildTimeCourse(){
+  const host = el('airTcEntries'); if (!host) return;
+  const hours = tcDurationHours();
+  /* Snapshot current textareas so we don't lose typed notes when the IH
+     adjusts duration. */
+  const snap = {};
+  host.querySelectorAll('.tc-entry').forEach(div => {
+    const h = +div.dataset.hour;
+    const ta = div.querySelector('textarea');
+    if (ta && ta.value) snap[h] = ta.value;
+  });
+  let html = '';
+  for (let h = 1; h <= hours; h++) html += tcEntryHTML(h);
+  host.innerHTML = html;
+  /* Restore typed notes. */
+  Object.keys(snap).forEach(h => {
+    const ta = host.querySelector('.tc-entry[data-hour="'+h+'"] textarea');
+    if (ta) ta.value = snap[h];
+  });
+}
+/* Capture a photo (or pick from gallery), downscale via canvas so the
+   stored data URI stays a reasonable size for localStorage / Sheets. */
+function onTcPhoto(hour, inputEl){
+  const f = inputEl && inputEl.files && inputEl.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = function(){
+    const img = new Image();
+    img.onload = function(){
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUri = c.toDataURL('image/jpeg', 0.7);
+      tcPhotos[hour] = dataUri;
+      const entry = document.querySelector('#airTcEntries .tc-entry[data-hour="'+hour+'"]');
+      if (entry) {
+        const pic = entry.querySelector('.tc-pic'); pic.classList.add('has-pic');
+        const thumb = entry.querySelector('.tc-thumb'); thumb.src = dataUri;
+      }
+      inputEl.value = '';  /* allow re-picking same file later */
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(f);
+}
+function removeTcPhoto(hour){
+  delete tcPhotos[hour];
+  const entry = document.querySelector('#airTcEntries .tc-entry[data-hour="'+hour+'"]');
+  if (entry) {
+    const pic = entry.querySelector('.tc-pic'); pic.classList.remove('has-pic');
+    const thumb = entry.querySelector('.tc-thumb'); thumb.src = '';
+  }
+}
+function collectTimeCourse(){
+  /* Returns { duration, unit, hours: {1: {text, photo}, 2: ...} } so it
+     round-trips through save/load. */
+  const out = { duration: (el('airTcDuration')||{}).value || '',
+                unit: (el('airTcUnit')||{}).value || 'hours',
+                hours: {} };
+  document.querySelectorAll('#airTcEntries .tc-entry').forEach(div => {
+    const h = +div.dataset.hour;
+    const text = (div.querySelector('textarea')||{}).value || '';
+    const photo = tcPhotos[h] || '';
+    if (text || photo) out.hours[h] = { text, photo };
+  });
+  return out;
+}
+function applyTimeCourse(tc){
+  if (!tc) return;
+  tcPhotos = {};
+  if (tc.duration) { const i = el('airTcDuration'); if (i) i.value = tc.duration; }
+  if (tc.unit) { const s = el('airTcUnit'); if (s) s.value = tc.unit; }
+  Object.keys(tc.hours||{}).forEach(h => {
+    if (tc.hours[h].photo) tcPhotos[h] = tc.hours[h].photo;
+  });
+  rebuildTimeCourse();
+  Object.keys(tc.hours||{}).forEach(h => {
+    const ta = document.querySelector('#airTcEntries .tc-entry[data-hour="'+h+'"] textarea');
+    if (ta) ta.value = tc.hours[h].text || '';
+  });
 }
 
 /* ============================================================
@@ -1505,6 +1623,30 @@ function ofTwaCalcsTable(){
   return h;
 }
 
+function ofTimeCourseTable(){
+  /* Print the per-Hour time course on the final block. Skip the whole
+     section if no entries have text or photo. Photo prints as a thumbnail. */
+  const tc = collectTimeCourse();
+  const hours = Object.keys(tc.hours||{}).map(Number).sort((a,b)=>a-b);
+  if (!hours.length) return '';
+  let body = '';
+  hours.forEach(h => {
+    const e = tc.hours[h];
+    const photo = e.photo
+      ? '<img src="'+esc(e.photo)+'" style="max-width:140pt;max-height:90pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
+      : '';
+    body += '<tr>'+
+      '<td class="of-label" style="width:14%">Hour '+h+'</td>'+
+      '<td class="of-val" style="min-height:18pt">'+ofVal(e.text)+photo+'</td>'+
+    '</tr>';
+  });
+  return ''+
+    '<table class="of of-long">'+
+      '<tr><td class="of-section-head" colspan="2">Time Course of Events &mdash; Hour by Hour</td></tr>'+
+      body+
+    '</table>';
+}
+
 function ofLabAndSignoffTable(g){
   /* Lab Information used to live here; it now renders in every per-sample
      page block (before the Lab Results section) so the IH sees lab context
@@ -1518,6 +1660,7 @@ function ofLabAndSignoffTable(g){
       '<tr><td class="of-section-head">Comments / Time Course of Events</td></tr>'+
       '<tr><td class="of-val" style="min-height:24pt">'+ofVal(g.comments)+'</td></tr>'+
     '</table>'+
+    ofTimeCourseTable()+
     /* Calculation of 8-Hour TWA section now lives in every per-sample page
        block (before Ambient Conditions) so the calculated values print
        alongside the Lab Results context. */
@@ -1669,6 +1812,7 @@ function resetForm(){
   document.getElementById('airForm').reset();
   el('airPanelHost').innerHTML=''; el('airTabBar').innerHTML='';
   sIdx=0; bIdx=0; units=[]; activeUid=null; aCount={}; oelChoice={}; mvCount={};
+  tcPhotos = {};
   initForm();
 }
 
@@ -1717,6 +1861,7 @@ function collectForm(){
     document.querySelectorAll('#airForm [name^="blank'+i+'_"]').forEach(f=>{ fields[f.name.replace('blank'+i+'_','')]=f.value; });
     P.blanks.push({fields:fields});
   });
+  P.timeCourse = collectTimeCourse();
   return P;
 }
 function saveSession(){
@@ -1929,6 +2074,7 @@ function initForm(){
   applyPrefill();
   syncCOCDefaults(false);
   updateCOCPreview();
+  rebuildTimeCourse();
   initCollapsible();
   /* Re-populate equipment pickers — the addSample() call above ran before the
      noise app may have hydrated window.equipment from localStorage. */
@@ -1951,6 +2097,8 @@ window.Air = Object.assign(window.Air||{}, {
   onBlankChem, onBlankMethod,
   // TWA + OEL
   refreshTWA, setOel, onOelBasis,
+  // time-course of events
+  rebuildTimeCourse, onTcPhoto, removeTcPhoto,
   // save/load/example/reset/print
   saveSession, loadExample, onLoadFile, resetForm, printForm, printOfficialForm,
   // COC

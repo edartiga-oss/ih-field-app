@@ -2374,6 +2374,22 @@ body { padding: 20px 18px; }
 #airAppHost .tabbar .addtab.blank{border-color:#d8c8ee;background:var(--ai-blank-soft);color:var(--ai-blank);}
 #airAppHost .upanel{display:none;}
 #airAppHost .upanel.active{display:block;}
+
+/* Time Course of Events — per-hour entries with optional photo. */
+#airAppHost .tc-entry{display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;}
+#airAppHost .tc-entry .tc-label{flex:0 0 70px;font-size:11.5px;font-weight:700;color:var(--ai-muted);
+  text-transform:uppercase;letter-spacing:.3px;padding:6px 0;}
+#airAppHost .tc-entry textarea{flex:1;min-height:36px;resize:vertical;}
+#airAppHost .tc-entry .tc-pic{flex:0 0 110px;display:flex;flex-direction:column;gap:4px;align-items:center;}
+#airAppHost .tc-entry .tc-pic .tc-thumb{max-width:100px;max-height:80px;border-radius:6px;
+  border:1px solid var(--ai-line);object-fit:cover;display:none;}
+#airAppHost .tc-entry .tc-pic.has-pic .tc-thumb{display:block;}
+#airAppHost .tc-entry .tc-pic.has-pic .tc-add{display:none;}
+#airAppHost .tc-entry .tc-pic .tc-add{font-size:11px;padding:5px 8px;cursor:pointer;
+  border:1px dashed var(--ai-line);border-radius:6px;background:#fff;color:var(--ai-accent);}
+#airAppHost .tc-entry .tc-pic .tc-rm{font-size:10px;padding:2px 6px;cursor:pointer;
+  border:1px solid var(--ai-line);border-radius:5px;background:#fff;color:var(--ai-muted);display:none;}
+#airAppHost .tc-entry .tc-pic.has-pic .tc-rm{display:inline-block;}
 </style>
 
 <div id="view-air" class="view">
@@ -2532,8 +2548,27 @@ body { padding: 20px 18px; }
         <h2>Evaluation, Comments &amp; Sign-off</h2>
         <div class="body grid c2">
           <label class="span2"><span class="lbl">Detailed Evaluation / Follow-up</span><textarea name="evaluation"></textarea></label>
+
+          <!-- Comments / Time Course of Events: free-text overview, then a
+               structured per-hour breakdown the IH fills in over the shift,
+               with an optional photo per hour. -->
           <label class="span2"><span class="lbl">Comments / Time Course of Events</span><textarea name="comments"></textarea></label>
-          <label class="span2"><span class="lbl">Notes &amp; Calculations (8-hr TWA or Adjusted TWA)</span><textarea name="notes_calcs"></textarea></label>
+          <div class="span2" id="airTimeCourseHost" style="border:1px dashed var(--ai-line);border-radius:8px;padding:10px 12px;">
+            <div class="grid c4" style="gap:8px 12px; margin-bottom:10px;">
+              <label><span class="lbl">Total Sampling Duration</span>
+                <input type="number" id="airTcDuration" min="1" max="24" step="1" value="8" oninput="Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()"></label>
+              <label><span class="lbl">Time Unit</span>
+                <select id="airTcUnit" onchange="Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()">
+                  <option value="hours">Hours</option>
+                  <option value="minutes">Minutes</option>
+                </select></label>
+              <div></div>
+              <div></div>
+            </div>
+            <div id="airTcEntries"></div>
+          </div>
+
+          <label class="span2"><span class="lbl">Notes</span><textarea name="notes_calcs"></textarea></label>
           <label><span class="lbl">Template Completed By (name &amp; date)</span><input name="completed_by"></label>
           <label><span class="lbl">QA Review By (name &amp; date)</span><input name="qa_review_by"></label>
         </div>
