@@ -276,22 +276,23 @@ function samplePanel(i){
     '</fieldset>'+
 
     '<fieldset><legend>Equipment <span style="font-weight:400;text-transform:none">— pick from the Equipment library to auto-fill the fields below.</span></legend>'+
-      '<div class="grid c2" style="margin-bottom:10px">'+
+      '<div class="grid c2 air-active-only" style="margin-bottom:10px">'+
         '<label><span class="lbl">Pump (from library)</span>'+
           '<select id="airSampPumpPick'+i+'" onchange="Air.onAirPumpPick('+i+')"><option value="">— pick pump —</option></select></label>'+
         '<label><span class="lbl">Calibrator (from library)</span>'+
           '<select id="airSampCalPick'+i+'" onchange="Air.onAirCalPick('+i+')"><option value="">— pick calibrator —</option></select></label>'+
       '</div>'+
       '<div class="grid c4">'+
-        '<label><span class="lbl">Pump Mfg</span><input name="samp'+i+'_pump_mfg"></label>'+
-        '<label><span class="lbl">Pump Model</span><input name="samp'+i+'_pump_model"></label>'+
-        '<label><span class="lbl">Pump Serial #</span><input name="samp'+i+'_pump_serial"></label>'+
-        '<label><span class="lbl">Pump Asset / Tag #</span><input name="samp'+i+'_pump_num"></label>'+
-        '<label><span class="lbl">Calibrator Mfg / Model</span><input name="samp'+i+'_cal_model"></label>'+
-        '<label><span class="lbl">Calibrator Serial #</span><input name="samp'+i+'_cal_serial"></label>'+
-        '<label><span class="lbl">Calibrator Mfg Cal Date</span><input type="date" name="samp'+i+'_cal_mfg_date"></label>'+
-        '<label><span class="lbl">Calibration Due Date</span><input type="date" name="samp'+i+'_cal_due"></label>'+
+        '<label class="air-active-only"><span class="lbl">Pump Mfg</span><input name="samp'+i+'_pump_mfg"></label>'+
+        '<label class="air-active-only"><span class="lbl">Pump Model</span><input name="samp'+i+'_pump_model"></label>'+
+        '<label class="air-active-only"><span class="lbl">Pump Serial #</span><input name="samp'+i+'_pump_serial"></label>'+
+        '<label class="air-active-only"><span class="lbl">Pump Asset / Tag #</span><input name="samp'+i+'_pump_num"></label>'+
+        '<label><span class="lbl">Calibrator / Badge Mfg / Model</span><input name="samp'+i+'_cal_model"></label>'+
+        '<label><span class="lbl">Calibrator / Badge Serial #</span><input name="samp'+i+'_cal_serial"></label>'+
+        '<label><span class="lbl">Mfg Cal Date</span><input type="date" name="samp'+i+'_cal_mfg_date"></label>'+
+        '<label class="air-active-only"><span class="lbl">Calibration Due Date</span><input type="date" name="samp'+i+'_cal_due"></label>'+
       '</div>'+
+      '<div class="air-passive-note" style="display:none;font-size:11px;color:var(--ai-muted);font-style:italic;margin-top:6px;">Passive sampling — pump fields not applicable. The Calibrator / Badge fields above can be reused for the badge\'s manufacturer / serial.</div>'+
     '</fieldset>'+
 
     '<fieldset><legend>Analyte &amp; Method (SGS Galson)</legend>'+
@@ -330,7 +331,7 @@ function samplePanel(i){
       '<div style="margin-top:8px"><button type="button" onclick="Air.addMvRow('+i+')">+ Add analyte</button></div>'+
     '</fieldset>'+
 
-    '<fieldset><legend>Pre- &amp; Post-Calibration <span style="font-weight:400;text-transform:none">— invalid if difference &gt; 5%</span></legend>'+
+    '<fieldset class="air-active-only"><legend>Pre- &amp; Post-Calibration <span style="font-weight:400;text-transform:none">— invalid if difference &gt; 5% &middot; active sampling only</span></legend>'+
       '<div class="grid c4">'+
         '<label><span class="lbl">Pre-Cal Date</span><input type="date" name="samp'+i+'_precal_date"></label>'+
         '<label><span class="lbl">Pre-Cal Time</span><input type="time" name="samp'+i+'_precal_time"></label>'+
@@ -349,14 +350,15 @@ function samplePanel(i){
         '<label><span class="lbl">Start Time</span><input type="time" name="samp'+i+'_start_time" oninput="Air.calcSample('+i+')"></label>'+
         '<label><span class="lbl">Stop Date</span><input type="date" name="samp'+i+'_stop_date"></label>'+
         '<label><span class="lbl">Stop Time</span><input type="time" name="samp'+i+'_stop_time" oninput="Air.calcSample('+i+')"></label>'+
-        '<label><span class="lbl">Total Downtime (min)</span><input type="number" step="any" name="samp'+i+'_downtime" value="0" oninput="Air.calcSample('+i+')"></label>'+
+        '<label class="air-active-only"><span class="lbl">Total Downtime (min)</span><input type="number" step="any" name="samp'+i+'_downtime" value="0" oninput="Air.calcSample('+i+')"></label>'+
         '<label><span class="lbl">Total Sampling Time (min)</span><input readonly name="samp'+i+'_duration" id="airSampDuration'+i+'"></label>'+
-        '<label><span class="lbl">Flow Rate (Lpm)</span><input type="number" step="any" name="samp'+i+'_flow" oninput="Air.calcSample('+i+')"></label>'+
-        '<label><span class="lbl">Total Volume (L)</span><input readonly name="samp'+i+'_volume" id="airSampVolume'+i+'"></label>'+
+        '<label class="air-active-only"><span class="lbl">Flow Rate (Lpm)</span><input type="number" step="any" name="samp'+i+'_flow" oninput="Air.calcSample('+i+')"></label>'+
+        '<label class="air-active-only"><span class="lbl">Total Volume (L)</span><input readonly name="samp'+i+'_volume" id="airSampVolume'+i+'"></label>'+
       '</div>'+
+      '<div class="air-passive-note" style="display:none;font-size:11px;color:var(--ai-muted);font-style:italic;margin-top:6px;">Passive sampling — only Start/Stop time and Total Sampling Time matter. The lab uses each analyte\'s diffusive uptake rate (from the badge manufacturer) plus sampling time to compute concentration.</div>'+
     '</fieldset>'+
 
-    '<fieldset><legend>Gravimetric Analysis <span style="font-weight:400;text-transform:none">— in-house filter analysis only</span></legend>'+
+    '<fieldset class="air-active-only"><legend>Gravimetric Analysis <span style="font-weight:400;text-transform:none">— in-house filter analysis only</span></legend>'+
       '<div class="grid c3">'+
         '<label><span class="lbl">Pre-Sampled Weight (g)</span><input type="number" step="any" name="samp'+i+'_grav_pre" oninput="Air.calcGrav('+i+')"></label>'+
         '<label><span class="lbl">Post-Sampled Weight (g)</span><input type="number" step="any" name="samp'+i+'_grav_post" oninput="Air.calcGrav('+i+')"></label>'+
@@ -440,6 +442,7 @@ function addSample(){
   fillSelect(document.querySelector('#airForm [name="samp'+sIdx+'_process"]'), procListForShop());
   populateEquipPickersForSample(sIdx);
   aCount[sIdx]=0; addAnalyte(sIdx);
+  applyMethodModeUI(sIdx);
   showTab(uid); refreshTWA();
 }
 
@@ -532,6 +535,20 @@ function onType(i){
   mSel.innerHTML='<option value="">—</option>'+list.map(o=>opt(o.m)).join('');
   ['media','methodNote'].forEach(f=>fld('samp'+i+'_'+f).value='');
   if(list.length===1){ mSel.value=list[0].m; onMethod(i); }
+  applyMethodModeUI(i);
+}
+function applyMethodModeUI(i){
+  /* Toggle .air-passive-mode / .air-direct-read-mode on the sample panel
+     so CSS can dim and disable the irrelevant fields when Sample Type is
+     "Passive Badge" or "Direct-Read". Sections marked .air-active-only
+     fade out; sibling notes marked .air-passive-note become visible. */
+  const panel = document.querySelector('#airPanelHost .upanel[data-uid="sample'+i+'"]');
+  if (!panel) return;
+  const type = (fld('samp'+i+'_type')||{}).value || '';
+  const isPassive    = /passive|badge/i.test(type);
+  const isDirectRead = /direct[\s-]?read/i.test(type);
+  panel.classList.toggle('air-passive-mode', isPassive);
+  panel.classList.toggle('air-direct-read-mode', isDirectRead);
 }
 function methodObj(chem,type,mname){
   const list=(CHEM_DATA[chem]&&CHEM_DATA[chem].types[type])||[];
@@ -948,6 +965,7 @@ function applyPrefill(){
     if(f.chem){ setVal('samp'+i+'_chem', f.chem); onChem(i); }
     if(f.type){ setVal('samp'+i+'_type', f.type); onType(i); }
     if(f.method){ setVal('samp'+i+'_method', f.method); onMethod(i); }
+    applyMethodModeUI(i);
     Object.keys(f).forEach(k=>{ if(['chem','type','method'].indexOf(k)<0) setVal('samp'+i+'_'+k, f[k]); });
     if(sp.analytes){
       const names=sp.analytes.map(a=>a.name); selectAnalytes(i,names);
