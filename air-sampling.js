@@ -411,8 +411,13 @@ function blankPanel(i){
 function renderTabs(){
   const bar=el('airTabBar'); if(!bar) return;
   bar.innerHTML='';
+  /* Display order is always samples first, then blanks — regardless of
+     when each was added. Sample / Blank numbering follows the displayed
+     order so Sample 1/2/3 are contiguous on the left. */
+  const ordered = units.filter(u => u.kind === 'sample')
+                       .concat(units.filter(u => u.kind === 'blank'));
   let sN=0,bN=0;
-  units.forEach(u=>{
+  ordered.forEach(u=>{
     const isS=u.kind==='sample'; if(isS) sN++; else bN++;
     const label=isS?('Sample '+sN):('Blank '+bN);
     const t=document.createElement('button');
@@ -2240,10 +2245,13 @@ function buildOfficialDOM(){
   const existing = document.getElementById('airOfficialPrintRoot');
   if (existing) existing.remove();
   const g = ofGeneralFields();
-  /* Combine samples and blanks into a single ordered list so blanks render
-     as additional 3-up columns with the Sample/Blank Category checkbox row
-     marking them as Field Blank or Lab/Media Blank. */
-  const allPanels = units.map(u => u.kind === 'sample' ? ofSamplePanel(u.idx) : ofBlankPanel(u.idx));
+  /* Combine samples and blanks into a single ordered list with samples
+     first, then blanks — regardless of insertion order — so the printout
+     groups them cleanly. The Sample/Blank Category checkbox row on each
+     column marks each one as a sample, field blank, or lab/media blank. */
+  const orderedUnits = units.filter(u => u.kind === 'sample')
+                            .concat(units.filter(u => u.kind === 'blank'));
+  const allPanels = orderedUnits.map(u => u.kind === 'sample' ? ofSamplePanel(u.idx) : ofBlankPanel(u.idx));
   const root = document.createElement('div');
   root.id = 'airOfficialPrintRoot';
   if (!allPanels.length) {
