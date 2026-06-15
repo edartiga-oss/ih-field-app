@@ -299,6 +299,29 @@ function getAirPhotoRoot_() {
   return it.hasNext() ? it.next() : DriveApp.createFolder(AIR_PHOTO_ROOT_NAME);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   ONE-TIME AUTHORIZATION HELPER
+
+   Apps Script web apps don't prompt users for new OAuth scopes through
+   the web. After adding the DriveApp code, run this function ONCE from
+   the editor:
+
+     1. In the Apps Script editor, pick "authorizeAirPhotoFolder" from
+        the function dropdown next to the Run button.
+     2. Click Run.
+     3. A dialog appears asking you to authorize Drive access — accept.
+     4. Check the Logs (View -> Logs) — you should see the folder URL.
+
+   After that, the web app will be able to write photos to Drive.
+   No need to redeploy after running this — the new scope is granted to
+   the deployment automatically.
+   ══════════════════════════════════════════════════════════════════════ */
+function authorizeAirPhotoFolder() {
+  const folder = getAirPhotoRoot_();
+  Logger.log('Air Sampling Photos folder ready: ' + folder.getName());
+  Logger.log('URL: ' + folder.getUrl());
+}
+
 function handleAirPhotoUpload(data) {
   if (!data.surveyId || data.hour == null || !data.dataUri) {
     return ContentService
