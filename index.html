@@ -2521,6 +2521,7 @@ body { padding: 20px 18px; }
         </div>
         <div class="sl-toolbar">
           <button type="button" class="primary" onclick="Sound.printOfficialForm&amp;&amp;Sound.printOfficialForm()" title="Print/PDF using the official DD Form 2214 (JAN 2000) layout — Noise Survey (Sound Level Meter Survey)">Print DD 2214</button>
+          <button type="button" class="add" onclick="Sound.loadExample&amp;&amp;Sound.loadExample()" title="Prefill the form with the CSMS 2 Vehicle Maintenance Bay example so you can preview the DD 2214 printout">Load Example</button>
           <button type="button" onclick="Sound.saveSession&amp;&amp;Sound.saveSession()">Save (.json)</button>
           <button type="button" onclick="document.getElementById('soundLoadFile').click()">Load (.json)</button>
           <input type="file" id="soundLoadFile" accept=".json,application/json" style="display:none" onchange="Sound.onLoadFile&amp;&amp;Sound.onLoadFile(event)">

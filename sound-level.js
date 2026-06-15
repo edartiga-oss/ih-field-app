@@ -328,6 +328,57 @@ function renderSurveyList(){
   }).join('');
 }
 
+/* ── Example data: DD 2214 sample from the user's screenshot ──
+   Vehicle Maintenance Bay survey, 25 Mar 2026. Source: hand-filled DD
+   Form 2214 image attached during development. Use this to verify the
+   printout layout. */
+const EXAMPLE_DD2214 = {
+  general: {
+    survey_date: '2026-03-25',
+    survey_type: '1',
+    project: 'CSMS 2 Vehicle Maintenance Bay',
+    shop_name: 'CSMS 2',
+    seg: 'Vehicle Maintenance',
+    work_location: 'Vehicle Maintenance Bay',
+    slm_make: '3M', slm_model: '2200', slm_serial: 'KOL070041', slm_last_cal: '2025-07-21',
+    mic_make: 'N/A', mic_model: 'N/A', mic_serial: 'N/A', mic_last_cal: '',
+    cal_make: '3M', cal_model: 'QC-10/QC-20', cal_serial: 'QIL080123', cal_last_nist: '2025-07-21',
+    cal_ref_level: '113.6',
+    precal_date: '2026-03-25', precal_time: '07:30', precal_reading: '113.6', precal_initials: 'JLS',
+    postcal_date: '2026-03-25', postcal_time: '15:45', postcal_reading: '113.6', postcal_initials: 'JLS',
+    wind_screen: 'Used',
+    meas_location: 'Indoors',
+    slm_weighting: 'A',
+    slm_response: 'Slow',
+    area_description: 'Readings collected from Vehicle Maintenance Bay.\nPre Calibration - 113.6 dBA\nPost Calibration - 113.6 dBA',
+    primary_source: 'Vehicles and Tools',
+    secondary_source: 'Wind from outdoors',
+    remarks: 'Bay Area posted with Hazardous Noise Area signs. Equipment labeled with Hazardous Noise stickers. Employees provided Sound Guard Ear Plugs, 3M E.A.R Classic Ear Plugs, Readymax Ear Plugs, Bilsom Thunder T2 Earmuffs and Prosafe Ear Muffs. Measurements taken at hearing point of operator.\n\nRisk Assessment Code: IVB',
+    more_eval: 'No',
+    more_eval_type: '',
+    audiometric_names: 'Noise Dosimetry conducted on 24 and 25 March 2026 for 11 employees.',
+    supervisor_name: 'Yakana, Margaret E.',
+    supervisor_phone: '',
+    supervisor_org: 'CSMS 2',
+    performed_by: 'Scott, Jason L.',
+    hcm_name: '',
+  },
+  measurements: [
+    { location: 'Snap On 11,000 RPM Impact Wrench', action: 'S', dbc: '97.1', dba: '95.2', rac: '2', notes: '' },
+    { location: 'Dewalt 3/4" Impact Wrench',        action: 'S', dbc: '88.5', dba: '91.6', rac: '2', notes: '' },
+    { location: 'Dewalt 7" Angle Grinder',          action: 'S', dbc: '89.9', dba: '92.6', rac: '2', notes: '' },
+    { location: 'Toyota Forklift',                  action: 'S', dbc: '87.4', dba: '81.9', rac: '4', notes: '' },
+    { location: 'Clark Forklift',                   action: 'S', dbc: '97.2', dba: '84.2', rac: '4', notes: '' },
+    { location: 'Welding Shop Pedestal Grinder',    action: 'S', dbc: '81.4', dba: '83.2', rac: '4', notes: '' },
+  ],
+};
+
+function loadExample(){
+  if (window.confirm && !confirm('Load the DD 2214 example data (CSMS 2 Vehicle Maintenance Bay)? Current form contents will be replaced.')) return;
+  applyPrefill(EXAMPLE_DD2214);
+  if (window.showToast) showToast('Loaded DD 2214 example — click "Print DD 2214" to preview', 'success');
+}
+
 /* ── Save / Load JSON ── */
 function downloadBlob(blob, filename){
   const a=document.createElement('a'); const url=URL.createObjectURL(blob);
@@ -650,7 +701,7 @@ window.Sound = Object.assign(window.Sound || {}, {
   onMeasPhoto, removeMeasPhoto,
   recomputeDrift,
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
-  saveSession, onLoadFile,
+  saveSession, onLoadFile, loadExample,
   printForm, printOfficialForm,
   flushSyncQueue, mergeRemoteSurveys,
   init: initForm,
