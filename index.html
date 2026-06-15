@@ -2391,6 +2391,10 @@ body { padding: 20px 18px; }
 #airAppHost table.cons td.calc-cell.warn{background:var(--ai-warn-soft);color:var(--ai-warn);}
 #airAppHost table.cons td.calc-cell.good{background:var(--ai-calc-soft);color:var(--ai-calc);}
 #airAppHost #airTwaTable.noadj .adjcol{display:none;}
+/* % of OEL thresholds in the TWA Calculator. Yellow at 50-99% (action
+   level / approaching), red at >=100% (over the limit). */
+#airAppHost #airTwaTable td.pct-yellow{background:#fff4d6 !important;color:#7a4f00 !important;font-weight:700;}
+#airAppHost #airTwaTable td.pct-red{background:#fbe1e1 !important;color:#a32d2d !important;font-weight:700;}
 
 #airAppHost .checkrow{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;
   font-weight:400;color:var(--ai-ink);}

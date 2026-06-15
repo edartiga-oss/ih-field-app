@@ -1167,6 +1167,14 @@ function refreshTWA(){
     const pctCell = r.pct!=null
       ? (r.ndAny?'<':'')+round(r.pct,1)+'%'+(r.unitMismatch && !isOverride?' <span style="color:var(--ai-muted);font-size:10px" title="Result converted before comparing to OEL">*</span>':'')
       : '—';
+    /* Tint the % cell: yellow at 50-99% of OEL (action-level range);
+       red at >= 100%. Applied via class so screen and print share the
+       threshold definition. */
+    let pctClass = 'calc-cell';
+    if (r.pct != null) {
+      if (r.pct >= 100) pctClass = 'calc-cell pct-red';
+      else if (r.pct >= 50) pctClass = 'calc-cell pct-yellow';
+    }
     body.insertAdjacentHTML('beforeend',
       '<tr>'+workerCell+
       '<td>'+esc(r.name)+'</td>'+
@@ -1176,7 +1184,7 @@ function refreshTWA(){
       '<td>'+esc(r.dispResultUnit || r.unit)+'</td>'+
       '<td>'+oelCellHTML(r.name, displayMode)+'</td>'+
       '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(r.dispAdjOel!=null?round(r.dispAdjOel,4):'—')+'</td>'+
-      '<td class="calc-cell">'+pctCell+'</td>'+
+      '<td class="'+pctClass+'">'+pctCell+'</td>'+
       '</tr>');
   });
 }
@@ -2184,6 +2192,12 @@ function ofTwaCalcsTable(){
     const pctTxt = r.pct!=null
       ? (r.ndAny?'&lt;':'')+round(r.pct,1)+'%'+(showConvParen?'*':'')
       : '—';
+    /* Match the screen colour thresholds in the printout too. */
+    let pctStyle = '';
+    if (r.pct != null) {
+      if (r.pct >= 100) pctStyle = 'background:#fbe1e1 !important;color:#a32d2d !important;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+      else if (r.pct >= 50) pctStyle = 'background:#fff4d6 !important;color:#7a4f00 !important;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+    }
     h += '<tr>'+
       '<td class="of-val" style="font-weight:600;'+borderTop+'">'+ofVal(r.worker)+(r.firstOfBlock?' <span style="font-weight:400;color:#555">('+r.sampleCount+' sample'+(r.sampleCount===1?'':'s')+')</span>':'')+'</td>'+
       '<td class="of-val">'+ofVal(r.name)+'</td>'+
@@ -2193,7 +2207,7 @@ function ofTwaCalcsTable(){
       '<td class="of-val">'+ofVal(r.dispResultUnit || r.unit)+'</td>'+
       '<td class="of-val">'+ofVal(r.oelLabel)+'</td>'+
       (adjusting ? '<td class="of-val" style="text-align:right">'+(r.dispAdjOel!=null?round(r.dispAdjOel,4):'—')+'</td>' : '')+
-      '<td class="of-val" style="text-align:right">'+pctTxt+'</td>'+
+      '<td class="of-val" style="text-align:right;'+pctStyle+'">'+pctTxt+'</td>'+
     '</tr>';
   });
   h += '</table>';
