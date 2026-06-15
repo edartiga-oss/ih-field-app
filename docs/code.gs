@@ -5,6 +5,8 @@ const EQUIP_SHEET = 'Equipment';
 const EQUIP_RAW_SHEET = 'EquipmentRaw';
 const AIR_SHEET = 'AirSurveys';
 const AIR_RAW_SHEET = 'AirSurveysRaw';
+const SOUND_SHEET = 'SoundLevel';
+const SOUND_RAW_SHEET = 'SoundLevelRaw';
 
 function doPost(e) {
   try {
@@ -30,6 +32,14 @@ function doPost(e) {
     // ── Air Sampling photo upload (Drive) ─────────────────────────────
     if (data._type === 'air_photo') {
       return handleAirPhotoUpload(data);
+    }
+
+    // ── Sound Level routing ───────────────────────────────────────────
+    if (data._type === 'sound_level') {
+      if (data._action === 'delete' && data.id) {
+        return handleSoundDelete(ss, data.id);
+      }
+      return handleSoundUpsert(ss, data);
     }
 
     // ── Handle delete action (surveys) ────────────────────────────────
@@ -368,7 +378,80 @@ function handleAirPhotoUpload(data) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  doGet — returns surveys + equipment + air sampling surveys for pull-back
+//  SOUND LEVEL HANDLERS
+//  Schema mirrors air sampling: flat tab (SoundLevel, one row per
+//  measurement) + raw JSON tab (SoundLevelRaw, one row per survey id).
+// ══════════════════════════════════════════════════════════════════════
+function handleSoundUpsert(ss, data) {
+  // Raw JSON tab
+  let rawSheet = ss.getSheetByName(SOUND_RAW_SHEET);
+  if (!rawSheet) {
+    rawSheet = ss.insertSheet(SOUND_RAW_SHEET);
+    rawSheet.appendRow(['sound_survey_id', 'updated_at', 'json_data']);
+    rawSheet.getRange(1, 1, 1, 3).setFontWeight('bold');
+    rawSheet.setFrozenRows(1);
+  }
+  const rawData = rawSheet.getDataRange().getValues();
+  let rawRowIdx = -1;
+  for (let i = 1; i < rawData.length; i++) {
+    if (rawData[i][0] === data.id) { rawRowIdx = i + 1; break; }
+  }
+  const jsonRow = [data.id, new Date().toISOString(), JSON.stringify(data)];
+  if (rawRowIdx > 0) {
+    rawSheet.getRange(rawRowIdx, 1, 1, 3).setValues([jsonRow]);
+  } else {
+    rawSheet.appendRow(jsonRow);
+  }
+
+  // Flat tab — one row per measurement
+  let sheet = ss.getSheetByName(SOUND_SHEET);
+  if (!sheet) sheet = ss.insertSheet(SOUND_SHEET);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(SOUND_HEADERS);
+    sheet.getRange(1, 1, 1, SOUND_HEADERS.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  // Drop existing rows for this survey id (we'll re-append below). Iterate
+  // backwards so deleteRow doesn't shift our index.
+  if (sheet.getLastRow() > 1) {
+    const existingIds = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (let i = existingIds.length - 1; i >= 0; i--) {
+      if (existingIds[i][0] === data.id) sheet.deleteRow(i + 2);
+    }
+  }
+  const submittedAt = new Date().toLocaleString();
+  const rows = buildSoundRows_(data, submittedAt);
+  if (rows.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, SOUND_HEADERS.length).setValues(rows);
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ success: true, type: 'sound_level', id: data.id }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleSoundDelete(ss, id) {
+  const sheet = ss.getSheetByName(SOUND_SHEET);
+  const rawSheet = ss.getSheetByName(SOUND_RAW_SHEET);
+  if (sheet && sheet.getLastRow() > 1) {
+    const vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (let i = vals.length - 1; i >= 0; i--) {
+      if (vals[i][0] === id) sheet.deleteRow(i + 2);
+    }
+  }
+  if (rawSheet && rawSheet.getLastRow() > 1) {
+    const rawVals = rawSheet.getRange(2, 1, rawSheet.getLastRow() - 1, 1).getValues();
+    for (let i = rawVals.length - 1; i >= 0; i--) {
+      if (rawVals[i][0] === id) rawSheet.deleteRow(i + 2);
+    }
+  }
+  return ContentService
+    .createTextOutput(JSON.stringify({ success: true, action: 'deleted', type: 'sound_level', id: id }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  doGet — returns surveys + equipment + air sampling + sound level
 // ══════════════════════════════════════════════════════════════════════
 function doGet(e) {
   try {
@@ -376,13 +459,15 @@ function doGet(e) {
     const surveys = readRawJson_(ss, RAW_SHEET);
     const equipment = readRawJson_(ss, EQUIP_RAW_SHEET);
     const airSurveys = readRawJson_(ss, AIR_RAW_SHEET);
+    const soundSurveys = readRawJson_(ss, SOUND_RAW_SHEET);
 
     return ContentService
       .createTextOutput(JSON.stringify({
         success: true,
         surveys: surveys,
         equipment: equipment,
-        airSurveys: airSurveys
+        airSurveys: airSurveys,
+        soundSurveys: soundSurveys
       }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -393,7 +478,8 @@ function doGet(e) {
         error: err.toString(),
         surveys: [],
         equipment: [],
-        airSurveys: []
+        airSurveys: [],
+        soundSurveys: []
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -999,4 +1085,168 @@ function migrateAirSurveysFromRaw() {
 
   Logger.log('Air sampling migration complete: ' + surveys.length + ' surveys / ' + totalRows + ' rows written to ' + AIR_SHEET);
   Logger.log('Schema: ' + AIR_HEADERS.length + ' columns');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SOUND LEVEL SCHEMA — headers + row builder
+//  One row per measurement in a Sound Level Survey, with general info +
+//  SLM / Microphone / Calibrator + Pre/Post field cal + signoff repeated
+//  on every row so the flat tab is pivot-ready in Sheets.
+// ══════════════════════════════════════════════════════════════════════
+const SOUND_HEADERS = [
+  // Identity & metadata
+  'Survey ID','Submitted At','Updated At','Device Nickname',
+  // Measurement position
+  'Measurement Index',
+  // General information (DD 2214 boxes 1, 2)
+  'Survey Date','Type Survey (1=Initial 2=ReSurvey 3=Other)',
+  'Project / Client','Shop / Activity','SEG','Work Location',
+  // Sound Level Meter (box 3)
+  'SLM Make','SLM Model','SLM Serial','SLM Last Cal Date',
+  // Microphone (box 4)
+  'Mic Make','Mic Model','Mic Serial','Mic Last Cal Date',
+  // Calibrator (box 5) + reference level
+  'Cal Make','Cal Model','Cal Serial','Cal Last Cal Date','Cal Reference Level (dB)',
+  // Pre/Post field cal
+  'Pre-Cal Date','Pre-Cal Time','Pre-Cal Reading (dB)','Pre-Cal Initials',
+  'Post-Cal Date','Post-Cal Time','Post-Cal Reading (dB)','Post-Cal Initials',
+  'Drift (dB)','Drift Status',
+  // Survey conditions (boxes 6, 7)
+  'Wind Screen','Measurements Obtained',
+  // SLM settings
+  'SLM Weighting','SLM Time Response',
+  // Description + sources (boxes 8, 9, 10)
+  'Area Description','Primary Source of Noise','Secondary Source of Noise',
+  // Measurement (box 11) — per row
+  'Location','Meter Action (S/F)','dBC','dBA','Risk Assessment Code','Measurement Notes',
+  // HPD (box 12) — auto-calculated per row from dBA
+  'HPD: None (<85)','HPD: Plug or Muff (85-108)','HPD: Plug+Muff (108-118)','HPD: Plug+Muff+Time Limit (>118)',
+  // Remarks (box 13)
+  'Remarks',
+  // Box 14
+  'More Detailed Eval Required','More Eval Type',
+  // Box 15
+  'Audiometric Monitoring Names',
+  // Box 16
+  'Supervisor Name','Supervisor Phone','Supervisor Organization',
+  // Boxes 17, 18
+  'Survey Performed By','Hearing Conservation Monitor',
+];
+
+function buildSoundRows_(data, submittedAt) {
+  const g = data.general || {};
+  const stamp = submittedAt || new Date().toLocaleString();
+  const updatedAt = data.updatedAt || new Date().toISOString();
+  const device = data.deviceNickname || '';
+  const meas = data.measurements || [];
+
+  function hpdFor(dba) {
+    const v = parseFloat(dba);
+    if (isNaN(v)) return ['','','',''];
+    if (v < 85)  return ['YES','','',''];
+    if (v <= 108) return ['','YES','',''];
+    if (v <= 118) return ['','','YES',''];
+    return ['','','','YES'];
+  }
+
+  function commonHead(idx) {
+    return [
+      data.id || '', stamp, updatedAt, device, idx,
+      g.survey_date || '', g.survey_type || '',
+      g.project || '', g.shop_name || '', g.seg || '', g.work_location || '',
+      g.slm_make || '', g.slm_model || '', g.slm_serial || '', g.slm_last_cal || '',
+      g.mic_make || '', g.mic_model || '', g.mic_serial || '', g.mic_last_cal || '',
+      g.cal_make || '', g.cal_model || '', g.cal_serial || '', g.cal_last_nist || '', g.cal_ref_level || '',
+      g.precal_date || '', g.precal_time || '', g.precal_reading || '', g.precal_initials || '',
+      g.postcal_date || '', g.postcal_time || '', g.postcal_reading || '', g.postcal_initials || '',
+      g.drift || '', g.drift_status || '',
+      g.wind_screen || '', g.meas_location || '',
+      g.slm_weighting || '', g.slm_response || '',
+      g.area_description || '', g.primary_source || '', g.secondary_source || '',
+    ];
+  }
+  function commonTail() {
+    return [
+      g.remarks || '',
+      g.more_eval || '', g.more_eval_type || '',
+      g.audiometric_names || '',
+      g.supervisor_name || '', g.supervisor_phone || '', g.supervisor_org || '',
+      g.performed_by || '', g.hcm_name || '',
+    ];
+  }
+
+  const rows = [];
+  meas.forEach(function (m, i) {
+    const hpd = hpdFor(m.dba);
+    const row = commonHead(i + 1).concat([
+      m.location || '', m.action || '', m.dbc || '', m.dba || '', m.rac || '', m.notes || '',
+    ]).concat(hpd).concat(commonTail());
+    rows.push(row);
+  });
+
+  // Survey with no measurements: still leave a single row so the IH sees it
+  if (!rows.length) {
+    const row = commonHead(0).concat(['','','','','','']).concat(['','','','']).concat(commonTail());
+    rows.push(row);
+  }
+
+  // Safety: pad each row to exactly match header count
+  rows.forEach(function (r) {
+    while (r.length < SOUND_HEADERS.length) r.push('');
+    if (r.length > SOUND_HEADERS.length) r.length = SOUND_HEADERS.length;
+  });
+  return rows;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SOUND LEVEL MIGRATION (optional) — rebuild SoundLevel from raw JSON
+//
+//  Run from the editor: pick migrateSoundFromRaw, click Run. Backs up the
+//  existing flat SoundLevel tab to SoundLevel_backup_<timestamp> first.
+//  Safe to re-run.
+// ══════════════════════════════════════════════════════════════════════
+function migrateSoundFromRaw() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const rawSheet = ss.getSheetByName(SOUND_RAW_SHEET);
+  if (!rawSheet || rawSheet.getLastRow() <= 1) {
+    Logger.log('No data in ' + SOUND_RAW_SHEET + ' — nothing to migrate.');
+    return;
+  }
+  const existing = ss.getSheetByName(SOUND_SHEET);
+  if (existing && existing.getLastRow() > 0) {
+    const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    existing.copyTo(ss).setName(SOUND_SHEET + '_backup_' + stamp);
+  }
+  const rawRows = rawSheet.getRange(2, 1, rawSheet.getLastRow() - 1, 3).getValues();
+  const surveys = [];
+  const submittedAtById = {};
+  let parseFailures = 0;
+  rawRows.forEach(function (r) {
+    if (!r[0] || !r[2]) return;
+    try {
+      const s = JSON.parse(r[2]);
+      surveys.push(s);
+      submittedAtById[s.id] = r[1] ? new Date(r[1]).toLocaleString() : '';
+    } catch (e) { parseFailures++; }
+  });
+  Logger.log('Parsed ' + surveys.length + ' sound surveys from ' + SOUND_RAW_SHEET +
+             (parseFailures ? ' (' + parseFailures + ' failed)' : ''));
+
+  let sheet = ss.getSheetByName(SOUND_SHEET);
+  if (sheet) sheet.clear();
+  else sheet = ss.insertSheet(SOUND_SHEET);
+  sheet.appendRow(SOUND_HEADERS);
+  sheet.getRange(1, 1, 1, SOUND_HEADERS.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  let totalRows = 0;
+  surveys.forEach(function (s) {
+    const rows = buildSoundRows_(s, submittedAtById[s.id] || '');
+    if (rows.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, SOUND_HEADERS.length).setValues(rows);
+      totalRows += rows.length;
+    }
+  });
+  Logger.log('Sound level migration complete: ' + surveys.length + ' surveys / ' + totalRows + ' rows written to ' + SOUND_SHEET);
+  Logger.log('Schema: ' + SOUND_HEADERS.length + ' columns');
 }

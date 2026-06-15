@@ -2538,11 +2538,14 @@ body { padding: 20px 18px; }
       <div class="sl-head">
         <div>
           <h2>Sound Level Survey</h2>
-          <div class="sub">Area / spot sound level measurements with a Type 1 or Type 2 SLM — official layout coming soon, this is the base data capture.</div>
+          <div class="sub">Area / spot sound level measurements with a Type 1 or Type 2 SLM &middot; prints to the official DD Form 2214 (JAN 2000) — Noise Survey.</div>
         </div>
         <div class="sl-toolbar">
           <button type="button" class="primary" onclick="Sound.printOfficialForm&amp;&amp;Sound.printOfficialForm()" title="Print/PDF using the official DD Form 2214 (JAN 2000) layout — Noise Survey (Sound Level Meter Survey)">Print DD 2214</button>
-          <button type="button" class="add" onclick="Sound.loadExample&amp;&amp;Sound.loadExample()" title="Prefill the form with the CSMS 2 Vehicle Maintenance Bay example so you can preview the DD 2214 printout">Load Example</button>
+          <select onchange="if(this.value&amp;&amp;window.Sound){Sound.loadExample(this.value);this.selectedIndex=0;}" title="Load a worked example so you can preview the DD 2214 printout" style="padding:7px 10px;border-radius:7px;border:1px solid var(--sl-line);background:#fff;cursor:pointer;color:var(--sl-ink);font:inherit;">
+            <option value="">Load Example…</option>
+            <option value="1">Example 1 — CSMS 2 Vehicle Maintenance Bay (DD 2214)</option>
+          </select>
           <button type="button" onclick="Sound.saveSession&amp;&amp;Sound.saveSession()">Save (.json)</button>
           <button type="button" onclick="document.getElementById('soundLoadFile').click()">Load (.json)</button>
           <input type="file" id="soundLoadFile" accept=".json,application/json" style="display:none" onchange="Sound.onLoadFile&amp;&amp;Sound.onLoadFile(event)">

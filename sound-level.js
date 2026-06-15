@@ -373,14 +373,22 @@ const EXAMPLE_DD2214 = {
   ],
 };
 
-function loadExample(){
+/* Map of example key -> example data. Add more entries here as the
+   user accumulates worked examples. */
+const SOUND_EXAMPLES = {
+  '1': { name: 'CSMS 2 Vehicle Maintenance Bay (DD 2214)', data: EXAMPLE_DD2214 },
+};
+
+function loadExample(key){
   try {
-    console.log('[Sound.loadExample] starting');
-    if (window.confirm && !confirm('Load the DD 2214 example data (CSMS 2 Vehicle Maintenance Bay)? Current form contents will be replaced.')) return;
-    applyPrefill(EXAMPLE_DD2214);
-    if (window.showToast) showToast('Loaded DD 2214 example — click "Print DD 2214" to preview', 'success');
-    else alert('Loaded DD 2214 example — click "Print DD 2214" to preview');
-    console.log('[Sound.loadExample] done');
+    const ex = SOUND_EXAMPLES[key || '1']; if (!ex) {
+      alert('Example not found: ' + key);
+      return;
+    }
+    if (window.confirm && !confirm('Load "' + ex.name + '"?\n\nCurrent form contents will be replaced.')) return;
+    applyPrefill(ex.data);
+    if (window.showToast) showToast('Loaded: ' + ex.name + ' — click "Print DD 2214" to preview', 'success');
+    else alert('Loaded: ' + ex.name);
   } catch(e) {
     console.error('[Sound.loadExample] failed', e);
     alert('Load Example failed: ' + e.message);
