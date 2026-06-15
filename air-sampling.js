@@ -954,6 +954,193 @@ function applyPrefill(){
 }
 
 /* ============================================================
+   Air Sampling survey persistence (localStorage + Sheets sync).
+   airSurveys[] is the parallel of noise's surveys[]. Stored under
+   AIR_STORAGE_KEY. Pushed to the same Apps Script endpoint as noise +
+   equipment, tagged with _type: 'air_sampling' so the script can route
+   to the AirSurveys / AirSurveysRaw tabs. ============================================================ */
+const AIR_STORAGE_KEY = 'ih_air_surveys_v1';
+const AIR_QUEUE_KEY   = 'ih_air_sync_queue_v1';
+let airSurveys = [];
+let currentAirSurveyId = null;
+
+function generateAirId(){ return 'AIR-' + Date.now().toString(36).toUpperCase(); }
+
+function loadAirSurveysFromStorage(){
+  try {
+    const raw = localStorage.getItem(AIR_STORAGE_KEY);
+    if (raw) airSurveys = JSON.parse(raw) || [];
+  } catch(e) { airSurveys = []; }
+  let healed = 0;
+  airSurveys.forEach(s => { if (!s.id) { s.id = generateAirId(); healed++; } });
+  if (healed) saveAirSurveysToStorage();
+}
+function saveAirSurveysToStorage(){
+  try { localStorage.setItem(AIR_STORAGE_KEY, JSON.stringify(airSurveys)); }
+  catch(e) { if (window.showToast) showToast('Storage error saving air sampling survey', 'error'); }
+}
+
+function airSurveySummary(s){
+  const g = (s.general || {});
+  const shop = g.shop_name || '(no shop)';
+  const date = g.survey_date || '';
+  const samples = (s.samples || []).length;
+  const blanks  = (s.blanks  || []).length;
+  return { shop, date, samples, blanks };
+}
+
+function saveAirSurvey(){
+  /* Snapshot the current form state and persist it locally + push to
+     Sheets. If we're editing an existing survey (currentAirSurveyId set)
+     we update in place; otherwise we mint a new id. */
+  const data = collectForm();
+  const id = currentAirSurveyId || generateAirId();
+  const now = new Date().toISOString();
+  const existing = airSurveys.find(s => s.id === id);
+  const record = Object.assign({}, existing || {}, data, {
+    id,
+    timestamp: existing ? (existing.timestamp || now) : now,
+    updatedAt: now,
+    deviceNickname: (window.deviceNickname || ''),
+  });
+  const idx = airSurveys.findIndex(s => s.id === id);
+  if (idx >= 0) airSurveys[idx] = record;
+  else airSurveys.unshift(record);
+  saveAirSurveysToStorage();
+  currentAirSurveyId = id;
+  pushAirSurveyToSheets(record);
+  renderAirSurveyList();
+  if (window.showToast) showToast('Air sampling survey saved', 'success');
+}
+
+function loadAirSurvey(id){
+  const s = airSurveys.find(x => x.id === id); if (!s) return;
+  currentAirSurveyId = id;
+  window.PREFILL = s;
+  applyPrefill();
+  renderAirSurveyList();
+  if (window.showToast) showToast('Loaded ' + (airSurveySummary(s).shop || id), 'success');
+}
+
+function deleteAirSurvey(id){
+  if (!confirm('Delete this air sampling survey? This will also remove it from Google Sheets.')) return;
+  airSurveys = airSurveys.filter(s => s.id !== id);
+  saveAirSurveysToStorage();
+  deleteAirSurveyFromSheets(id);
+  if (currentAirSurveyId === id) currentAirSurveyId = null;
+  renderAirSurveyList();
+  if (window.showToast) showToast('Survey deleted', 'success');
+}
+
+function newAirSurvey(){
+  currentAirSurveyId = null;
+  window.PREFILL = null;
+  document.getElementById('airForm').reset();
+  el('airPanelHost').innerHTML = ''; el('airTabBar').innerHTML = '';
+  sIdx = 0; bIdx = 0; units = []; activeUid = null; aCount = {}; oelChoice = {}; mvCount = {}; tcPhotos = {};
+  initForm();
+  renderAirSurveyList();
+  if (window.showToast) showToast('Started new air sampling survey', 'success');
+}
+
+function airEscAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function renderAirSurveyList(){
+  const host = el('airSurveysList');
+  const countEl = el('airSurveysCount');
+  if (!host) return;
+  if (countEl) countEl.textContent = airSurveys.length + ' survey' + (airSurveys.length===1?'':'s');
+  if (!airSurveys.length) {
+    host.innerHTML = '<div style="padding:14px;color:var(--ai-muted);font-style:italic">No saved air sampling surveys yet. Fill in the form below and click "Save Survey" to keep it.</div>';
+    return;
+  }
+  host.innerHTML = airSurveys.map(s => {
+    const sum = airSurveySummary(s);
+    const updated = s.updatedAt ? new Date(s.updatedAt).toLocaleString() : '';
+    const isActive = s.id === currentAirSurveyId;
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--ai-line2);'+
+      (isActive ? 'background:var(--ai-accent-soft);' : '')+'">'+
+      '<div>'+
+        '<div style="font-weight:600;color:var(--ai-ink)">'+esc(sum.shop)+' &middot; '+esc(sum.date)+
+          (isActive ? ' <span style="font-size:11px;background:var(--ai-accent);color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px">editing</span>' : '')+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--ai-muted)">'+sum.samples+' sample'+(sum.samples===1?'':'s')+', '+sum.blanks+' blank'+(sum.blanks===1?'':'s')+' &middot; updated '+esc(updated)+' &middot; <span style="font-family:monospace">'+esc(s.id)+'</span></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px;flex-shrink:0">'+
+        '<button type="button" onclick="Air.loadAirSurvey(\''+airEscAttr(s.id)+'\')">Edit</button>'+
+        '<button type="button" class="rm" onclick="Air.deleteAirSurvey(\''+airEscAttr(s.id)+'\')" title="Delete">&times;</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* ─── Sheets sync — air sampling surveys ─── */
+function airSheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
+
+function pushAirSurveyToSheets(record){
+  const url = airSheetsUrl();
+  if (!url || !navigator.onLine) { queueAirSync(record); return; }
+  const payload = Object.assign({ _type: 'air_sampling' }, record, {
+    deviceInfo: navigator.userAgent.substring(0, 80)
+  });
+  fetch(url, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(() => removeAirPendingSync(record.id))
+    .catch(() => queueAirSync(record));
+}
+
+function deleteAirSurveyFromSheets(id){
+  const url = airSheetsUrl();
+  if (!url) return;
+  fetch(url, {
+    method: 'POST', mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ _action: 'delete', _type: 'air_sampling', id })
+  }).catch(() => {});
+}
+
+function queueAirSync(record){
+  try {
+    let q = JSON.parse(localStorage.getItem(AIR_QUEUE_KEY) || '[]');
+    const idx = q.findIndex(s => s.id === record.id);
+    if (idx >= 0) q[idx] = record; else q.push(record);
+    localStorage.setItem(AIR_QUEUE_KEY, JSON.stringify(q));
+  } catch(e) {}
+}
+function removeAirPendingSync(id){
+  try {
+    const q = JSON.parse(localStorage.getItem(AIR_QUEUE_KEY) || '[]');
+    localStorage.setItem(AIR_QUEUE_KEY, JSON.stringify(q.filter(s => s.id !== id)));
+  } catch(e) {}
+}
+function flushAirSyncQueue(){
+  if (!navigator.onLine) return;
+  let q;
+  try { q = JSON.parse(localStorage.getItem(AIR_QUEUE_KEY) || '[]'); } catch(e) { return; }
+  if (!q.length) return;
+  q.forEach(rec => pushAirSurveyToSheets(rec));
+}
+
+/* Called from index.html's pullFromSheets when data.airSurveys arrives.
+   Merges by id+timestamp, freshest wins. */
+function mergeRemoteAirSurveys(remote){
+  let newCount = 0, updCount = 0;
+  (remote || []).forEach(r => {
+    const idx = airSurveys.findIndex(s => s.id === r.id);
+    if (idx < 0) { airSurveys.unshift(r); newCount++; }
+    else {
+      const lt = new Date(airSurveys[idx].updatedAt || airSurveys[idx].timestamp || 0).getTime();
+      const rt = new Date(r.updatedAt || r.timestamp || 0).getTime();
+      if (rt > lt) { airSurveys[idx] = r; updCount++; }
+    }
+  });
+  if (newCount || updCount) { saveAirSurveysToStorage(); renderAirSurveyList(); }
+  return { newCount, updCount };
+}
+
+/* ============================================================
    Time Course of Events — per-hour entries with optional photo.
    The shift duration + unit drive how many "Hour N" textareas show.
    Photos are downscaled client-side and stored as base64 data URIs in
@@ -2086,6 +2273,9 @@ function initForm(){
   /* Re-populate equipment pickers — the addSample() call above ran before the
      noise app may have hydrated window.equipment from localStorage. */
   refreshEquipPickers();
+  loadAirSurveysFromStorage();
+  renderAirSurveyList();
+  if (navigator.onLine) setTimeout(flushAirSyncQueue, 2500);
   initialized=true;
 }
 
@@ -2108,6 +2298,9 @@ window.Air = Object.assign(window.Air||{}, {
   rebuildTimeCourse, onTcPhoto, removeTcPhoto,
   // save/load/example/reset/print
   saveSession, loadExample, onLoadFile, resetForm, printForm, printOfficialForm,
+  // air sampling survey persistence
+  saveAirSurvey, loadAirSurvey, deleteAirSurvey, newAirSurvey,
+  renderAirSurveyList, flushAirSyncQueue, mergeRemoteAirSurveys,
   // COC
   syncCOCDefaults, generateCOC, onReportToPick, onInvoiceToPick,
   // init hook (called by showView)
