@@ -426,9 +426,13 @@ function renderTabs(){
   });
   const aS=document.createElement('button');
   aS.type='button'; aS.className='addtab'; aS.textContent='＋ Add Sample'; aS.addEventListener('click',addSample);
+  const aD=document.createElement('button');
+  aD.type='button'; aD.className='addtab'; aD.textContent='＋ Duplicate Last';
+  aD.title='Duplicate the most recent sample. Method / equipment / analyte list copy across; personnel, IDs, calibration & timing are cleared.';
+  aD.addEventListener('click', duplicateLastSample);
   const aB=document.createElement('button');
   aB.type='button'; aB.className='addtab blank'; aB.textContent='＋ Add Blank'; aB.addEventListener('click',addBlank);
-  bar.appendChild(aS); bar.appendChild(aB);
+  bar.appendChild(aS); bar.appendChild(aD); bar.appendChild(aB);
 }
 function showTab(uid){
   activeUid=uid;
@@ -444,6 +448,82 @@ function addSample(){
   aCount[sIdx]=0; addAnalyte(sIdx);
   applyMethodModeUI(sIdx);
   showTab(uid); refreshTWA();
+}
+
+/* Duplicate the most-recent sample: copies the chemical/method/media,
+   inspirability/position, work-condition fields, controls, pump and
+   calibrator details, flow rate, and the analyte list (names + MDL +
+   units). Clears personnel identifiers, all sample IDs, pre/post cal,
+   start/stop times, gravimetric weights, ambient conditions, and the
+   measured-result column — fields the IH must re-enter for the new
+   worker. */
+function duplicateLastSample(){
+  const sampleUnits = units.filter(u => u.kind === 'sample');
+  if (!sampleUnits.length) {
+    if (window.showToast) showToast('No previous sample to duplicate', 'error');
+    return;
+  }
+  const prevIdx = sampleUnits[sampleUnits.length - 1].idx;
+  /* Snapshot all field values from the previous sample. */
+  const snap = {};
+  document.querySelectorAll('#airForm [name^="samp'+prevIdx+'_"]').forEach(f => {
+    const key = f.name.replace('samp'+prevIdx+'_', '');
+    if (f.type === 'radio') { if (f.checked) snap[key] = f.value; }
+    else { snap[key] = f.value; }
+  });
+  /* Snapshot the previous sample's analyte rows (name + MDL + units) so
+     we can rebuild them on the new sample without copying measured
+     results. */
+  const analyteSnap = [];
+  document.querySelectorAll('#airResBody'+prevIdx+' tr').forEach(tr => {
+    const r = tr.dataset.row;
+    const nm = (fld('samp'+prevIdx+'_a'+r+'_name')||{}).value;
+    if (!nm) return;
+    analyteSnap.push({
+      name: nm,
+      mdl: (fld('samp'+prevIdx+'_a'+r+'_mdl')||{}).value || '',
+      units: (fld('samp'+prevIdx+'_a'+r+'_units')||{}).value || '',
+    });
+  });
+  /* Build the new sample, then populate from the snapshot. */
+  addSample();
+  const newIdx = sIdx;
+  const CLEAR_KEYS = new Set([
+    'emp_name','emp_id',
+    'field_id','doehrs_id','lab_id','task_id',
+    'precal_date','precal_time','precal_flow',
+    'postcal_date','postcal_time','postcal_flow','cal_diff',
+    'start_date','start_time','stop_date','stop_time',
+    'downtime','duration','volume',
+    'grav_pre','grav_post','grav_net',
+    'baro_start','baro_end','temp_start','temp_end','rh','wind_speed','wind_dir',
+  ]);
+  /* Propagate chem -> type -> method first so the analyte select + media
+     auto-populate before we restore the rest. */
+  if (snap.chem)   { setVal('samp'+newIdx+'_chem',   snap.chem);   onChem(newIdx); }
+  if (snap.type)   { setVal('samp'+newIdx+'_type',   snap.type);   onType(newIdx); }
+  if (snap.method) { setVal('samp'+newIdx+'_method', snap.method); onMethod(newIdx); }
+  Object.keys(snap).forEach(k => {
+    if (CLEAR_KEYS.has(k)) return;
+    if (k === 'chem' || k === 'type' || k === 'method') return;   /* already restored */
+    setVal('samp'+newIdx+'_'+k, snap[k]);
+  });
+  /* Rebuild the analyte rows with same names, copy MDL + units, leave
+     the measured result + corrected fields empty. */
+  if (analyteSnap.length) {
+    selectAnalytes(newIdx, analyteSnap.map(a => a.name));
+    analyteSnap.forEach(a => {
+      const r = rowByName(newIdx, a.name);
+      if (r != null) {
+        setVal('samp'+newIdx+'_a'+r+'_mdl',   a.mdl);
+        setVal('samp'+newIdx+'_a'+r+'_units', a.units);
+      }
+    });
+  }
+  calcCal(newIdx); calcSample(newIdx);
+  applyMethodModeUI(newIdx);
+  refreshTWA();
+  if (window.showToast) showToast('Duplicated Sample ' + prevIdx + ' — cleared personnel, IDs, calibration & timing', 'success');
 }
 
 /* ---------- Equipment library pickers ---------- */
@@ -2536,7 +2616,7 @@ function initForm(){
 /* Public API exposed on window.Air */
 window.Air = Object.assign(window.Air||{}, {
   // tab + view
-  onShopChange, addSample, addBlank, setAllCollapsed,
+  onShopChange, addSample, addBlank, duplicateLastSample, setAllCollapsed,
   // equipment-library pickers (called from index.html and per-sample handlers)
   refreshEquipPickers, onAirPumpPick, onAirCalPick,
   // sample panel callbacks
