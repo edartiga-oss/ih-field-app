@@ -571,10 +571,51 @@ body { padding: 20px 18px; }
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
     color: #333;
   }
+
+  /* ──────────────── Sound Level — official DD Form 2214 print ──────────────── */
+  body.print-sound-official { font-size: 8pt; color: #000; background: #fff; }
+  body.print-sound-official > *:not(#soundOfficialPrintRoot) { display: none !important; }
+  body.print-sound-official #soundOfficialPrintRoot {
+    display: block; width: 100%; font-family: Arial, Helvetica, sans-serif; color: #000;
+  }
+  body.print-sound-official #soundOfficialPrintRoot .dd-form { width: 100%; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-prescr { font-size: 7pt; margin: 0 0 2pt; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-title {
+    text-align: center; font-weight: bold; font-size: 11pt; padding: 2pt 0; border: 0.75pt solid #000;
+    background: #f0f0f0; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  body.print-sound-official #soundOfficialPrintRoot table.dd {
+    width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0;
+  }
+  body.print-sound-official #soundOfficialPrintRoot table.dd th,
+  body.print-sound-official #soundOfficialPrintRoot table.dd td {
+    border: 0.5pt solid #000; padding: 1pt 3pt; vertical-align: top;
+    font-size: 7pt; line-height: 1.15;
+  }
+  body.print-sound-official #soundOfficialPrintRoot .dd-hdr {
+    background: #d0d0d0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    text-align: center; font-size: 7.5pt;
+  }
+  body.print-sound-official #soundOfficialPrintRoot .dd-num { vertical-align: top; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-num b { font-size: 7pt; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-small { font-size: 6pt; color: #444; font-style: italic; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-fill { min-height: 14pt; padding-top: 2pt; font-size: 8pt; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-fill-multi { min-height: 26pt; padding-top: 2pt; font-size: 8pt; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-c { text-align: center; }
+  body.print-sound-official #soundOfficialPrintRoot table.dd.dd-meas th {
+    background: #ececec !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    text-align: center; font-size: 6.5pt; padding: 2pt 1pt;
+  }
+  body.print-sound-official #soundOfficialPrintRoot table.dd.dd-meas td { font-size: 7pt; }
+  body.print-sound-official #soundOfficialPrintRoot table.dd.dd-meas .dd-loc { font-weight: 600; }
+  body.print-sound-official #soundOfficialPrintRoot .dd-foot {
+    margin-top: 2pt; font-size: 7pt; padding-top: 2pt; border-top: 0.5pt solid #000;
+  }
 }
 
 /* On screen the official-print root is hidden — only renders during print. */
 #airOfficialPrintRoot { display: none; }
+#soundOfficialPrintRoot { display: none; }
 
 /* On screen the print-analyte-mirror is hidden (only renders during print). */
 #airAppHost .print-analyte-mirror { display: none; }
@@ -2479,7 +2520,7 @@ body { padding: 20px 18px; }
           <div class="sub">Area / spot sound level measurements with a Type 1 or Type 2 SLM — official layout coming soon, this is the base data capture.</div>
         </div>
         <div class="sl-toolbar">
-          <button type="button" onclick="Sound.printForm&amp;&amp;Sound.printForm()">Print / PDF</button>
+          <button type="button" class="primary" onclick="Sound.printOfficialForm&amp;&amp;Sound.printOfficialForm()" title="Print/PDF using the official DD Form 2214 (JAN 2000) layout — Noise Survey (Sound Level Meter Survey)">Print DD 2214</button>
           <button type="button" onclick="Sound.saveSession&amp;&amp;Sound.saveSession()">Save (.json)</button>
           <button type="button" onclick="document.getElementById('soundLoadFile').click()">Load (.json)</button>
           <input type="file" id="soundLoadFile" accept=".json,application/json" style="display:none" onchange="Sound.onLoadFile&amp;&amp;Sound.onLoadFile(event)">
@@ -2503,52 +2544,55 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>General Information</h2>
+          <h2>General Information <span class="hint">DD 2214 boxes 1 &amp; 2</span></h2>
           <div class="body grid c4">
-            <label><span class="lbl">Survey Date</span><input type="date" name="survey_date"></label>
+            <label><span class="lbl">Survey Date (YYYY-MM-DD)</span><input type="date" name="survey_date"></label>
+            <label><span class="lbl">Type Survey</span>
+              <select name="survey_type">
+                <option value="">—</option>
+                <option value="1">1 — Initial Survey</option>
+                <option value="2">2 — Re-Survey</option>
+                <option value="3">3 — Other</option>
+              </select></label>
             <label><span class="lbl">Project / Client</span><input name="project"></label>
-            <label><span class="lbl">Shop Name</span><input name="shop_name"></label>
+            <label><span class="lbl">Shop / Activity</span><input name="shop_name"></label>
             <label><span class="lbl">SEG (if applicable)</span><input name="seg"></label>
-            <label><span class="lbl">Building</span><input name="building"></label>
-            <label class="span3"><span class="lbl">Work Location (Bldg / Area)</span><input name="work_location"></label>
-            <label class="span2"><span class="lbl">Surveyor (IH) Name</span><input name="ih_name"></label>
-            <label class="span2"><span class="lbl">Surveyor Credentials</span><input name="ih_creds"></label>
-            <label class="span4"><span class="lbl">Survey Purpose / Reason</span><textarea name="purpose" rows="2" placeholder="e.g. characterize area noise prior to dosimetry; document baseline after engineering control install; respond to noise complaint."></textarea></label>
+            <label class="span3"><span class="lbl">Work Location / Building</span><input name="work_location"></label>
           </div>
         </section>
 
         <section class="sl-card">
-          <h2>Sound Level Meter</h2>
+          <h2>3. Sound Level Meter</h2>
           <div class="body grid c4">
-            <label><span class="lbl">Make</span><input name="slm_make"></label>
-            <label><span class="lbl">Model</span><input name="slm_model"></label>
-            <label><span class="lbl">Serial #</span><input name="slm_serial"></label>
-            <label><span class="lbl">Asset / Tag #</span><input name="slm_asset"></label>
-            <label><span class="lbl">SLM Type</span>
-              <select name="slm_type"><option value="">—</option><option>Type 1 (precision, ±0.7 dB)</option><option>Type 2 (general purpose, ±1.0 dB)</option></select></label>
-            <label><span class="lbl">Frequency Weighting</span>
-              <select name="slm_weighting"><option value="A" selected>A (dBA)</option><option value="C">C (dBC)</option><option value="Z">Z (linear)</option></select></label>
-            <label><span class="lbl">Time Response</span>
-              <select name="slm_response"><option value="Slow">Slow (1 s)</option><option value="Fast">Fast (125 ms)</option><option value="Impulse">Impulse (35 ms)</option><option value="Peak">Peak</option></select></label>
-            <label><span class="lbl">Microphone Type</span><input name="slm_mic_type" placeholder="e.g. 1/2-inch random-incidence"></label>
-            <label><span class="lbl">Last Factory Cal</span><input type="date" name="slm_last_cal"></label>
-            <label><span class="lbl">Cal Due Date</span><input type="date" name="slm_cal_due"></label>
+            <label><span class="lbl">a. Manufacturer</span><input name="slm_make"></label>
+            <label><span class="lbl">b. Model</span><input name="slm_model"></label>
+            <label><span class="lbl">c. Serial No.</span><input name="slm_serial"></label>
+            <label><span class="lbl">d. Last Electroacoustic Calib Date</span><input type="date" name="slm_last_cal"></label>
           </div>
         </section>
 
         <section class="sl-card">
-          <h2>Acoustic Calibrator &amp; Field Calibration Check</h2>
+          <h2>4. Microphone</h2>
+          <div class="body grid c4">
+            <label><span class="lbl">a. Manufacturer</span><input name="mic_make"></label>
+            <label><span class="lbl">b. Model</span><input name="mic_model"></label>
+            <label><span class="lbl">c. Serial No.</span><input name="mic_serial"></label>
+            <label><span class="lbl">d. Last Electroacoustic Calib Date</span><input type="date" name="mic_last_cal"></label>
+          </div>
+        </section>
+
+        <section class="sl-card">
+          <h2>5. Calibrator <span class="hint">+ field cal check (drift &le; 0.5 dB)</span></h2>
           <div class="body">
             <div class="grid c4">
-              <label><span class="lbl">Calibrator Make</span><input name="cal_make"></label>
-              <label><span class="lbl">Calibrator Model</span><input name="cal_model"></label>
-              <label><span class="lbl">Calibrator Serial #</span><input name="cal_serial"></label>
+              <label><span class="lbl">a. Manufacturer</span><input name="cal_make"></label>
+              <label><span class="lbl">b. Model</span><input name="cal_model"></label>
+              <label><span class="lbl">c. Serial No.</span><input name="cal_serial"></label>
+              <label><span class="lbl">d. Last Electroacoustic Calib Date</span><input type="date" name="cal_last_nist"></label>
               <label><span class="lbl">Reference Level (dB)</span><input name="cal_ref_level" placeholder="e.g. 94.0 or 114.0"></label>
-              <label><span class="lbl">Last NIST Cal</span><input type="date" name="cal_last_nist"></label>
-              <label><span class="lbl">NIST Due</span><input type="date" name="cal_nist_due"></label>
             </div>
             <fieldset style="margin-top:10px">
-              <legend>Pre &amp; Post Field Cal — drift must be &le; 0.5 dB</legend>
+              <legend>Pre &amp; Post Field Cal</legend>
               <div class="grid c4">
                 <label><span class="lbl">Pre-Cal Date</span><input type="date" name="precal_date"></label>
                 <label><span class="lbl">Pre-Cal Time</span><input type="time" name="precal_time"></label>
@@ -2566,8 +2610,32 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>Measurement Locations
-            <span class="hint">One row per spot reading. Photo per row is optional.</span>
+          <h2>6 &amp; 7. Survey Conditions</h2>
+          <div class="body grid c4">
+            <label><span class="lbl">6. Wind Screen</span>
+              <select name="wind_screen"><option value="">—</option><option>Used</option><option>Not Used</option></select></label>
+            <label><span class="lbl">7. Measurements Obtained</span>
+              <select name="meas_location"><option value="">—</option><option>Indoors</option><option>Outdoors</option></select></label>
+            <label><span class="lbl">SLM Frequency Weighting</span>
+              <select name="slm_weighting"><option value="A" selected>A (dBA)</option><option value="C">C (dBC)</option><option value="Z">Z (linear)</option></select></label>
+            <label><span class="lbl">SLM Time Response</span>
+              <select name="slm_response"><option value="Slow" selected>Slow (1 s)</option><option value="Fast">Fast (125 ms)</option></select></label>
+          </div>
+        </section>
+
+        <section class="sl-card">
+          <h2>8 / 9 / 10. Area Description &amp; Noise Sources</h2>
+          <div class="body grid c2">
+            <label class="span2"><span class="lbl">8. Description of Areas/Duties Where Noise Survey Conducted</span>
+              <textarea name="area_description" rows="3" placeholder="e.g. 'Readings collected from Vehicle Maintenance Bay. Pre Calibration - 113.6 dBA. Post Calibration - 113.6 dBA.'"></textarea></label>
+            <label><span class="lbl">9. Primary Source of Noise</span><input name="primary_source" placeholder="e.g. Vehicles and Tools"></label>
+            <label><span class="lbl">10. Secondary Source of Noise</span><input name="secondary_source" placeholder="e.g. Wind from outdoors"></label>
+          </div>
+        </section>
+
+        <section class="sl-card">
+          <h2>11 &amp; 12. Sound Level Data &amp; Protection Required
+            <span class="hint">Protection auto-checked from dBA (None &lt;85 · Plug or Muff 85-108 · Plug+Muff 108-118 · Plug+Muff+Time &gt;118)</span>
           </h2>
           <div class="body">
             <div style="overflow-x:auto;">
@@ -2575,15 +2643,16 @@ body { padding: 20px 18px; }
                 <thead>
                   <tr>
                     <th style="width:24px">#</th>
-                    <th style="width:140px">Location ID</th>
-                    <th>Description / Source</th>
-                    <th style="width:90px">Time</th>
-                    <th style="width:80px">LAeq (dBA)</th>
-                    <th style="width:80px">LASmax (dBA)</th>
-                    <th style="width:80px">LASmin (dBA)</th>
-                    <th style="width:80px">LCPeak (dBC)</th>
-                    <th>Operating Conditions / Notes</th>
-                    <th style="width:110px">Photo</th>
+                    <th>a. Location</th>
+                    <th style="width:80px">b. Meter Action</th>
+                    <th style="width:70px">c. dBC</th>
+                    <th style="width:70px">d. dBA</th>
+                    <th style="width:80px">e. RAC</th>
+                    <th style="width:90px">12a. None (&lt;85)</th>
+                    <th style="width:90px">12b. Plug or Muff (85-108)</th>
+                    <th style="width:90px">12c. Plug+Muff (108-118)</th>
+                    <th style="width:90px">12d. Plug+Muff+Time (&gt;118)</th>
+                    <th>Notes / Photo</th>
                     <th style="width:26px"></th>
                   </tr>
                 </thead>
@@ -2598,32 +2667,45 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>Ambient Conditions</h2>
+          <h2>13. Remarks</h2>
+          <div class="body">
+            <label class="span4"><span class="lbl">Area &amp; equipment posted, hearing protection required in use, etc.</span>
+              <textarea name="remarks" rows="3"></textarea></label>
+          </div>
+        </section>
+
+        <section class="sl-card">
+          <h2>14. More Detailed Noise Evaluation Required</h2>
           <div class="body grid c4">
-            <label><span class="lbl">Temperature (°F)</span><input type="number" step="any" name="ambient_temp"></label>
-            <label><span class="lbl">Relative Humidity (%)</span><input type="number" step="any" name="ambient_rh"></label>
-            <label><span class="lbl">Barometric Pressure (in Hg)</span><input type="number" step="any" name="ambient_baro"></label>
-            <label><span class="lbl">Wind Speed (mph, outdoor)</span><input type="number" step="any" name="ambient_wind"></label>
+            <label><span class="lbl">Required?</span>
+              <select name="more_eval"><option value="">—</option><option value="Yes">Yes</option><option value="No">No</option></select></label>
+            <label class="span3"><span class="lbl">If YES, identify type of evaluation needed</span>
+              <input name="more_eval_type"></label>
           </div>
         </section>
 
         <section class="sl-card">
-          <h2>Findings &amp; Recommendations</h2>
-          <div class="body grid c2">
-            <label class="span2"><span class="lbl">Areas Exceeding 85 dBA (Action Level)</span><textarea name="exceed_85" rows="2" placeholder="List the location IDs / areas with LAeq ≥ 85 dBA, time of measurement, sources."></textarea></label>
-            <label class="span2"><span class="lbl">Areas Exceeding 90 dBA (PEL)</span><textarea name="exceed_90" rows="2"></textarea></label>
-            <label class="span2"><span class="lbl">Engineering Controls</span><textarea name="eng_controls" rows="2"></textarea></label>
-            <label class="span2"><span class="lbl">Administrative Controls</span><textarea name="admin_controls" rows="2"></textarea></label>
-            <label class="span2"><span class="lbl">PPE / HPD Requirements</span><textarea name="ppe" rows="2" placeholder="HPD type / NRR / locations where required (e.g. signage zones)."></textarea></label>
-            <label class="span2"><span class="lbl">Additional Notes</span><textarea name="notes" rows="2"></textarea></label>
+          <h2>15. Audiometric Monitoring</h2>
+          <div class="body">
+            <label class="span4"><span class="lbl">Names of Persons Identified for Audiometric Monitoring</span>
+              <textarea name="audiometric_names" rows="3" placeholder="e.g. Noise Dosimetry conducted on 24 and 25 March 2026 for 11 employees."></textarea></label>
           </div>
         </section>
 
         <section class="sl-card">
-          <h2>Sign-off</h2>
+          <h2>16. Supervisor of Noise-Hazardous Area or Operation</h2>
+          <div class="body grid c3">
+            <label><span class="lbl">a. Name (Last, First, MI)</span><input name="supervisor_name"></label>
+            <label><span class="lbl">b. Telephone (include area code)</span><input name="supervisor_phone"></label>
+            <label><span class="lbl">c. Organization</span><input name="supervisor_org"></label>
+          </div>
+        </section>
+
+        <section class="sl-card">
+          <h2>17 &amp; 18. Survey Performed By / Hearing Conservation Monitor</h2>
           <div class="body grid c2">
-            <label><span class="lbl">Survey Completed By (Name &amp; Date)</span><input name="completed_by"></label>
-            <label><span class="lbl">QA Review By (Name &amp; Date)</span><input name="qa_review_by"></label>
+            <label><span class="lbl">17. Survey Performed By (Last, First, MI)</span><input name="performed_by"></label>
+            <label><span class="lbl">18. Hearing Conservation Monitor (Last, First, MI)</span><input name="hcm_name"></label>
           </div>
         </section>
       </form>

@@ -1,8 +1,8 @@
 /* IH Field App — Sound Level survey module.
-   Parallels air-sampling.js: localStorage-backed list of surveys, Sheets
-   sync via _type: 'sound_level', per-survey measurement rows with photo
-   upload (downscaled JPEG data URIs). Official print layout still TBD —
-   for now Print/PDF uses window.print() against the live form. */
+   Maps to the official DD Form 2214 (JAN 2000) — "Noise Survey
+   (Sound Level Meter Survey)" prescribed by DODI 6055.12. The on-screen
+   form fields are numbered to match the DD 2214 boxes; the official
+   print layout (Air Sampling-style) reproduces the form. */
 (function(){
 'use strict';
 
@@ -11,7 +11,7 @@ const QUEUE_KEY   = 'ih_sound_sync_queue_v1';
 
 let soundSurveys = [];
 let currentSurveyId = null;
-let measurements = [];       /* array of {location, description, time, leq, max, min, peak, conditions, notes, photo} */
+let measurements = [];       /* array of { _idx, location, action, dbc, dba, rac, notes } */
 let measRowCount = 0;
 let measPhotos = {};         /* row idx -> data URI */
 let measPhotoUrls = {};      /* row idx -> Drive URL */
@@ -39,14 +39,14 @@ function saveToStorage(){
   catch(e) { if (window.showToast) showToast('Storage error saving sound survey', 'error'); }
 }
 
-/* ── Drift calc ── */
+/* ── Drift calc (field cal pre vs post must be ≤ 0.5 dB) ── */
 function recomputeDrift(){
   const pre = num((fld('precal_reading')||{}).value);
   const post = num((fld('postcal_reading')||{}).value);
   const driftEl = el('soundDrift'), statusEl = el('soundDriftStatus');
   if (pre == null || post == null) {
     if (driftEl) driftEl.value = '';
-    if (statusEl) statusEl.value = 'awaiting readings';
+    if (statusEl) { statusEl.value = 'awaiting readings'; statusEl.style.background = ''; statusEl.style.color = ''; }
     return;
   }
   const d = round(post - pre, 2);
@@ -59,25 +59,40 @@ function recomputeDrift(){
   }
 }
 
+/* ── HPD requirement per DD 2214 box 12 ──
+   None         <  85 dBA
+   Plug or Muff 85 - 108 dBA
+   Plug + Muff  108 - 118 dBA
+   Plug+Muff+Time-Limit  > 118 dBA */
+function hpdCategory(dba){
+  const v = num(dba); if (v == null) return null;
+  if (v < 85) return 'none';
+  if (v <= 108) return 'plug_or_muff';
+  if (v <= 118) return 'plug_and_muff';
+  return 'plug_muff_time';
+}
+function hpdChecked(category, target){ return category === target ? '☒' : '☐'; }
+
 /* ── Measurement rows ── */
 function measRowHTML(idx, data){
   const d = data || {};
   const photo = measPhotos[idx] || measPhotoUrls[idx] || '';
+  const hpd = hpdCategory(d.dba);
+  const cell = (c) => '<td style="text-align:center;font-family:var(--mono);font-size:14px">'+(hpd === c ? '☒' : '☐')+'</td>';
   return '<tr data-row="'+idx+'">'+
     '<td style="text-align:center;color:#666">'+idx+'</td>'+
-    '<td><input data-key="location" value="'+esc(d.location)+'"></td>'+
-    '<td><input data-key="description" value="'+esc(d.description)+'"></td>'+
-    '<td><input type="time" data-key="time" value="'+esc(d.time)+'"></td>'+
-    '<td><input type="number" step="0.1" data-key="leq" value="'+esc(d.leq)+'" style="text-align:right"></td>'+
-    '<td><input type="number" step="0.1" data-key="max" value="'+esc(d.max)+'" style="text-align:right"></td>'+
-    '<td><input type="number" step="0.1" data-key="min" value="'+esc(d.min)+'" style="text-align:right"></td>'+
-    '<td><input type="number" step="0.1" data-key="peak" value="'+esc(d.peak)+'" style="text-align:right"></td>'+
-    '<td><textarea data-key="notes" rows="1">'+esc(d.notes)+'</textarea></td>'+
+    '<td><input data-key="location" value="'+esc(d.location)+'" placeholder="e.g. Snap On Impact Wrench"></td>'+
+    '<td><select data-key="action"><option value="S"'+(d.action==='S'?' selected':'')+'>S (Slow)</option><option value="F"'+(d.action==='F'?' selected':'')+'>F (Fast)</option></select></td>'+
+    '<td><input type="number" step="0.1" data-key="dbc" value="'+esc(d.dbc)+'" style="text-align:right"></td>'+
+    '<td><input type="number" step="0.1" data-key="dba" value="'+esc(d.dba)+'" style="text-align:right" oninput="Sound.refreshHpd&amp;&amp;Sound.refreshHpd('+idx+')"></td>'+
+    '<td><input data-key="rac" value="'+esc(d.rac)+'" placeholder="e.g. 2 or IVB" style="text-align:center"></td>'+
+    cell('none')+ cell('plug_or_muff')+ cell('plug_and_muff')+ cell('plug_muff_time')+
     '<td>'+
+      '<textarea data-key="notes" rows="1" style="min-height:24px">'+esc(d.notes)+'</textarea>'+
       (photo
-        ? '<img class="sl-photo-thumb" src="'+esc(photo)+'" referrerpolicy="no-referrer">'+
-          '<button type="button" class="rm" onclick="Sound.removeMeasPhoto('+idx+')" title="Remove photo">&times;</button>'
-        : '<label class="sl-photo-btn">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Sound.onMeasPhoto('+idx+', this)"></label>')+
+        ? '<div style="margin-top:4px"><img class="sl-photo-thumb" src="'+esc(photo)+'" referrerpolicy="no-referrer">'+
+          '<button type="button" class="rm" onclick="Sound.removeMeasPhoto('+idx+')" title="Remove photo">&times;</button></div>'
+        : '<label class="sl-photo-btn" style="margin-top:4px;display:inline-block">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Sound.onMeasPhoto('+idx+', this)"></label>')+
     '</td>'+
     '<td><button type="button" class="rm" onclick="Sound.deleteMeasurement('+idx+')" title="Delete row">&times;</button></td>'+
   '</tr>';
@@ -88,10 +103,10 @@ function snapshotMeasurements(){
      Called before any rebuild so user-typed values aren't lost. */
   const body = el('soundMeasBody'); if (!body) return;
   const next = [];
-  body.querySelectorAll('tr').forEach(tr => {
+  body.querySelectorAll('tr[data-row]').forEach(tr => {
     const idx = +tr.dataset.row;
     const row = { _idx: idx };
-    tr.querySelectorAll('input[data-key], textarea[data-key]').forEach(inp => {
+    tr.querySelectorAll('input[data-key], textarea[data-key], select[data-key]').forEach(inp => {
       row[inp.dataset.key] = inp.value;
     });
     next.push(row);
@@ -102,16 +117,35 @@ function snapshotMeasurements(){
 function renderMeasurements(){
   const body = el('soundMeasBody'); if (!body) return;
   if (!measurements.length) {
-    body.innerHTML = '<tr><td colspan="11" style="color:#999;font-style:italic;padding:10px">No measurements yet — click "+ Add Measurement" to start.</td></tr>';
+    body.innerHTML = '<tr><td colspan="12" style="color:#999;font-style:italic;padding:10px">No measurements yet — click "+ Add Measurement" to start.</td></tr>';
     return;
   }
   body.innerHTML = measurements.map(r => measRowHTML(r._idx, r)).join('');
 }
 
+/* Refresh just one row's HPD checkbox cells without rerendering the entire
+   table — keeps focus inside the dBA input as the user types. */
+function refreshHpd(idx){
+  const body = el('soundMeasBody'); if (!body) return;
+  const tr = body.querySelector('tr[data-row="'+idx+'"]'); if (!tr) return;
+  const dba = (tr.querySelector('[data-key="dba"]')||{}).value;
+  const hpd = hpdCategory(dba);
+  const tds = tr.querySelectorAll('td');
+  /* Columns: 0 idx, 1 location, 2 action, 3 dbc, 4 dba, 5 rac,
+              6 none, 7 plug_or_muff, 8 plug_and_muff, 9 plug_muff_time,
+              10 notes, 11 delete */
+  if (tds.length >= 10) {
+    tds[6].textContent = hpd === 'none' ? '☒' : '☐';
+    tds[7].textContent = hpd === 'plug_or_muff' ? '☒' : '☐';
+    tds[8].textContent = hpd === 'plug_and_muff' ? '☒' : '☐';
+    tds[9].textContent = hpd === 'plug_muff_time' ? '☒' : '☐';
+  }
+}
+
 function addMeasurement(data){
   snapshotMeasurements();
   measRowCount++;
-  measurements.push(Object.assign({ _idx: measRowCount }, data || {}));
+  measurements.push(Object.assign({ _idx: measRowCount, action: 'S' }, data || {}));
   renderMeasurements();
 }
 
@@ -125,20 +159,17 @@ function duplicateLastMeasurement(){
   measRowCount++;
   measurements.push({
     _idx: measRowCount,
-    location: last.location || '',
-    description: last.description || '',
-    /* clear per-measurement specifics: time + dB values + notes */
-    time: '', leq: '', max: '', min: '', peak: '', notes: ''
+    location: '', action: last.action || 'S',
+    dbc: '', dba: '', rac: last.rac || '', notes: ''
   });
   renderMeasurements();
-  if (window.showToast) showToast('Duplicated last measurement — cleared time, dB values, and notes', 'success');
+  if (window.showToast) showToast('Duplicated last row — Location, readings & notes cleared; Meter Action and RAC carried over', 'success');
 }
 
 function deleteMeasurement(idx){
   snapshotMeasurements();
   measurements = measurements.filter(r => r._idx !== idx);
-  delete measPhotos[idx];
-  delete measPhotoUrls[idx];
+  delete measPhotos[idx]; delete measPhotoUrls[idx];
   renderMeasurements();
 }
 
@@ -170,8 +201,7 @@ function onMeasPhoto(idx, inputEl){
   rd.readAsDataURL(f);
 }
 function removeMeasPhoto(idx){
-  delete measPhotos[idx];
-  delete measPhotoUrls[idx];
+  delete measPhotos[idx]; delete measPhotoUrls[idx];
   snapshotMeasurements();
   renderMeasurements();
 }
@@ -186,9 +216,11 @@ function collectForm(){
     else P.general[f.name] = f.value;
   });
   P.measurements = measurements.map(r => {
-    const out = { location: r.location||'', description: r.description||'', time: r.time||'',
-                  leq: r.leq||'', max: r.max||'', min: r.min||'', peak: r.peak||'',
-                  notes: r.notes||'' };
+    const out = {
+      location: r.location||'', action: r.action||'S',
+      dbc: r.dbc||'', dba: r.dba||'', rac: r.rac||'',
+      notes: r.notes||''
+    };
     if (measPhotos[r._idx])    out.photo    = measPhotos[r._idx];
     if (measPhotoUrls[r._idx]) out.photoUrl = measPhotoUrls[r._idx];
     return out;
@@ -198,19 +230,17 @@ function collectForm(){
 
 function applyPrefill(data){
   if (!data) return;
-  /* Reset state */
   measRowCount = 0; measurements = []; measPhotos = {}; measPhotoUrls = {};
-  /* Restore general fields */
   Object.keys(data.general || {}).forEach(k => {
     const f = fld(k); if (f) f.value = data.general[k];
   });
-  /* Restore measurements */
   (data.measurements || []).forEach(m => {
     measRowCount++;
     measurements.push({
       _idx: measRowCount,
-      location: m.location || '', description: m.description || '', time: m.time || '',
-      leq: m.leq || '', max: m.max || '', min: m.min || '', peak: m.peak || '', notes: m.notes || ''
+      location: m.location || '', action: m.action || 'S',
+      dbc: m.dbc || '', dba: m.dba || '', rac: m.rac || '',
+      notes: m.notes || ''
     });
     if (m.photo)    measPhotos[measRowCount]    = m.photo;
     if (m.photoUrl) measPhotoUrls[measRowCount] = m.photoUrl;
@@ -225,17 +255,13 @@ function resetForm(){
   document.getElementById('soundForm').reset();
   currentSurveyId = null;
   measRowCount = 0; measurements = []; measPhotos = {}; measPhotoUrls = {};
-  /* Start fresh with 3 empty measurement rows so the table isn't empty. */
   for (let i = 0; i < 3; i++) addMeasurement();
   renderSurveyList();
   recomputeDrift();
 }
+function newSurvey(){ resetForm(); }
 
-function newSurvey(){
-  resetForm();
-}
-
-/* ── Persistence ── */
+/* ── Persistence + list rendering ── */
 function saveSurvey(){
   const data = collectForm();
   const id = currentSurveyId || generateSoundId();
@@ -248,15 +274,13 @@ function saveSurvey(){
     deviceNickname: (window.deviceNickname || ''),
   });
   const idx = soundSurveys.findIndex(s => s.id === id);
-  if (idx >= 0) soundSurveys[idx] = record;
-  else soundSurveys.unshift(record);
+  if (idx >= 0) soundSurveys[idx] = record; else soundSurveys.unshift(record);
   saveToStorage();
   currentSurveyId = id;
   pushToSheets(record);
   renderSurveyList();
   if (window.showToast) showToast('Sound level survey saved', 'success');
 }
-
 function loadSurvey(id){
   const s = soundSurveys.find(x => x.id === id); if (!s) return;
   currentSurveyId = id;
@@ -264,7 +288,6 @@ function loadSurvey(id){
   renderSurveyList();
   if (window.showToast) showToast('Loaded ' + (s.general && s.general.shop_name || id), 'success');
 }
-
 function deleteSurvey(id){
   if (!confirm('Delete this sound level survey? Also removes it from Google Sheets.')) return;
   soundSurveys = soundSurveys.filter(s => s.id !== id);
@@ -274,7 +297,6 @@ function deleteSurvey(id){
   renderSurveyList();
   if (window.showToast) showToast('Survey deleted', 'success');
 }
-
 function renderSurveyList(){
   const host = el('soundSurveysList'); const cnt = el('soundSurveysCount');
   if (!host) return;
@@ -322,39 +344,231 @@ function onLoadFile(ev){
   const file = ev.target.files && ev.target.files[0]; if (!file) return;
   const rd = new FileReader();
   rd.onload = () => {
-    try {
-      const data = JSON.parse(rd.result);
-      applyPrefill(data);
-      if (window.showToast) showToast('Session loaded: ' + file.name, 'success');
-    } catch(e){
-      if (window.showToast) showToast('Could not load file — ' + e.message, 'error');
-    }
+    try { const data = JSON.parse(rd.result); applyPrefill(data);
+          if (window.showToast) showToast('Session loaded: ' + file.name, 'success'); }
+    catch(e){ if (window.showToast) showToast('Could not load file — ' + e.message, 'error'); }
   };
   rd.readAsText(file); ev.target.value = '';
 }
 
-/* ── Print (placeholder — official layout TBD) ── */
-function printForm(){
-  /* For now just trigger the browser print on the live form. When the
-     user supplies the official Sound Level form, we'll build a dedicated
-     print layout the same way as Air Sampling's "Print Official Form". */
+/* ============================================================
+   DD Form 2214 (JAN 2000) — official print layout
+   Reproduces the single-page form. Activated by Sound.printOfficialForm()
+   which injects a hidden DOM rooted at #soundOfficialPrintRoot and
+   triggers window.print() while a body class flips CSS to portrait + DD
+   2214 styling.
+   ============================================================ */
+const CB = '☐', CK = '☒';
+function ddVal(v){ return v ? esc(v) : '&nbsp;'; }
+function ddDate(iso){ if (!iso) return ''; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return m?(m[1]+m[2]+m[3]):iso; }
+
+function buildOfficialDOM(){
+  const existing = document.getElementById('soundOfficialPrintRoot');
+  if (existing) existing.remove();
+  const P = collectForm();
+  const g = P.general || {};
+  const meas = P.measurements || [];
+  const survType = g.survey_type || '';
+  const wsUsed   = g.wind_screen === 'Used';
+  const wsNot    = g.wind_screen === 'Not Used';
+  const measIn   = g.meas_location === 'Indoors';
+  const measOut  = g.meas_location === 'Outdoors';
+  const moreYes  = g.more_eval === 'Yes';
+  const moreNo   = g.more_eval === 'No';
+
+  /* Row html for measurements — keep auto-checked HPD columns. */
+  const measRows = meas.map((r, i) => {
+    const cat = hpdCategory(r.dba);
+    return '<tr>'+
+      '<td class="dd-loc">'+ddVal(r.location)+'</td>'+
+      '<td class="dd-c">'+ddVal(r.action)+'</td>'+
+      '<td class="dd-c">'+ddVal(r.dbc)+'</td>'+
+      '<td class="dd-c">'+ddVal(r.dba)+'</td>'+
+      '<td class="dd-c">'+ddVal(r.rac)+'</td>'+
+      '<td class="dd-c">'+(cat==='none'?CK:CB)+'</td>'+
+      '<td class="dd-c">'+(cat==='plug_or_muff'?CK:CB)+'</td>'+
+      '<td class="dd-c">'+(cat==='plug_and_muff'?CK:CB)+'</td>'+
+      '<td class="dd-c">'+(cat==='plug_muff_time'?CK:CB)+'</td>'+
+    '</tr>';
+  }).join('');
+  /* Pad with blank rows so the table has a consistent height like the form. */
+  const padRows = Math.max(0, 8 - meas.length);
+  let blanks = '';
+  for (let i = 0; i < padRows; i++) {
+    blanks += '<tr>'+'<td>&nbsp;</td>'+'<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'+'</tr>';
+  }
+
+  const html = ''+
+    '<div class="dd-form">'+
+      '<div class="dd-prescr">Prescribed by: <u>DODI 6055.12</u> &nbsp; <span style="float:right">(Updated 20250318)</span></div>'+
+      '<div class="dd-title">NOISE SURVEY<br><span style="font-weight:normal;font-style:italic;font-size:9pt">(Sound Level Meter Survey)</span></div>'+
+
+      /* Row 1 & 2 */
+      '<table class="dd"><tr>'+
+        '<td class="dd-num" style="width:50%"><b>1. DATE (YYYYMMDD)</b><div class="dd-fill">'+ddVal(ddDate(g.survey_date))+'</div></td>'+
+        '<td class="dd-num"><b>2. TYPE SURVEY</b> <span style="font-weight:normal">(Enter code)</span>'+
+          '<div class="dd-fill">'+ddVal(survType)+'</div>'+
+          '<div class="dd-small">1 - INITIAL SURVEY &nbsp;&nbsp; 2 - RE-SURVEY &nbsp;&nbsp; 3 - OTHER</div>'+
+        '</td>'+
+      '</tr></table>'+
+
+      /* Boxes 3, 4, 5 — SLM / Microphone / Calibrator */
+      '<table class="dd">'+
+        '<tr>'+
+          '<td class="dd-hdr" colspan="2"><b>3. SOUND LEVEL METER</b></td>'+
+          '<td class="dd-hdr" colspan="2"><b>4. MICROPHONE</b></td>'+
+          '<td class="dd-hdr" colspan="2"><b>5. CALIBRATOR</b></td>'+
+        '</tr>'+
+        '<tr>'+
+          '<td class="dd-num" colspan="2"><b>a. MANUFACTURER</b><div class="dd-fill">'+ddVal(g.slm_make)+'</div></td>'+
+          '<td class="dd-num" colspan="2"><b>a. MANUFACTURER</b><div class="dd-fill">'+ddVal(g.mic_make)+'</div></td>'+
+          '<td class="dd-num" colspan="2"><b>a. MANUFACTURER</b><div class="dd-fill">'+ddVal(g.cal_make)+'</div></td>'+
+        '</tr>'+
+        '<tr>'+
+          '<td class="dd-num"><b>b. MODEL</b><div class="dd-fill">'+ddVal(g.slm_model)+'</div></td>'+
+          '<td class="dd-num"><b>c. SERIAL NO.</b><div class="dd-fill">'+ddVal(g.slm_serial)+'</div></td>'+
+          '<td class="dd-num"><b>b. MODEL</b><div class="dd-fill">'+ddVal(g.mic_model)+'</div></td>'+
+          '<td class="dd-num"><b>c. SERIAL NO.</b><div class="dd-fill">'+ddVal(g.mic_serial)+'</div></td>'+
+          '<td class="dd-num"><b>b. MODEL</b><div class="dd-fill">'+ddVal(g.cal_model)+'</div></td>'+
+          '<td class="dd-num"><b>c. SERIAL NO.</b><div class="dd-fill">'+ddVal(g.cal_serial)+'</div></td>'+
+        '</tr>'+
+        '<tr>'+
+          '<td class="dd-num" colspan="2"><b>d. LAST ELECTROACOUSTIC CALIB DATE</b> (YYYYMMDD)<div class="dd-fill">'+ddVal(ddDate(g.slm_last_cal))+'</div></td>'+
+          '<td class="dd-num" colspan="2"><b>d. LAST ELECTROACOUSTIC CALIB DATE</b> (YYYYMMDD)<div class="dd-fill">'+ddVal(ddDate(g.mic_last_cal))+'</div></td>'+
+          '<td class="dd-num" colspan="2"><b>d. LAST ELECTROACOUSTIC CALIB DATE</b> (YYYYMMDD)<div class="dd-fill">'+ddVal(ddDate(g.cal_last_nist))+'</div></td>'+
+        '</tr>'+
+      '</table>'+
+
+      /* Boxes 6 & 7 — Wind Screen / Measurements Obtained */
+      '<table class="dd"><tr>'+
+        '<td class="dd-num" style="width:50%"><b>6. WIND SCREEN</b> <span style="font-weight:normal">(X one)</span> &nbsp;&nbsp;'+
+          (wsUsed?CK:CB)+' USED &nbsp;&nbsp; '+(wsNot?CK:CB)+' NOT USED</td>'+
+        '<td class="dd-num"><b>7. MEASUREMENTS OBTAINED</b> <span style="font-weight:normal">(X one)</span> &nbsp;&nbsp;'+
+          (measIn?CK:CB)+' INDOORS &nbsp;&nbsp; '+(measOut?CK:CB)+' OUTDOORS</td>'+
+      '</tr></table>'+
+
+      /* Box 8 / 9 / 10 */
+      '<table class="dd">'+
+        '<tr>'+
+          '<td class="dd-num" colspan="2" style="width:60%"><b>8. DESCRIPTION OF AREAS/DUTIES WHERE NOISE SURVEY CONDUCTED</b>'+
+            '<div class="dd-small">(Illustrate on additional sheet and attach to form)</div>'+
+            '<div class="dd-fill-multi">'+ddVal(g.area_description).replace(/\n/g,'<br>')+'</div></td>'+
+          '<td class="dd-num"><b>9. PRIMARY SOURCE OF NOISE</b><div class="dd-fill">'+ddVal(g.primary_source)+'</div></td>'+
+        '</tr>'+
+        '<tr>'+
+          '<td class="dd-num" colspan="2">&nbsp;</td>'+
+          '<td class="dd-num"><b>10. SECONDARY SOURCE OF NOISE</b><div class="dd-fill">'+ddVal(g.secondary_source)+'</div></td>'+
+        '</tr>'+
+      '</table>'+
+
+      /* Box 11 / 12 — Sound Level Data + Protection */
+      '<table class="dd"><tr>'+
+        '<td class="dd-hdr" colspan="6"><b>11. SOUND LEVEL DATA</b></td>'+
+        '<td class="dd-hdr" colspan="4"><b>12. PROTECTION REQUIRED</b> <span style="font-weight:normal">(re: dBA - Level)</span></td>'+
+      '</tr></table>'+
+      '<table class="dd dd-meas"><thead><tr>'+
+        '<th><b>a. LOCATION</b></th>'+
+        '<th style="width:8%"><b>b. METER ACTION</b></th>'+
+        '<th style="width:7%"><b>c. dBC</b></th>'+
+        '<th style="width:7%"><b>d. dBA</b></th>'+
+        '<th style="width:10%"><b>e. RISK ASSESSMENT CODE</b></th>'+
+        '<th style="width:9%"><b>a. NONE</b><br>(Less than 85)</th>'+
+        '<th style="width:9%"><b>b. PLUG OR MUFF</b><br>(85-108)</th>'+
+        '<th style="width:9%"><b>c. PLUG AND MUFF</b><br>(108-118)</th>'+
+        '<th style="width:11%"><b>d. PLUG + MUFF + TIME LIMIT</b><br>(Greater than 118)</th>'+
+      '</tr></thead><tbody>'+
+        measRows + blanks +
+      '</tbody></table>'+
+      '<div class="dd-small" style="border:0.5pt solid #000;border-top:none;padding:1pt 3pt">'+
+        '<b>NOTES:</b> Range of levels noted by /; i.e., 102/109. At operator stations, measure at ear level.<br>'+
+        '<b>METER ACTION:</b> Enter <b>F</b> for fast meter action and <b>S</b> for slow meter action.</div>'+
+
+      /* Box 13 — Remarks */
+      '<table class="dd"><tr>'+
+        '<td class="dd-num"><b>13. REMARKS</b> <span style="font-weight:normal">(i.e., Area and equipment posted, hearing protection in use, etc.)</span>'+
+          '<div class="dd-fill-multi" style="min-height:32pt">'+ddVal(g.remarks).replace(/\n/g,'<br>')+'</div></td>'+
+      '</tr></table>'+
+
+      /* Box 14 */
+      '<table class="dd"><tr>'+
+        '<td class="dd-num" style="width:60%"><b>14. MORE DETAILED NOISE EVALUATION REQUIRED:</b>'+
+          (g.more_eval_type ? '<div class="dd-small">'+esc(g.more_eval_type)+'</div>' : '')+'</td>'+
+        '<td class="dd-num dd-c" style="width:10%">'+(moreYes?CK:CB)+' YES</td>'+
+        '<td class="dd-num dd-c" style="width:30%">'+(moreNo?CK:CB)+' NO <span class="dd-small">(If "YES," identify type evaluation needed.)</span></td>'+
+      '</tr></table>'+
+
+      /* Box 15 */
+      '<table class="dd"><tr>'+
+        '<td class="dd-num"><b>15. NAME(S) OF PERSON(S) IDENTIFIED FOR AUDIOMETRIC MONITORING</b> '+
+          '<span style="font-weight:normal">(Use additional sheet if more space is needed and attach to form)</span>'+
+          '<div class="dd-fill-multi">'+ddVal(g.audiometric_names).replace(/\n/g,'<br>')+'</div></td>'+
+      '</tr></table>'+
+
+      /* Box 16 */
+      '<table class="dd"><tr>'+
+        '<td class="dd-hdr" colspan="3"><b>16. SUPERVISOR OF NOISE-HAZARDOUS AREA OR OPERATION</b></td>'+
+      '</tr><tr>'+
+        '<td class="dd-num" style="width:50%"><b>a. NAME</b> <span style="font-weight:normal">(Last, First, Middle Initial)</span>'+
+          '<div class="dd-fill">'+ddVal(g.supervisor_name)+'</div></td>'+
+        '<td class="dd-num" style="width:25%"><b>b. TELEPHONE</b> <span style="font-weight:normal">(Include area code)</span>'+
+          '<div class="dd-fill">'+ddVal(g.supervisor_phone)+'</div></td>'+
+        '<td class="dd-num"><b>c. ORGANIZATION</b><div class="dd-fill">'+ddVal(g.supervisor_org)+'</div></td>'+
+      '</tr></table>'+
+
+      /* Box 17 & 18 */
+      '<table class="dd"><tr>'+
+        '<td class="dd-num" style="width:50%"><b>17. SURVEY PERFORMED BY</b> <span style="font-weight:normal">(Last Name, First Name, MI)</span>'+
+          '<div class="dd-fill">'+ddVal(g.performed_by)+'</div></td>'+
+        '<td class="dd-num"><b>18. HEARING CONSERVATION MONITOR</b> <span style="font-weight:normal">(Last Name, First Name, MI)</span>'+
+          '<div class="dd-fill">'+ddVal(g.hcm_name)+'</div></td>'+
+      '</tr></table>'+
+
+      '<div class="dd-foot">'+
+        '<b>DD FORM 2214, JAN 2000</b>'+
+        '<span style="float:right">Page 1 of 2</span>'+
+      '</div>'+
+    '</div>';
+
+  const root = document.createElement('div');
+  root.id = 'soundOfficialPrintRoot';
+  root.innerHTML = html;
+  document.body.appendChild(root);
+}
+
+function printOfficialForm(){
+  buildOfficialDOM();
+  document.body.classList.add('print-sound-official');
+  let styleEl = document.getElementById('soundOfficialPageRule');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'soundOfficialPageRule';
+    /* DD 2214 is portrait letter with tight margins. */
+    styleEl.textContent = '@page { size: letter portrait; margin: 0.35in; }';
+    document.head.appendChild(styleEl);
+  }
+  const cleanup = () => {
+    document.body.classList.remove('print-sound-official');
+    const s = document.getElementById('soundOfficialPageRule'); if (s) s.remove();
+    const d = document.getElementById('soundOfficialPrintRoot'); if (d) d.remove();
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
   window.print();
 }
 
-/* ── Sheets sync (mirrors air-sampling.js pattern) ── */
-function sheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
+function printForm(){
+  /* Default Print uses the official DD 2214 layout — that's the
+     deliverable the IH attaches to a report. */
+  printOfficialForm();
+}
 
+/* ── Sheets sync ── */
+function sheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
 function pushToSheets(record){
   const url = sheetsUrl();
   if (!url || !navigator.onLine) { queueSync(record); return; }
-  /* Strip data-URI photos from the sheet payload (size limit); they
-     should be uploaded to Drive via the same _type:'air_photo' branch
-     once the Apps Script supports sound surveys. For now we just keep
-     photos local. */
   const sheetPayload = JSON.parse(JSON.stringify(record));
-  if (sheetPayload.measurements) {
-    sheetPayload.measurements.forEach(m => { delete m.photo; });
-  }
+  if (sheetPayload.measurements) sheetPayload.measurements.forEach(m => { delete m.photo; });
   const payload = Object.assign({ _type: 'sound_level' }, sheetPayload, {
     deviceInfo: navigator.userAgent.substring(0, 80)
   });
@@ -362,8 +576,7 @@ function pushToSheets(record){
     method: 'POST', mode: 'no-cors',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  }).then(() => removePendingSync(record.id))
-    .catch(() => queueSync(record));
+  }).then(() => removePendingSync(record.id)).catch(() => queueSync(record));
 }
 function deleteFromSheets(id){
   const url = sheetsUrl(); if (!url) return;
@@ -407,7 +620,7 @@ function mergeRemoteSurveys(remote){
   return { newCount, updCount };
 }
 
-/* ── Top-level card collapsible (matches air-sampling pattern) ── */
+/* ── Collapsible cards ── */
 function initCollapsible(){
   document.querySelectorAll('#soundAppHost section.sl-card > h2').forEach(h => {
     if (h.dataset.collapInit) return; h.dataset.collapInit = '1';
@@ -424,7 +637,6 @@ let initialized = false;
 function initForm(){
   if (!document.getElementById('soundForm')) return;
   loadFromStorage();
-  /* Start with 3 empty measurement rows for convenience */
   for (let i = 0; i < 3; i++) addMeasurement();
   renderSurveyList();
   initCollapsible();
@@ -434,20 +646,13 @@ function initForm(){
 }
 
 window.Sound = Object.assign(window.Sound || {}, {
-  // measurement rows
-  addMeasurement, duplicateLastMeasurement, deleteMeasurement,
+  addMeasurement, duplicateLastMeasurement, deleteMeasurement, refreshHpd,
   onMeasPhoto, removeMeasPhoto,
-  // calibration
   recomputeDrift,
-  // surveys
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
-  // session save/load
   saveSession, onLoadFile,
-  // print
-  printForm,
-  // sync hooks (called from index.html)
+  printForm, printOfficialForm,
   flushSyncQueue, mergeRemoteSurveys,
-  // init hook
   init: initForm,
 });
 
