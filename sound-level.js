@@ -374,9 +374,17 @@ const EXAMPLE_DD2214 = {
 };
 
 function loadExample(){
-  if (window.confirm && !confirm('Load the DD 2214 example data (CSMS 2 Vehicle Maintenance Bay)? Current form contents will be replaced.')) return;
-  applyPrefill(EXAMPLE_DD2214);
-  if (window.showToast) showToast('Loaded DD 2214 example — click "Print DD 2214" to preview', 'success');
+  try {
+    console.log('[Sound.loadExample] starting');
+    if (window.confirm && !confirm('Load the DD 2214 example data (CSMS 2 Vehicle Maintenance Bay)? Current form contents will be replaced.')) return;
+    applyPrefill(EXAMPLE_DD2214);
+    if (window.showToast) showToast('Loaded DD 2214 example — click "Print DD 2214" to preview', 'success');
+    else alert('Loaded DD 2214 example — click "Print DD 2214" to preview');
+    console.log('[Sound.loadExample] done');
+  } catch(e) {
+    console.error('[Sound.loadExample] failed', e);
+    alert('Load Example failed: ' + e.message);
+  }
 }
 
 /* ── Save / Load JSON ── */
@@ -587,24 +595,31 @@ function buildOfficialDOM(){
 }
 
 function printOfficialForm(){
-  buildOfficialDOM();
-  document.body.classList.add('print-sound-official');
-  let styleEl = document.getElementById('soundOfficialPageRule');
-  if (!styleEl) {
-    styleEl = document.createElement('style');
-    styleEl.id = 'soundOfficialPageRule';
-    /* DD 2214 is portrait letter with tight margins. */
-    styleEl.textContent = '@page { size: letter portrait; margin: 0.35in; }';
-    document.head.appendChild(styleEl);
+  try {
+    console.log('[Sound.printOfficialForm] starting');
+    buildOfficialDOM();
+    document.body.classList.add('print-sound-official');
+    let styleEl = document.getElementById('soundOfficialPageRule');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'soundOfficialPageRule';
+      /* DD 2214 is portrait letter with tight margins. */
+      styleEl.textContent = '@page { size: letter portrait; margin: 0.35in; }';
+      document.head.appendChild(styleEl);
+    }
+    const cleanup = () => {
+      document.body.classList.remove('print-sound-official');
+      const s = document.getElementById('soundOfficialPageRule'); if (s) s.remove();
+      const d = document.getElementById('soundOfficialPrintRoot'); if (d) d.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    console.log('[Sound.printOfficialForm] calling window.print()');
+    window.print();
+  } catch(e) {
+    console.error('[Sound.printOfficialForm] failed', e);
+    alert('Print DD 2214 failed: ' + e.message);
   }
-  const cleanup = () => {
-    document.body.classList.remove('print-sound-official');
-    const s = document.getElementById('soundOfficialPageRule'); if (s) s.remove();
-    const d = document.getElementById('soundOfficialPrintRoot'); if (d) d.remove();
-    window.removeEventListener('afterprint', cleanup);
-  };
-  window.addEventListener('afterprint', cleanup);
-  window.print();
 }
 
 function printForm(){
@@ -686,14 +701,22 @@ function initCollapsible(){
 /* ── Init ── */
 let initialized = false;
 function initForm(){
-  if (!document.getElementById('soundForm')) return;
-  loadFromStorage();
-  for (let i = 0; i < 3; i++) addMeasurement();
-  renderSurveyList();
-  initCollapsible();
-  recomputeDrift();
-  if (navigator.onLine) setTimeout(flushSyncQueue, 2500);
-  initialized = true;
+  if (!document.getElementById('soundForm')) {
+    console.warn('[Sound] init skipped — #soundForm not in DOM yet');
+    return;
+  }
+  try {
+    loadFromStorage();
+    for (let i = 0; i < 3; i++) addMeasurement();
+    renderSurveyList();
+    initCollapsible();
+    recomputeDrift();
+    if (navigator.onLine) setTimeout(flushSyncQueue, 2500);
+    initialized = true;
+    console.log('[Sound] init complete. Public API:', Object.keys(window.Sound||{}).sort().join(', '));
+  } catch(e) {
+    console.error('[Sound] init failed', e);
+  }
 }
 
 window.Sound = Object.assign(window.Sound || {}, {
@@ -707,7 +730,16 @@ window.Sound = Object.assign(window.Sound || {}, {
   init: initForm,
 });
 
-document.addEventListener('DOMContentLoaded', function(){
-  if (!initialized) initForm();
-});
+/* DOMContentLoaded may have already fired by the time we reach this line
+   (if sound-level.js is loaded async / dynamically). Check readyState
+   and run inline if needed. */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function(){
+    if (!initialized) initForm();
+  });
+} else {
+  /* DOM is already ready — defer one tick so any later body content
+     finishes parsing first (defensive). */
+  setTimeout(function(){ if (!initialized) initForm(); }, 0);
+}
 })();
