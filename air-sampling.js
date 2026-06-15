@@ -973,14 +973,31 @@ function selectedOel(name){
   const m = lim.find(l=>(l.src+'|'+l.type)===key);
   return {key:key, val:(m&&m.val!=null)?m.val:null};
 }
-function oelCellHTML(name){
+function getDisplayUnitMode(){
+  return (el('airTwaDisplayUnit')||{}).value || 'auto';
+}
+function unitsCompatible(a, b){ return normalizeUnit(a) === normalizeUnit(b); }
+
+function oelCellHTML(name, displayUnit){
+  /* Build the OEL select for the TWA Calculator. When displayUnit is set
+     (e.g. user picked "ppm (all rows)"), each limit's value is converted
+     into that unit so the IH sees apples-to-apples numbers. Falls back to
+     the limit's native unit if conversion isn't possible (no MW, etc.). */
   const lim=oelLimitsFor(name); const cur=selectedOel(name).key;
-  const u=(OEL_DATA[name]||{}).unit||'';
+  const sourceU = (OEL_DATA[name]||{}).unit||'';
+  const showU = (displayUnit && displayUnit !== 'auto' && !unitsCompatible(displayUnit, sourceU)) ? displayUnit : sourceU;
   let h='<select style="width:100%" onchange="Air.setOel(\''+esc(name).replace(/'/g,"&#39;")+'\', this.value)">';
   h+='<option value="">— none —</option>';
   lim.forEach(l=>{
     const k=l.src+'|'+l.type;
-    const lbl=l.src+' '+l.type+(l.val!=null?(' '+l.val+(u?(' '+u):'')):'')+(l.note?(' '+l.note):'');
+    let val = l.val, unitTxt = sourceU;
+    if (val != null && !unitsCompatible(showU, sourceU)) {
+      const conv = convertResult(val, sourceU, showU, name);
+      if (conv != null) { val = conv; unitTxt = showU; }
+      /* If conversion failed, leave val + sourceU as the native value. */
+    }
+    const valTxt = val != null ? (typeof val === 'number' ? round(val, 4) : val) : '';
+    const lbl=l.src+' '+l.type+(val!=null?(' '+valTxt+(unitTxt?(' '+unitTxt):'')):'')+(l.note?(' '+l.note):'');
     h+='<option value="'+esc(k)+'"'+(k===cur?' selected':'')+'>'+esc(lbl)+'</option>';
   });
   h+='</select>';
@@ -1049,28 +1066,58 @@ function computeTwaRows(){
       if (!nSamp) return;
       const twa = totC/480;
       const o = selectedOel(name); const oel = o.val;
-      const unitsTxt = (OEL_DATA[name]||{}).unit || '';
-      /* Convert TWA to OEL units before comparison so % of OEL is correct
-         when the lab reports in different units (e.g. mg/m³ result vs ppm
-         OEL). For metals (both in mg/m³) this is a no-op. */
-      let twaForCompare = twa, converted = null, unitMismatch = false;
-      if (twa != null && unit && unitsTxt && normalizeUnit(unit) !== normalizeUnit(unitsTxt)) {
-        unitMismatch = true;
-        const conv = convertResult(twa, unit, unitsTxt, name);
-        if (conv != null) { twaForCompare = conv; converted = conv; }
-        else { twaForCompare = null; }
+      const oelSourceUnit = (OEL_DATA[name]||{}).unit || '';
+      /* Pick the target unit for the row:
+         - "auto" (default): keep the result's native unit; convert OEL to
+           match (or % won't be apples-to-apples).
+         - "ppm" / "mg/m³": force both columns to that unit. Falls back to
+           native unit per-row if conversion isn't possible (e.g. metals
+           with no MW being asked for ppm). */
+      const displayMode = getDisplayUnitMode();
+      let targetUnit = (displayMode === 'auto') ? (unit || oelSourceUnit) : displayMode;
+      /* Display the TWA in targetUnit. */
+      let dispTwa = twa, dispResultUnit = unit;
+      if (twa != null && unit && !unitsCompatible(unit, targetUnit)) {
+        const conv = convertResult(twa, unit, targetUnit, name);
+        if (conv != null) { dispTwa = conv; dispResultUnit = targetUnit; }
+        else if (displayMode !== 'auto') { /* fall back to native */ targetUnit = unit; dispResultUnit = unit; }
+      } else {
+        dispResultUnit = targetUnit;
       }
-      const adjOel = (oel != null) ? oel*rf : null;
-      const cmp = adjusting ? adjOel : oel;
-      const pct = (twaForCompare != null && cmp) ? twaForCompare/cmp*100 : null;
-      /* Resolve a printable OEL label like "OSHA PEL TWA 1 mg/m³" */
+      /* Convert OEL into targetUnit. */
+      let dispOel = oel, dispOelUnit = oelSourceUnit;
+      if (oel != null && oelSourceUnit && !unitsCompatible(oelSourceUnit, targetUnit)) {
+        const conv = convertResult(oel, oelSourceUnit, targetUnit, name);
+        if (conv != null) { dispOel = conv; dispOelUnit = targetUnit; }
+      } else if (oelSourceUnit) {
+        dispOelUnit = targetUnit;
+      }
+      const dispAdjOel = (dispOel != null) ? dispOel*rf : null;
+      const cmp = adjusting ? dispAdjOel : dispOel;
+      const pct = (dispTwa != null && cmp) ? dispTwa/cmp*100 : null;
+      const unitMismatch = (unit && oelSourceUnit && !unitsCompatible(unit, oelSourceUnit));
+      /* Resolve a printable OEL label like "OSHA PEL TWA 595 mg/m³" — in
+         the display unit when possible. */
       const lim = oelLimitsFor(name);
       const m = lim.find(l => (l.src+'|'+l.type) === o.key);
-      const oelLabel = m ? (m.src+' '+m.type+(m.val!=null?(' '+m.val+(unitsTxt?(' '+unitsTxt):'')):'')+(m.note?(' '+m.note):'')) : '';
+      let labelVal = m ? m.val : null, labelUnit = oelSourceUnit;
+      if (m && m.val != null && !unitsCompatible(oelSourceUnit, targetUnit)) {
+        const conv = convertResult(m.val, oelSourceUnit, targetUnit, name);
+        if (conv != null) { labelVal = conv; labelUnit = targetUnit; }
+      } else {
+        labelUnit = targetUnit;
+      }
+      const labelValTxt = labelVal != null ? (typeof labelVal === 'number' ? round(labelVal, 4) : labelVal) : '';
+      const oelLabel = m ? (m.src+' '+m.type+(m.val!=null?(' '+labelValTxt+(labelUnit?(' '+labelUnit):'')):'')+(m.note?(' '+m.note):'')) : '';
       rows.push({
         worker, sampleCount: workerSamples.length, firstOfBlock: firstAnalyteRow,
-        wIdx, name, nSamp, totMin, twa, twaForCompare, converted, unitMismatch, ndAny, unit,
-        oelUnit: unitsTxt, oelKey: o.key, oelLabel, adjOel, pct,
+        wIdx, name, nSamp, totMin,
+        twa, dispTwa, dispResultUnit,
+        oel, dispOel, dispOelUnit, dispAdjOel,
+        unitMismatch, ndAny, unit,
+        oelKey: o.key, oelLabel, pct,
+        /* legacy fields for any consumers I missed */
+        adjOel: dispAdjOel, twaForCompare: dispTwa,
       });
       firstAnalyteRow = false;
     });
@@ -1093,25 +1140,32 @@ function refreshTWA(){
     body.innerHTML = '<tr><td colspan="9" style="color:var(--ai-muted)">No measured results yet — enter Measured Result values in the sample tabs.</td></tr>';
     return;
   }
+  const displayMode = getDisplayUnitMode();
   rows.forEach(r => {
     const workerCell = r.firstOfBlock
       ? '<td style="font-weight:600;border-top:'+(r.wIdx>0?'2px solid var(--ai-line)':'1px solid var(--ai-line2)')+'">'+esc(r.worker)+' <span style="font-weight:400;color:var(--ai-muted)">('+r.sampleCount+' sample'+(r.sampleCount===1?'':'s')+')</span></td>'
       : '<td style="color:var(--ai-muted)">&nbsp;</td>';
-    /* When the result unit differs from the OEL unit, show the converted
-       value alongside the original so the IH sees how the % was computed.
-       Mark the % cell with a tooltip + asterisk to flag the conversion. */
+    /* TWA and OEL cells show the value in the display unit. When the IH
+       picked an override unit and we successfully converted, no annotation
+       — the column is just "in ppm" or "in mg/m³". When the result unit
+       differed from the OEL unit AND we're in auto mode, show the
+       conversion in parens so the % is auditable. */
+    const isOverride = displayMode !== 'auto';
+    const showConvParen = !isOverride && r.unitMismatch && r.dispTwa != null && !unitsCompatible(r.unit, r.dispResultUnit);
     let twaCell;
-    if (r.unitMismatch && r.converted != null) {
+    if (showConvParen) {
       twaCell = (r.ndAny?'<':'')+round(r.twa,4)+
-        ' <span style="color:var(--ai-muted);font-size:11px">(≈'+(r.ndAny?'<':'')+round(r.converted,4)+' '+esc(r.oelUnit)+')</span>';
-    } else if (r.unitMismatch && r.converted == null) {
+        ' <span style="color:var(--ai-muted);font-size:11px">(≈'+(r.ndAny?'<':'')+round(r.dispTwa,4)+' '+esc(r.dispResultUnit)+')</span>';
+    } else if (r.unitMismatch && r.dispTwa == null) {
       twaCell = (r.ndAny?'<':'')+round(r.twa,4)+
-        ' <span style="color:var(--ai-warn);font-size:11px" title="No molecular weight in library — can\'t convert from '+esc(r.unit)+' to '+esc(r.oelUnit)+'">⚠ MW missing</span>';
+        ' <span style="color:var(--ai-warn);font-size:11px" title="No molecular weight in library — can\'t convert.">⚠ MW missing</span>';
+    } else if (isOverride && r.dispTwa != null) {
+      twaCell = (r.ndAny?'<':'')+round(r.dispTwa,4);
     } else {
       twaCell = (r.ndAny?'<':'')+round(r.twa,4);
     }
     const pctCell = r.pct!=null
-      ? (r.ndAny?'<':'')+round(r.pct,1)+'%'+(r.unitMismatch?' <span style="color:var(--ai-muted);font-size:10px" title="Result converted from '+esc(r.unit)+' to '+esc(r.oelUnit)+' before comparing to OEL">*</span>':'')
+      ? (r.ndAny?'<':'')+round(r.pct,1)+'%'+(r.unitMismatch && !isOverride?' <span style="color:var(--ai-muted);font-size:10px" title="Result converted before comparing to OEL">*</span>':'')
       : '—';
     body.insertAdjacentHTML('beforeend',
       '<tr>'+workerCell+
@@ -1119,9 +1173,9 @@ function refreshTWA(){
       '<td style="text-align:right">'+r.nSamp+'</td>'+
       '<td class="calc-cell">'+(r.totMin?round(r.totMin,0):'—')+'</td>'+
       '<td class="calc-cell">'+twaCell+'</td>'+
-      '<td>'+esc(r.unit)+'</td>'+
-      '<td>'+oelCellHTML(r.name)+'</td>'+
-      '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(r.adjOel!=null?round(r.adjOel,4):'—')+'</td>'+
+      '<td>'+esc(r.dispResultUnit || r.unit)+'</td>'+
+      '<td>'+oelCellHTML(r.name, displayMode)+'</td>'+
+      '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(r.dispAdjOel!=null?round(r.dispAdjOel,4):'—')+'</td>'+
       '<td class="calc-cell">'+pctCell+'</td>'+
       '</tr>');
   });
@@ -2105,6 +2159,8 @@ function ofTwaCalcsTable(){
       (adjusting ? '<th class="of-label" style="width:6%">Adj. OEL</th>' : '')+
       '<th class="of-label" style="width:6%">% of '+(adjusting?'Adj. ':'')+'OEL</th>'+
     '</tr>';
+  const displayMode = getDisplayUnitMode();
+  const isOverride = displayMode !== 'auto';
   let anyConverted = false;
   rows.forEach(r => {
     /* Show the full worker name in EVERY row of a block; the screen merges
@@ -2112,17 +2168,21 @@ function ofTwaCalcsTable(){
        readable when the table breaks across pages. Add a thicker top border
        on the first row of each worker block to visually delimit groups. */
     const borderTop = r.firstOfBlock && r.wIdx > 0 ? 'border-top:1pt solid #000;' : '';
-    /* If the result unit differs from the OEL unit, show the converted
-       value next to the original so the printed % of OEL is auditable. */
+    /* In override mode (the IH picked ppm or mg/m³): show the converted
+       value with no parenthetical. In auto mode with a unit mismatch:
+       show the original + parenthetical converted value. */
+    const showConvParen = !isOverride && r.unitMismatch && r.dispTwa != null && !unitsCompatible(r.unit, r.dispResultUnit);
     let twaTxt;
-    if (r.unitMismatch && r.converted != null) {
+    if (showConvParen) {
       anyConverted = true;
-      twaTxt = (r.ndAny?'&lt;':'')+round(r.twa,4)+' &nbsp;<span style="color:#555">(&asymp;'+(r.ndAny?'&lt;':'')+round(r.converted,4)+' '+ofEsc(r.oelUnit)+')</span>';
+      twaTxt = (r.ndAny?'&lt;':'')+round(r.twa,4)+' &nbsp;<span style="color:#555">(&asymp;'+(r.ndAny?'&lt;':'')+round(r.dispTwa,4)+' '+ofEsc(r.dispResultUnit)+')</span>';
+    } else if (isOverride && r.dispTwa != null) {
+      twaTxt = (r.ndAny?'&lt;':'')+round(r.dispTwa,4);
     } else {
       twaTxt = (r.ndAny?'&lt;':'')+round(r.twa,4);
     }
     const pctTxt = r.pct!=null
-      ? (r.ndAny?'&lt;':'')+round(r.pct,1)+'%'+(r.unitMismatch?'*':'')
+      ? (r.ndAny?'&lt;':'')+round(r.pct,1)+'%'+(showConvParen?'*':'')
       : '—';
     h += '<tr>'+
       '<td class="of-val" style="font-weight:600;'+borderTop+'">'+ofVal(r.worker)+(r.firstOfBlock?' <span style="font-weight:400;color:#555">('+r.sampleCount+' sample'+(r.sampleCount===1?'':'s')+')</span>':'')+'</td>'+
@@ -2130,9 +2190,9 @@ function ofTwaCalcsTable(){
       '<td class="of-val" style="text-align:right">'+r.nSamp+'</td>'+
       '<td class="of-val" style="text-align:right">'+(r.totMin?round(r.totMin,0):'—')+'</td>'+
       '<td class="of-val" style="text-align:right">'+twaTxt+'</td>'+
-      '<td class="of-val">'+ofVal(r.unit)+'</td>'+
+      '<td class="of-val">'+ofVal(r.dispResultUnit || r.unit)+'</td>'+
       '<td class="of-val">'+ofVal(r.oelLabel)+'</td>'+
-      (adjusting ? '<td class="of-val" style="text-align:right">'+(r.adjOel!=null?round(r.adjOel,4):'—')+'</td>' : '')+
+      (adjusting ? '<td class="of-val" style="text-align:right">'+(r.dispAdjOel!=null?round(r.dispAdjOel,4):'—')+'</td>' : '')+
       '<td class="of-val" style="text-align:right">'+pctTxt+'</td>'+
     '</tr>';
   });
@@ -2144,7 +2204,12 @@ function ofTwaCalcsTable(){
         'Brief &amp; Scala (daily) adjustment applied for '+ofEsc(shiftHrs)+'-hr shift.'+
         '</div>' + h;
   }
-  if (anyConverted) {
+  if (isOverride) {
+    h = '<div class="of-note" style="font-style:italic; padding:1pt 4pt;">'+
+        'Display unit overridden to <b>'+ofEsc(displayMode)+'</b> for all rows. Cross-class conversions (ppm &harr; mg/m³) use 24.45 L/mol (25&deg;C) and the analyte\'s molecular weight.'+
+        '</div>' + h;
+  }
+  if (anyConverted && !isOverride) {
     h = h + '<div class="of-note" style="font-style:italic; padding:1pt 4pt;">'+
       '* Result unit differed from OEL unit; converted using 24.45 L/mol (NIOSH convention, 25&deg;C) and the analyte\'s molecular weight before comparing.'+
       '</div>';
