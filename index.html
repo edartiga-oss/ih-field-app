@@ -2375,6 +2375,27 @@ body { padding: 20px 18px; }
 #airAppHost .upanel{display:none;}
 #airAppHost .upanel.active{display:block;}
 
+/* Passive Badge / Direct-Read modes: dim sections that don't apply.
+   .air-active-only is on pump fields, pre/post calibration, gravimetric,
+   the Flow Rate + Total Volume inputs in Sample Collection. The .air-
+   passive-note divs are hidden by default and revealed in passive mode. */
+#airAppHost .upanel.air-passive-mode .air-active-only,
+#airAppHost .upanel.air-direct-read-mode .air-active-only,
+#airAppHost .upanel.air-direct-read-mode fieldset:has(input[name$="_media"]),
+#airAppHost .upanel.air-direct-read-mode fieldset:has(input[name$="_grav_pre"]) {
+  opacity: 0.4;
+  pointer-events: none;
+}
+#airAppHost .upanel.air-passive-mode .air-active-only input,
+#airAppHost .upanel.air-passive-mode .air-active-only select,
+#airAppHost .upanel.air-direct-read-mode .air-active-only input,
+#airAppHost .upanel.air-direct-read-mode .air-active-only select {
+  background: #f4f6f9;
+}
+#airAppHost .upanel.air-passive-mode .air-passive-note {
+  display: block !important;
+}
+
 /* Time Course of Events — per-hour entries with optional photo. */
 #airAppHost .tc-entry{display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;}
 #airAppHost .tc-entry .tc-label{flex:0 0 70px;font-size:11.5px;font-weight:700;color:var(--ai-muted);
