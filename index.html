@@ -2367,6 +2367,23 @@ body { padding: 20px 18px; }
 #airAppHost .pill.bad{background:var(--ai-warn-soft);color:var(--ai-warn);}
 #airAppHost .pill.idle{background:#eef2f7;color:var(--ai-muted);}
 
+/* Horizontal scroll wrapper for wide tables (Min Sample Vol & Time,
+   Measurement Results, TWA Calculator). Keeps the table at its natural
+   width so columns don't collapse, but allows side-scroll on narrow
+   screens (mobile). Subtle inset shadow signals the table is scrollable. */
+#airAppHost .air-scroll-x{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  max-width:100%;
+  background:
+    linear-gradient(to right, #fff 30%, rgba(255,255,255,0)),
+    linear-gradient(to right, rgba(0,0,0,0.06), rgba(255,255,255,0) 30%) 0 100%,
+    linear-gradient(to left, #fff 30%, rgba(255,255,255,0)) 100% 0,
+    linear-gradient(to left, rgba(0,0,0,0.06), rgba(255,255,255,0) 30%) 100% 100%;
+  background-repeat:no-repeat;
+  background-size:24px 100%, 12px 100%, 24px 100%, 12px 100%;
+  background-attachment:local, scroll, local, scroll;
+}
 #airAppHost table.cons{width:100%;border-collapse:collapse;font-size:12.5px;}
 #airAppHost table.cons th,#airAppHost table.cons td{
   border:1px solid var(--ai-line2);padding:5px 6px;text-align:left;}
@@ -2819,20 +2836,22 @@ body { padding: 20px 18px; }
               </select>
             </label>
           </div>
-          <table class="cons" id="airTwaTable">
-            <thead><tr>
-              <th style="width:18%">Worker</th>
-              <th>Analyte</th>
-              <th style="width:70px"># Samples</th>
-              <th style="width:100px">Total Time (min)</th>
-              <th style="width:100px">8-hr TWA</th>
-              <th style="width:60px">Units</th>
-              <th style="width:170px">OEL (basis)</th>
-              <th style="width:100px" class="adjcol" id="airThAdjOel">Adj. OEL</th>
-              <th style="width:80px" id="airThPct">% of OEL</th>
-            </tr></thead>
-            <tbody id="airTwaBody"></tbody>
-          </table>
+          <div class="air-scroll-x">
+            <table class="cons" id="airTwaTable">
+              <thead><tr>
+                <th style="width:18%">Worker</th>
+                <th>Analyte</th>
+                <th style="width:70px"># Samples</th>
+                <th style="width:100px">Total Time (min)</th>
+                <th style="width:100px">8-hr TWA</th>
+                <th style="width:60px">Units</th>
+                <th style="width:170px">OEL (basis)</th>
+                <th style="width:100px" class="adjcol" id="airThAdjOel">Adj. OEL</th>
+                <th style="width:80px" id="airThPct">% of OEL</th>
+              </tr></thead>
+              <tbody id="airTwaBody"></tbody>
+            </table>
+          </div>
           <p class="note" style="margin-top:10px">One row per analyte, consolidated across all sample tabs. Enter each sample's <b>Measured Result</b>, start/stop times and per-analyte <b>OEL</b> in the sample tabs — this updates automatically.</p>
           <p class="note" id="airTwaRF" style="margin-top:8px"></p>
         </div>
