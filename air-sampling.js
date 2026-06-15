@@ -961,46 +961,50 @@ function applyPrefill(){
    rest of the form state. ============================================================ */
 let tcPhotos = {};  /* { 1: 'data:image/jpeg;base64,...', 2: ..., ... } */
 
-function tcDurationHours(){
+function tcUnit(){ return (el('airTcUnit')||{}).value || 'hours'; }
+function tcLabelFor(idx){ return tcUnit() === 'minutes' ? ('Min '+idx) : ('Hour '+idx); }
+function tcEntryCount(){
+  /* Entries = duration in current units. 15 min -> 15 entries (one per min);
+     8 hours -> 8 entries (one per hour). Cap at 120 so an accidental
+     huge value doesn't tank the form. */
   const d = num((el('airTcDuration')||{}).value);
-  const u = (el('airTcUnit')||{}).value || 'hours';
   if (d == null || d <= 0) return 8;
-  /* Always render hourly buckets. Minutes < 60 round up to 1, otherwise
-     ceil to nearest hour so a 90-min shift -> Hour 1 + Hour 2. */
-  return u === 'minutes' ? Math.max(1, Math.ceil(d/60)) : Math.min(24, Math.max(1, Math.round(d)));
+  return Math.min(120, Math.max(1, Math.round(d)));
 }
-function tcEntryHTML(hour){
-  const txtName = 'tc_hour_'+hour;
-  const photo = tcPhotos[hour] || '';
+function tcEntryHTML(idx){
+  const label = tcLabelFor(idx);
+  const txtName = 'tc_hour_'+idx;   /* field name kept generic for JSON round-trip */
+  const photo = tcPhotos[idx] || '';
   const hasPic = photo ? ' has-pic' : '';
-  return '<div class="tc-entry" data-hour="'+hour+'">'+
-    '<div class="tc-label">Hour '+hour+'</div>'+
-    '<textarea name="'+txtName+'" placeholder="Tasks, location, exposure events during hour '+hour+'..."></textarea>'+
+  const unitWord = tcUnit() === 'minutes' ? 'minute' : 'hour';
+  return '<div class="tc-entry" data-hour="'+idx+'">'+
+    '<div class="tc-label">'+label+'</div>'+
+    '<textarea name="'+txtName+'" placeholder="Tasks, location, exposure events during '+unitWord+' '+idx+'..."></textarea>'+
     '<div class="tc-pic'+hasPic+'">'+
-      '<img class="tc-thumb" src="'+esc(photo)+'" alt="Hour '+hour+' photo">'+
-      '<label class="tc-add">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Air.onTcPhoto('+hour+', this)"></label>'+
-      '<button type="button" class="tc-rm" onclick="Air.removeTcPhoto('+hour+')">Remove</button>'+
+      '<img class="tc-thumb" src="'+esc(photo)+'" alt="'+label+' photo">'+
+      '<label class="tc-add">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Air.onTcPhoto('+idx+', this)"></label>'+
+      '<button type="button" class="tc-rm" onclick="Air.removeTcPhoto('+idx+')">Remove</button>'+
     '</div>'+
   '</div>';
 }
 function rebuildTimeCourse(){
   const host = el('airTcEntries'); if (!host) return;
-  const hours = tcDurationHours();
+  const count = tcEntryCount();
   /* Snapshot current textareas so we don't lose typed notes when the IH
-     adjusts duration. */
+     adjusts duration or switches units. */
   const snap = {};
   host.querySelectorAll('.tc-entry').forEach(div => {
-    const h = +div.dataset.hour;
+    const idx = +div.dataset.hour;
     const ta = div.querySelector('textarea');
-    if (ta && ta.value) snap[h] = ta.value;
+    if (ta && ta.value) snap[idx] = ta.value;
   });
   let html = '';
-  for (let h = 1; h <= hours; h++) html += tcEntryHTML(h);
+  for (let i = 1; i <= count; i++) html += tcEntryHTML(i);
   host.innerHTML = html;
-  /* Restore typed notes. */
-  Object.keys(snap).forEach(h => {
-    const ta = host.querySelector('.tc-entry[data-hour="'+h+'"] textarea');
-    if (ta) ta.value = snap[h];
+  /* Restore typed notes for indices that still exist after the count change. */
+  Object.keys(snap).forEach(idx => {
+    const ta = host.querySelector('.tc-entry[data-hour="'+idx+'"] textarea');
+    if (ta) ta.value = snap[idx];
   });
 }
 /* Capture a photo (or pick from gallery), downscale via canvas so the
@@ -1624,25 +1628,28 @@ function ofTwaCalcsTable(){
 }
 
 function ofTimeCourseTable(){
-  /* Print the per-Hour time course on the final block. Skip the whole
-     section if no entries have text or photo. Photo prints as a thumbnail. */
+  /* Print the per-interval time course on the final block. Skip the whole
+     section if no entries have text or photo. Label reads "Min N" or
+     "Hour N" depending on the unit the IH picked. */
   const tc = collectTimeCourse();
-  const hours = Object.keys(tc.hours||{}).map(Number).sort((a,b)=>a-b);
-  if (!hours.length) return '';
+  const indices = Object.keys(tc.hours||{}).map(Number).sort((a,b)=>a-b);
+  if (!indices.length) return '';
+  const unitWord = tc.unit === 'minutes' ? 'Min' : 'Hour';
+  const headerWord = tc.unit === 'minutes' ? 'Minute by Minute' : 'Hour by Hour';
   let body = '';
-  hours.forEach(h => {
-    const e = tc.hours[h];
+  indices.forEach(idx => {
+    const e = tc.hours[idx];
     const photo = e.photo
       ? '<img src="'+esc(e.photo)+'" style="max-width:140pt;max-height:90pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
       : '';
     body += '<tr>'+
-      '<td class="of-label" style="width:14%">Hour '+h+'</td>'+
+      '<td class="of-label" style="width:14%">'+unitWord+' '+idx+'</td>'+
       '<td class="of-val" style="min-height:18pt">'+ofVal(e.text)+photo+'</td>'+
     '</tr>';
   });
   return ''+
     '<table class="of of-long">'+
-      '<tr><td class="of-section-head" colspan="2">Time Course of Events &mdash; Hour by Hour</td></tr>'+
+      '<tr><td class="of-section-head" colspan="2">Time Course of Events &mdash; '+headerWord+'</td></tr>'+
       body+
     '</table>';
 }
