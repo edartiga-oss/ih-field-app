@@ -2432,6 +2432,22 @@ body { padding: 20px 18px; }
       <datalist id="airSegList"></datalist>
       <datalist id="airProcList"></datalist>
 
+      <!-- Saved air sampling surveys (parallel of the noise Surveys list).
+           Sits at the top of the Air tab so the IH can see / load / delete
+           saved surveys before starting a new one. -->
+      <section class="air-card">
+        <h2>Saved Air Sampling Surveys
+          <span class="hint" id="airSurveysCount">0 surveys</span>
+          <span style="margin-left:8px;display:inline-flex;gap:6px;">
+            <button type="button" class="add" onclick="Air.newAirSurvey&amp;&amp;Air.newAirSurvey()">+ New Survey</button>
+            <button type="button" class="primary" onclick="Air.saveAirSurvey&amp;&amp;Air.saveAirSurvey()">Save Survey</button>
+          </span>
+        </h2>
+        <div class="body" style="padding:0">
+          <div id="airSurveysList"></div>
+        </div>
+      </section>
+
       <section class="air-card">
         <h2>General Information</h2>
         <div class="body grid c4">
@@ -6933,6 +6949,14 @@ function pullFromSheets() {
         if (eqNew > 0 || eqUpd > 0) showToast('Equipment: ' + eqNew + ' new, ' + eqUpd + ' updated', 'success');
       }
 
+      // ── Pull air sampling surveys (delegated to the Air module) ──
+      if (data.airSurveys && window.Air && Air.mergeRemoteAirSurveys) {
+        const r = Air.mergeRemoteAirSurveys(data.airSurveys);
+        if (r && (r.newCount || r.updCount)) {
+          showToast('Air Sampling: ' + r.newCount + ' new, ' + r.updCount + ' updated', 'success');
+        }
+      }
+
       setSyncStatus('ok');
     })
     .catch(() => setSyncStatus('error'));
@@ -7013,7 +7037,12 @@ function flushSyncQueue() {
   } catch(e) {}
 }
 
-window.addEventListener('online', () => { setSyncStatus('idle'); flushSyncQueue(); flushDeleteQueue(); flushEquipQueue(); pullFromSheets(); });
+window.addEventListener('online', () => {
+  setSyncStatus('idle');
+  flushSyncQueue(); flushDeleteQueue(); flushEquipQueue();
+  if (window.Air && Air.flushAirSyncQueue) Air.flushAirSyncQueue();
+  pullFromSheets();
+});
 
 // ═══════════════════════════════════════════════════════════
 //  EQUIPMENT SYNC
