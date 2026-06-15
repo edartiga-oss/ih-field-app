@@ -88,10 +88,10 @@ const CHEM_DATA = {
   "Solvents / VOCs (toluene, xylene, MEK, MIBK, acetone)": { cas:"varies", types:{
     "Air – Sorbent Tube":[
       {m:"NIOSH 1500/1501 (charcoal tube)", media:"Coconut-shell charcoal tube (SKC 226-01)", fmin:0.01, fmax:0.2, vmin:1, vmax:10, note:"per-analyte max volume varies — see LOQ table"},
-      {m:"SGS Galson Universal Solvent GC (lg charcoal)", media:"Large charcoal tube (SKC 226-09)", fmin:0.01, fmax:0.2, vmin:1, vmax:12}
+      {m:"SGS Galson Method 566 (Universal Solvents, lg charcoal)", media:"Large charcoal tube (SKC 226-09)", fmin:0.01, fmax:0.2, vmin:1, vmax:12, note:"broad-spectrum GC/MS, ~25+ VOCs from one tube"}
     ],
     "Passive Badge":[
-      {m:"SGS Galson Universal Solvent GC (3M OVM)", media:"3M 3500 OVM passive badge", fmin:null, fmax:null, vmin:null, vmax:null, note:"diffusive — record start/stop time only"}
+      {m:"SGS Galson Method 566 (Universal Solvents, 3M OVM)", media:"3M 3500 OVM passive badge", fmin:null, fmax:null, vmin:null, vmax:null, note:"diffusive — record start/stop time only; same analyte panel as the sorbent-tube version"}
     ],
     "Bulk":[ {m:"GC/MS (bulk)", media:"Bulk container", fmin:null,fmax:null,vmin:null,vmax:null} ]}},
   "Stoddard Solvent / Mineral Spirits": { cas:"8052-41-3", types:{
@@ -108,7 +108,14 @@ const CHEM_DATA = {
 const ANALYTE_PRESETS = {
   "9-Metal Panel (RRAD)": ["Cadmium","Chromium","Cobalt","Copper","Iron Oxide","Lead","Manganese","Nickel","Zinc Oxide"],
   "Welding Fume Metals (multi-metal panel)": ["Chromium","Manganese","Nickel","Iron Oxide","Copper","Zinc Oxide","Lead","Cobalt","Cadmium"],
-  "Solvents / VOCs (toluene, xylene, MEK, MIBK, acetone)": ["Toluene","Xylenes (total)","Ethylbenzene","2-Butanone (MEK)","4-Methyl-2-pentanone (MIBK)","Acetone","n-Heptane","Naphtha"]
+  "Solvents / VOCs (toluene, xylene, MEK, MIBK, acetone)": [
+    /* SGS Galson Method 566 — Universal Solvents GC/MS panel */
+    "Acetone","Benzene","2-Butanone (MEK)","n-Butyl Acetate","1-Butanol (n-Butanol)",
+    "Cyclohexane","Cyclohexanone","1,2-Dichloroethane","Ethyl Acetate","Ethanol",
+    "Ethylbenzene","n-Heptane","n-Hexane","2-Propanol (Isopropanol)","Methyl Acetate",
+    "Methylene Chloride","4-Methyl-2-pentanone (MIBK)","Naphtha","Stoddard Solvent",
+    "Tetrachloroethylene","Toluene","1,1,1-Trichloroethane","Trichloroethylene","Xylenes (total)"
+  ]
 };
 
 const OEL_DATA = {
@@ -142,7 +149,26 @@ const OEL_DATA = {
   "Magnesium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA (MgO fume)",val:15}, {src:"ACGIH",type:"TLV TWA (inhalable)",val:10} ]},
   "Molybdenum": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA (insoluble)",val:15}, {src:"OSHA",type:"PEL TWA (soluble)",val:5}, {src:"ACGIH",type:"TLV TWA (inhalable)",val:10}, {src:"ACGIH",type:"TLV TWA (respirable)",val:3}, {src:"ACGIH",type:"TLV TWA (soluble, respirable)",val:0.5} ]},
   "Titanium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL TWA (TiO2, total)",val:15}, {src:"ACGIH",type:"TLV TWA (TiO2)",val:10,note:"(A4)"}, {src:"NIOSH",type:"REL TWA (TiO2, fine)",val:1.5,note:"(Ca)"}, {src:"NIOSH",type:"REL TWA (TiO2, ultrafine)",val:0.3,note:"(Ca)"} ]},
-  "Vanadium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL Ceiling (V2O5 dust)",val:0.5}, {src:"OSHA",type:"PEL Ceiling (V2O5 fume)",val:0.1}, {src:"ACGIH",type:"TLV TWA (respirable)",val:0.05}, {src:"NIOSH",type:"REL Ceiling",val:0.05,note:"(15-min)"} ]}
+  "Vanadium": {unit:"mg/m³", limits:[ {src:"OSHA",type:"PEL Ceiling (V2O5 dust)",val:0.5}, {src:"OSHA",type:"PEL Ceiling (V2O5 fume)",val:0.1}, {src:"ACGIH",type:"TLV TWA (respirable)",val:0.05}, {src:"NIOSH",type:"REL Ceiling",val:0.05,note:"(15-min)"} ]},
+  /* SGS Galson Method 566 additional VOCs — OSHA 29 CFR 1910.1000 Table Z-1,
+     ACGIH 2024 TLVs, NIOSH Pocket Guide. Verify before use on a report. */
+  "Benzene": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:1}, {src:"OSHA",type:"Action Level",val:0.5}, {src:"OSHA",type:"PEL STEL",val:5}, {src:"ACGIH",type:"TLV TWA",val:0.5,note:"(A1)"}, {src:"ACGIH",type:"TLV STEL",val:2.5,note:"(A1)"}, {src:"NIOSH",type:"REL TWA",val:0.1,note:"(Ca)"}, {src:"NIOSH",type:"REL STEL",val:1,note:"(Ca)"} ]},
+  "n-Butyl Acetate": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:150}, {src:"ACGIH",type:"TLV TWA",val:50}, {src:"ACGIH",type:"TLV STEL",val:150}, {src:"NIOSH",type:"REL TWA",val:150}, {src:"NIOSH",type:"REL STEL",val:200} ]},
+  "1-Butanol (n-Butanol)": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:100}, {src:"ACGIH",type:"TLV TWA",val:20}, {src:"NIOSH",type:"REL Ceiling",val:50} ]},
+  "Cyclohexane": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:300}, {src:"ACGIH",type:"TLV TWA",val:100}, {src:"NIOSH",type:"REL TWA",val:300} ]},
+  "Cyclohexanone": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:50}, {src:"ACGIH",type:"TLV TWA",val:20}, {src:"NIOSH",type:"REL TWA",val:25} ]},
+  "1,2-Dichloroethane": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:50}, {src:"OSHA",type:"PEL Ceiling",val:100}, {src:"OSHA",type:"PEL Peak",val:200}, {src:"ACGIH",type:"TLV TWA",val:10,note:"(A4)"}, {src:"NIOSH",type:"REL TWA",val:1,note:"(Ca)"}, {src:"NIOSH",type:"REL STEL",val:2,note:"(Ca)"} ]},
+  "Ethyl Acetate": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:400}, {src:"ACGIH",type:"TLV TWA",val:400}, {src:"NIOSH",type:"REL TWA",val:400} ]},
+  "Ethanol": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:1000}, {src:"ACGIH",type:"TLV STEL",val:1000,note:"(A3)"}, {src:"NIOSH",type:"REL TWA",val:1000} ]},
+  "n-Hexane": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:500}, {src:"ACGIH",type:"TLV TWA",val:50}, {src:"NIOSH",type:"REL TWA",val:50} ]},
+  "2-Propanol (Isopropanol)": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:400}, {src:"ACGIH",type:"TLV TWA",val:200}, {src:"ACGIH",type:"TLV STEL",val:400}, {src:"NIOSH",type:"REL TWA",val:400}, {src:"NIOSH",type:"REL STEL",val:500} ]},
+  "Methyl Acetate": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:200}, {src:"ACGIH",type:"TLV TWA",val:200}, {src:"ACGIH",type:"TLV STEL",val:250}, {src:"NIOSH",type:"REL TWA",val:200}, {src:"NIOSH",type:"REL STEL",val:250} ]},
+  "Methylene Chloride": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:25}, {src:"OSHA",type:"PEL STEL",val:125}, {src:"OSHA",type:"Action Level",val:12.5}, {src:"ACGIH",type:"TLV TWA",val:50,note:"(A3)"}, {src:"NIOSH",type:"REL",val:null,note:"lowest feasible (Ca)"} ]},
+  "Naphtha": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA (rubber solvent)",val:400}, {src:"ACGIH",type:"TLV TWA",val:300}, {src:"NIOSH",type:"REL TWA",val:100} ]},
+  "Stoddard Solvent": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:500}, {src:"ACGIH",type:"TLV TWA",val:100}, {src:"NIOSH",type:"REL TWA",val:350,note:"~1350 mg/m³"}, {src:"NIOSH",type:"REL Ceiling",val:1800,note:"~7350 mg/m³"} ]},
+  "Tetrachloroethylene": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:100}, {src:"OSHA",type:"PEL Ceiling",val:200}, {src:"OSHA",type:"PEL Peak",val:300}, {src:"ACGIH",type:"TLV TWA",val:25,note:"(A3)"}, {src:"ACGIH",type:"TLV STEL",val:100}, {src:"NIOSH",type:"REL",val:null,note:"lowest feasible (Ca)"} ]},
+  "1,1,1-Trichloroethane": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:350}, {src:"ACGIH",type:"TLV TWA",val:350}, {src:"ACGIH",type:"TLV STEL",val:450}, {src:"NIOSH",type:"REL Ceiling",val:350,note:"(15-min)"} ]},
+  "Trichloroethylene": {unit:"ppm", limits:[ {src:"OSHA",type:"PEL TWA",val:100}, {src:"OSHA",type:"PEL Ceiling",val:200}, {src:"OSHA",type:"PEL Peak",val:300}, {src:"ACGIH",type:"TLV TWA",val:10,note:"(A2)"}, {src:"ACGIH",type:"TLV STEL",val:25,note:"(A2)"}, {src:"NIOSH",type:"REL TWA",val:25,note:"(Ca)"} ]}
 };
 
 /* COC client address book (editable). */
