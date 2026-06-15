@@ -907,21 +907,42 @@ function buildPDFDoc(surveysArr) {
       y += 8;
     }
 
-    // Hourly notes
+    // Hourly notes + per-hour field photos
+    const photos = s.results?.hourPhotos || {};
     const hourlyNotes = [1,2,3,4,5,6,7,8,9,10]
-      .map(n => ({ label: 'Hour ' + n, val: s.results?.['hour' + n] }))
-      .filter(h => h.val);
+      .map(n => ({ label: 'Hour ' + n, val: s.results?.['hour' + n] || '', photo: photos[n] || '' }))
+      .filter(h => h.val || h.photo);
     if (hourlyNotes.length) {
       if (y > 630) { doc.addPage(); y = 40; }
       y = sectionHead('Hourly Field Observations', y);
       hourlyNotes.forEach(h => {
-        if (y > 680) { doc.addPage(); y = 40; }
+        /* Compute the photo's rendered size up front so we can both decide
+           whether a page break is needed and lay out the photo at the
+           correct y. ~150pt-wide thumbnail keeps survey PDFs compact. */
+        let photoW = 0, photoH = 0;
+        if (h.photo) {
+          try {
+            const props = doc.getImageProperties(h.photo);
+            photoW = 150;
+            photoH = Math.round((props.height * photoW) / props.width);
+            if (photoH > 110) {
+              photoH = 110;
+              photoW = Math.round((props.width * photoH) / props.height);
+            }
+          } catch(e){ photoW = 0; photoH = 0; }
+        }
+        const noteLines = h.val ? doc.splitTextToSize(h.val, W - 72) : [];
+        const rowH = 18 + (noteLines.length * 10) + (photoH ? (photoH + 6) : 0) + 4;
+        if (y + rowH > 750) { doc.addPage(); y = 40; y = sectionHead('Hourly Field Observations (cont.)', y); }
         doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
         doc.text(h.label, 36, y + 8);
         doc.setFont('helvetica','normal'); doc.setTextColor(26,41,64);
-        const lines = doc.splitTextToSize(h.val, W - 72);
-        doc.text(lines, 36, y + 18);
-        y += 18 + lines.length * 10 + 4;
+        if (noteLines.length) doc.text(noteLines, 36, y + 18);
+        if (photoH) {
+          try { doc.addImage(h.photo, 'JPEG', 36, y + 18 + noteLines.length * 10 + 4, photoW, photoH); }
+          catch(e){ /* skip silently if jsPDF can't decode it */ }
+        }
+        y += rowH;
       });
     }
     y += 12;
