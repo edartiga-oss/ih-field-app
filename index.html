@@ -2663,6 +2663,77 @@ body { padding: 20px 18px; }
             <span class="hint">Protection auto-checked from dBA (None &lt;85 · Plug or Muff 85-108 · Plug+Muff 108-118 · Plug+Muff+Time &gt;118)</span>
           </h2>
           <div class="body">
+            <details class="sl-rac-help" style="margin-bottom:10px;background:#f9f7fc;border:1px solid var(--sl-line2);border-radius:8px;padding:8px 12px;">
+              <summary style="cursor:pointer;font-weight:600;color:var(--sl-accent);font-size:12px;outline:none;">How is the Risk Assessment Code (RAC) calculated?</summary>
+              <div style="margin-top:10px;font-size:12px;color:var(--sl-ink);line-height:1.45;">
+                <p style="margin:0 0 8px"><b>Per DODI 6055.12 / DoD instructions on the DD 2214:</b> the RAC combines <b>hazard severity</b> (Roman numeral I–IV) with <b>mishap probability</b> (letter A–D). Some commands report the combined letter code (e.g. <b>IIB</b>); others use the numeric 1–5 derived from the severity × probability matrix below.</p>
+                <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
+                  <div style="flex:1 1 220px;min-width:220px;">
+                    <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--sl-muted);margin-bottom:4px;">Severity (I–IV)</div>
+                    <ul style="margin:0;padding-left:18px;">
+                      <li><b>I — Catastrophic.</b> May cause death or loss of a facility.</li>
+                      <li><b>II — Critical.</b> May cause severe injury, severe occupational illness, or major property damage.</li>
+                      <li><b>III — Marginal.</b> May cause minor injury, minor occupational illness, or minor property damage.</li>
+                      <li><b>IV — Negligible.</b> Probably would not affect personnel safety/health, but in violation of specific criteria.</li>
+                    </ul>
+                  </div>
+                  <div style="flex:1 1 220px;min-width:220px;">
+                    <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--sl-muted);margin-bottom:4px;">Mishap Probability (A–D)</div>
+                    <ul style="margin:0;padding-left:18px;">
+                      <li><b>A — Likely.</b> Immediately or within a short period.</li>
+                      <li><b>B — Probably</b> will occur in time.</li>
+                      <li><b>C — May</b> occur in time.</li>
+                      <li><b>D — Unlikely</b> to occur.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div style="margin-top:12px;">
+                  <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--sl-muted);margin-bottom:4px;">Severity × Probability Matrix → Numeric RAC (1 = highest risk, 5 = lowest)</div>
+                  <table style="border-collapse:collapse;font-size:11px;">
+                    <thead>
+                      <tr><th style="border:1px solid var(--sl-line);padding:3px 8px;background:#f0eaf7"></th>
+                          <th style="border:1px solid var(--sl-line);padding:3px 8px;background:#f0eaf7">A (Likely)</th>
+                          <th style="border:1px solid var(--sl-line);padding:3px 8px;background:#f0eaf7">B (Probably)</th>
+                          <th style="border:1px solid var(--sl-line);padding:3px 8px;background:#f0eaf7">C (May)</th>
+                          <th style="border:1px solid var(--sl-line);padding:3px 8px;background:#f0eaf7">D (Unlikely)</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td style="border:1px solid var(--sl-line);padding:3px 8px;font-weight:600;background:#f0eaf7">I — Catastrophic</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fbe1e1;font-weight:700">1</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fbe1e1;font-weight:700">1</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fff4d6;font-weight:700">2</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fff4d6;font-weight:700">3</td></tr>
+                      <tr><td style="border:1px solid var(--sl-line);padding:3px 8px;font-weight:600;background:#f0eaf7">II — Critical</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fbe1e1;font-weight:700">1</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fff4d6;font-weight:700">2</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fff4d6;font-weight:700">3</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#e7f6ef;font-weight:700">4</td></tr>
+                      <tr><td style="border:1px solid var(--sl-line);padding:3px 8px;font-weight:600;background:#f0eaf7">III — Marginal</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fff4d6;font-weight:700">2</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fff4d6;font-weight:700">3</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#e7f6ef;font-weight:700">4</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#e7f6ef;font-weight:700">5</td></tr>
+                      <tr><td style="border:1px solid var(--sl-line);padding:3px 8px;font-weight:600;background:#f0eaf7">IV — Negligible</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#fff4d6;font-weight:700">3</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#e7f6ef;font-weight:700">4</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#e7f6ef;font-weight:700">5</td>
+                          <td style="border:1px solid var(--sl-line);padding:3px 8px;text-align:center;background:#e7f6ef;font-weight:700">5</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div style="margin-top:12px;">
+                  <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--sl-muted);margin-bottom:4px;">Typical noise-specific RACs</div>
+                  <ul style="margin:0;padding-left:18px;">
+                    <li><b>RAC 1 (I-A / I-B):</b> L<sub>Aeq</sub> &ge; 130 dBA or L<sub>C,peak</sub> &ge; 165 dB — immediate hearing damage possible.</li>
+                    <li><b>RAC 2 (II-A / II-B):</b> L<sub>Aeq</sub> 115-129 dBA or L<sub>C,peak</sub> 140-164 dB — severe injury likely without HPD.</li>
+                    <li><b>RAC 3 (II-C / III-A):</b> L<sub>Aeq</sub> 85-114 dBA — long-term shift hazard, HPD required.</li>
+                    <li><b>RAC 4 (III-C / IV-B):</b> L<sub>Aeq</sub> 80-84 dBA — below the action level but worth documenting.</li>
+                    <li><b>RAC 5:</b> L<sub>Aeq</sub> &lt; 80 dBA — negligible noise hazard.</li>
+                  </ul>
+                </div>
+                <p style="margin:10px 0 0;font-size:11px;color:var(--sl-muted);font-style:italic">Reference: DODI 6055.12 (DoD Hearing Conservation Program) and AFI 91-203 / AFOSH STD 48-19 risk-assessment guidance. Specific service component instructions may adjust the thresholds — verify with your command's IH manual.</p>
+              </div>
+            </details>
             <div style="overflow-x:auto;">
               <table class="sl-meas">
                 <thead>
