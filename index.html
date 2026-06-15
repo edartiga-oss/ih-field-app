@@ -3114,6 +3114,10 @@ let deviceNickname = '';
 let currentSurveyId = null;
 let autosaveTimer = null;
 let projectMeta = { name: '', date: '' };
+/* Per-hour field-observation photos for the currently-loaded noise survey.
+   Keyed by hour number (1-10) -> JPEG data URI. Persisted as
+   survey.results.hourPhotos. */
+let currentSurveyHourPhotos = {};
 
 const STORAGE_KEY = 'ih_noise_surveys_v2';
 const META_KEY = 'ih_noise_meta_v2';
@@ -3215,6 +3219,88 @@ function clearLocalAndPullFresh() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  HOURLY FIELD-OBSERVATION PHOTOS  (noise dosimetry survey form)
+//  Each Hour 1-10 cell gets a "+ Photo" button and a thumbnail.
+//  Photos are downscaled client-side (max 800px on the long side,
+//  70%-quality JPEG) and stored as base64 data URIs alongside the
+//  hour notes in survey.results.hourPhotos.
+// ═══════════════════════════════════════════════════════════
+function setupNoiseHourPhotoUI(){
+  for (let h = 1; h <= 10; h++) {
+    const ta = document.getElementById('resHour'+h);
+    if (!ta) continue;
+    const parent = ta.parentNode;
+    if (parent.querySelector('.noise-hour-photo')) continue;  /* already wired */
+    const photoDiv = document.createElement('div');
+    photoDiv.className = 'noise-hour-photo';
+    photoDiv.id = 'noiseHourPhoto'+h;
+    photoDiv.style.cssText = 'display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap;';
+    photoDiv.innerHTML =
+      '<label class="np-add" style="font-size:11px;padding:5px 10px;cursor:pointer;border:1px dashed var(--border);border-radius:6px;background:var(--surface);color:var(--teal);font-weight:600;">'+
+        '+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="noiseAddPhoto('+h+', this)">'+
+      '</label>'+
+      '<img class="np-thumb" alt="Hour '+h+' photo" style="max-width:90px;max-height:70px;border-radius:6px;border:1px solid var(--border);display:none;object-fit:cover;">'+
+      '<button class="np-rm" type="button" onclick="noiseRemovePhoto('+h+')" style="display:none;font-size:10px;padding:3px 8px;cursor:pointer;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text2);">Remove</button>';
+    parent.appendChild(photoDiv);
+  }
+}
+function noiseAddPhoto(hour, inputEl){
+  const f = inputEl && inputEl.files && inputEl.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = function(){
+    const img = new Image();
+    img.onload = function(){
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUri = c.toDataURL('image/jpeg', 0.7);
+      currentSurveyHourPhotos[hour] = dataUri;
+      updateNoisePhotoUI(hour);
+      inputEl.value = '';   /* allow re-picking the same file later */
+      if (typeof autosave === 'function') autosave();
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(f);
+}
+function noiseRemovePhoto(hour){
+  delete currentSurveyHourPhotos[hour];
+  updateNoisePhotoUI(hour);
+  if (typeof autosave === 'function') autosave();
+}
+function updateNoisePhotoUI(hour){
+  const wrap = document.getElementById('noiseHourPhoto'+hour);
+  if (!wrap) return;
+  const photo = currentSurveyHourPhotos[hour];
+  const thumb = wrap.querySelector('.np-thumb');
+  const addBtn = wrap.querySelector('.np-add');
+  const rmBtn = wrap.querySelector('.np-rm');
+  if (photo) {
+    if (thumb) { thumb.src = photo; thumb.style.display = 'block'; }
+    if (addBtn) addBtn.style.display = 'none';
+    if (rmBtn) rmBtn.style.display = 'inline-block';
+  } else {
+    if (thumb) { thumb.style.display = 'none'; thumb.src = ''; }
+    if (addBtn) addBtn.style.display = 'inline-block';
+    if (rmBtn) rmBtn.style.display = 'none';
+  }
+}
+function clearNoisePhotos(){
+  currentSurveyHourPhotos = {};
+  for (let h = 1; h <= 10; h++) updateNoisePhotoUI(h);
+}
+function loadNoisePhotos(photos){
+  currentSurveyHourPhotos = Object.assign({}, photos || {});
+  for (let h = 1; h <= 10; h++) updateNoisePhotoUI(h);
+}
+
+// ═══════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════
 (function init() {
@@ -3225,6 +3311,7 @@ function clearLocalAndPullFresh() {
   loadDeviceNickname();
   renderSurveyList();
   renderExportList();
+  setupNoiseHourPhotoUI();
   // set today's date as default
   document.getElementById('projectDate').value = new Date().toISOString().split('T')[0];
   // Multi-setup data model: setupCount starts at 1, primarySetupIndex at 0,
@@ -4061,6 +4148,7 @@ function clearFormFields(keepInstruments) {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  clearNoisePhotos();
   // Setup blocks: snapshot primary-setup config if keepInstruments; always
   // collapse to a single setup block.
   var keepPrimary = null;
@@ -4217,7 +4305,8 @@ function getFormData() {
       lasmax140InvestigationNotes: g('lasmax140InvestigationNotes'),
       engControls: g('resEngControls'), adminControls: g('resAdminControls'), ppe: g('resPPE'),
       hour1: g('resHour1'), hour2: g('resHour2'), hour3: g('resHour3'), hour4: g('resHour4'), hour5: g('resHour5'),
-      hour6: g('resHour6'), hour7: g('resHour7'), hour8: g('resHour8'), hour9: g('resHour9'), hour10: g('resHour10')
+      hour6: g('resHour6'), hour7: g('resHour7'), hour8: g('resHour8'), hour9: g('resHour9'), hour10: g('resHour10'),
+      hourPhotos: Object.assign({}, currentSurveyHourPhotos)
     },
     ih: {
       name: g('ihName'), creds: g('ihCreds'), firm: g('ihFirm'), phone: g('ihPhone')
@@ -4317,6 +4406,7 @@ function populateForm(s) {
   sv('resHour4', s.results?.hour4); sv('resHour5', s.results?.hour5); sv('resHour6', s.results?.hour6);
   sv('resHour7', s.results?.hour7); sv('resHour8', s.results?.hour8); sv('resHour9', s.results?.hour9);
   sv('resHour10', s.results?.hour10);
+  loadNoisePhotos(s.results?.hourPhotos);
   sv('ihName', s.ih?.name); sv('ihCreds', s.ih?.creds); sv('ihFirm', s.ih?.firm); sv('ihPhone', s.ih?.phone);
 
   // Load per-column measured values if present on the saved survey (new
