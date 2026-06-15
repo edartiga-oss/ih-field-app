@@ -1037,7 +1037,8 @@ function newAirSurvey(){
   window.PREFILL = null;
   document.getElementById('airForm').reset();
   el('airPanelHost').innerHTML = ''; el('airTabBar').innerHTML = '';
-  sIdx = 0; bIdx = 0; units = []; activeUid = null; aCount = {}; oelChoice = {}; mvCount = {}; tcPhotos = {};
+  sIdx = 0; bIdx = 0; units = []; activeUid = null; aCount = {}; oelChoice = {}; mvCount = {};
+  tcPhotos = {}; tcPhotoUrls = {};
   initForm();
   renderAirSurveyList();
   if (window.showToast) showToast('Started new air sampling survey', 'success');
@@ -1077,16 +1078,75 @@ function renderAirSurveyList(){
 /* ─── Sheets sync — air sampling surveys ─── */
 function airSheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
 
+/* ── Photo upload to Drive (via Apps Script) ──
+   Uses text/plain Content-Type so the request is "simple" and skips the
+   CORS preflight that application/json would trigger (Apps Script handles
+   preflight poorly). The Apps Script's doPost reads e.postData.contents
+   regardless of mime type, so the body is still parsed correctly. */
+function uploadAirPhoto(surveyId, hour, dataUri){
+  const url = airSheetsUrl();
+  if (!url) return Promise.reject(new Error('No Sheets URL configured'));
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ _type: 'air_photo', surveyId, hour, dataUri })
+  }).then(r => r.json()).then(j => {
+    if (!j || !j.success) throw new Error((j && j.error) || 'Photo upload failed');
+    return j.url;
+  });
+}
+
+/* Walk the record's timeCourse.hours[]; for any hour with a data URI but
+   no photoUrl yet, upload to Drive and stash the URL onto the LOCAL
+   record (so we don't re-upload on the next save). */
+function uploadPendingPhotosFor(record){
+  const tc = record && record.timeCourse; if (!tc || !tc.hours) return Promise.resolve();
+  const tasks = [];
+  Object.keys(tc.hours).forEach(h => {
+    const e = tc.hours[h];
+    if (e.photo && !e.photoUrl) {
+      tasks.push(uploadAirPhoto(record.id, h, e.photo).then(url => {
+        e.photoUrl = url;
+        /* Also mirror into module state so the live form swaps the
+           thumbnail src to the Drive URL after Save. */
+        if (tcPhotoUrls && record.id === currentAirSurveyId) tcPhotoUrls[+h] = url;
+      }).catch(err => {
+        try { console.warn('[Air] photo upload failed for hour ' + h, err.message); } catch(e){}
+      }));
+    }
+  });
+  return Promise.all(tasks);
+}
+
+/* Returns a deep-cloned copy of the record with locally-captured data URIs
+   stripped from timeCourse.hours[*].photo so the Sheets payload stays
+   small. The Drive URL (photoUrl) is kept. */
+function stripAirPhotoData(record){
+  const clone = JSON.parse(JSON.stringify(record));
+  if (clone.timeCourse && clone.timeCourse.hours) {
+    Object.keys(clone.timeCourse.hours).forEach(h => {
+      delete clone.timeCourse.hours[h].photo;
+    });
+  }
+  return clone;
+}
+
 function pushAirSurveyToSheets(record){
   const url = airSheetsUrl();
   if (!url || !navigator.onLine) { queueAirSync(record); return; }
-  const payload = Object.assign({ _type: 'air_sampling' }, record, {
-    deviceInfo: navigator.userAgent.substring(0, 80)
-  });
-  fetch(url, {
-    method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  /* Upload any new photos first, then POST the survey with data URIs
+     stripped (only URLs remain). The upload mutates `record` in place so
+     subsequent saves don't re-upload. */
+  uploadPendingPhotosFor(record).then(() => {
+    saveAirSurveysToStorage();   /* persist the new photoUrls */
+    const payload = Object.assign({ _type: 'air_sampling' }, stripAirPhotoData(record), {
+      deviceInfo: navigator.userAgent.substring(0, 80)
+    });
+    return fetch(url, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   }).then(() => removeAirPendingSync(record.id))
     .catch(() => queueAirSync(record));
 }
@@ -1146,7 +1206,8 @@ function mergeRemoteAirSurveys(remote){
    Photos are downscaled client-side and stored as base64 data URIs in
    tcPhotos[hour] so collectForm / applyPrefill round-trip them with the
    rest of the form state. ============================================================ */
-let tcPhotos = {};  /* { 1: 'data:image/jpeg;base64,...', 2: ..., ... } */
+let tcPhotos = {};     /* hour idx -> data URI (local capture) */
+let tcPhotoUrls = {};  /* hour idx -> Drive URL after upload */
 
 function tcUnit(){ return (el('airTcUnit')||{}).value || 'hours'; }
 function tcLabelFor(idx){ return tcUnit() === 'minutes' ? ('Min '+idx) : ('Hour '+idx); }
@@ -1161,14 +1222,14 @@ function tcEntryCount(){
 function tcEntryHTML(idx){
   const label = tcLabelFor(idx);
   const txtName = 'tc_hour_'+idx;   /* field name kept generic for JSON round-trip */
-  const photo = tcPhotos[idx] || '';
+  const photo = tcPhotos[idx] || tcPhotoUrls[idx] || '';
   const hasPic = photo ? ' has-pic' : '';
   const unitWord = tcUnit() === 'minutes' ? 'minute' : 'hour';
   return '<div class="tc-entry" data-hour="'+idx+'">'+
     '<div class="tc-label">'+label+'</div>'+
     '<textarea name="'+txtName+'" placeholder="Tasks, location, exposure events during '+unitWord+' '+idx+'..."></textarea>'+
     '<div class="tc-pic'+hasPic+'">'+
-      '<img class="tc-thumb" src="'+esc(photo)+'" alt="'+label+' photo">'+
+      '<img class="tc-thumb" src="'+esc(photo)+'" alt="'+label+' photo" referrerpolicy="no-referrer">'+
       '<label class="tc-add">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Air.onTcPhoto('+idx+', this)"></label>'+
       '<button type="button" class="tc-rm" onclick="Air.removeTcPhoto('+idx+')">Remove</button>'+
     '</div>'+
@@ -1213,6 +1274,7 @@ function onTcPhoto(hour, inputEl){
       c.getContext('2d').drawImage(img, 0, 0, w, h);
       const dataUri = c.toDataURL('image/jpeg', 0.7);
       tcPhotos[hour] = dataUri;
+      delete tcPhotoUrls[hour];  /* new local photo invalidates any old Drive URL */
       const entry = document.querySelector('#airTcEntries .tc-entry[data-hour="'+hour+'"]');
       if (entry) {
         const pic = entry.querySelector('.tc-pic'); pic.classList.add('has-pic');
@@ -1226,6 +1288,7 @@ function onTcPhoto(hour, inputEl){
 }
 function removeTcPhoto(hour){
   delete tcPhotos[hour];
+  delete tcPhotoUrls[hour];
   const entry = document.querySelector('#airTcEntries .tc-entry[data-hour="'+hour+'"]');
   if (entry) {
     const pic = entry.querySelector('.tc-pic'); pic.classList.remove('has-pic');
@@ -1233,8 +1296,11 @@ function removeTcPhoto(hour){
   }
 }
 function collectTimeCourse(){
-  /* Returns { duration, unit, hours: {1: {text, photo}, 2: ...} } so it
-     round-trips through save/load. */
+  /* Returns { duration, unit, hours: {1: {text, photo, photoUrl}, ...} } so
+     it round-trips through save/load. `photo` is the locally-captured data
+     URI; `photoUrl` is the Drive link after upload. Either or both may be
+     present (a brand-new photo only has `photo` until upload completes;
+     a survey pulled from Sheets only has `photoUrl`). */
   const out = { duration: (el('airTcDuration')||{}).value || '',
                 unit: (el('airTcUnit')||{}).value || 'hours',
                 hours: {} };
@@ -1242,17 +1308,19 @@ function collectTimeCourse(){
     const h = +div.dataset.hour;
     const text = (div.querySelector('textarea')||{}).value || '';
     const photo = tcPhotos[h] || '';
-    if (text || photo) out.hours[h] = { text, photo };
+    const photoUrl = tcPhotoUrls[h] || '';
+    if (text || photo || photoUrl) out.hours[h] = { text, photo, photoUrl };
   });
   return out;
 }
 function applyTimeCourse(tc){
   if (!tc) return;
-  tcPhotos = {};
+  tcPhotos = {}; tcPhotoUrls = {};
   if (tc.duration) { const i = el('airTcDuration'); if (i) i.value = tc.duration; }
   if (tc.unit) { const s = el('airTcUnit'); if (s) s.value = tc.unit; }
   Object.keys(tc.hours||{}).forEach(h => {
-    if (tc.hours[h].photo) tcPhotos[h] = tc.hours[h].photo;
+    if (tc.hours[h].photo)    tcPhotos[h]    = tc.hours[h].photo;
+    if (tc.hours[h].photoUrl) tcPhotoUrls[h] = tc.hours[h].photoUrl;
   });
   rebuildTimeCourse();
   Object.keys(tc.hours||{}).forEach(h => {
@@ -1826,8 +1894,9 @@ function ofTimeCourseTable(){
   let body = '';
   indices.forEach(idx => {
     const e = tc.hours[idx];
-    const photo = e.photo
-      ? '<img src="'+esc(e.photo)+'" style="max-width:140pt;max-height:90pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
+    const src = e.photo || e.photoUrl || '';
+    const photo = src
+      ? '<img src="'+esc(src)+'" referrerpolicy="no-referrer" style="max-width:140pt;max-height:90pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
       : '';
     body += '<tr>'+
       '<td class="of-label" style="width:14%">'+unitWord+' '+idx+'</td>'+
@@ -2006,7 +2075,7 @@ function resetForm(){
   document.getElementById('airForm').reset();
   el('airPanelHost').innerHTML=''; el('airTabBar').innerHTML='';
   sIdx=0; bIdx=0; units=[]; activeUid=null; aCount={}; oelChoice={}; mvCount={};
-  tcPhotos = {};
+  tcPhotos = {}; tcPhotoUrls = {};
   initForm();
 }
 

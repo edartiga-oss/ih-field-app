@@ -27,6 +27,11 @@ function doPost(e) {
       return handleAirUpsert(ss, data);
     }
 
+    // ── Air Sampling photo upload (Drive) ─────────────────────────────
+    if (data._type === 'air_photo') {
+      return handleAirPhotoUpload(data);
+    }
+
     // ── Handle delete action (surveys) ────────────────────────────────
     if (data._action === 'delete' && data.id) {
       const sheet = ss.getSheetByName(SHEET_NAME);
@@ -269,8 +274,73 @@ function handleAirDelete(ss, id) {
       if (rawVals[i][0] === id) rawSheet.deleteRow(i + 2);
     }
   }
+  /* Also trash the Drive folder of photos for this survey. Best-effort —
+     don't block the delete if Drive is unavailable. */
+  try {
+    const root = getAirPhotoRoot_();
+    const subs = root.getFoldersByName(id);
+    while (subs.hasNext()) subs.next().setTrashed(true);
+  } catch (e) {}
   return ContentService
     .createTextOutput(JSON.stringify({ success: true, action: 'deleted', type: 'air_sampling', id: id }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  AIR SAMPLING PHOTO UPLOAD (Drive)
+//  Body: { _type:'air_photo', surveyId, hour, dataUri }
+//  Returns: { success:true, url, fileId } — the URL is a Drive
+//  thumbnail link usable in an <img src> for the client.
+// ══════════════════════════════════════════════════════════════════════
+const AIR_PHOTO_ROOT_NAME = 'Air Sampling Photos';
+
+function getAirPhotoRoot_() {
+  const it = DriveApp.getFoldersByName(AIR_PHOTO_ROOT_NAME);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(AIR_PHOTO_ROOT_NAME);
+}
+
+function handleAirPhotoUpload(data) {
+  if (!data.surveyId || data.hour == null || !data.dataUri) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: 'missing surveyId, hour, or dataUri' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  /* Find or create the per-survey subfolder. */
+  const root = getAirPhotoRoot_();
+  const subIt = root.getFoldersByName(data.surveyId);
+  const surveyFolder = subIt.hasNext() ? subIt.next() : root.createFolder(data.surveyId);
+
+  /* Parse the data URI: data:image/jpeg;base64,XXXX */
+  const m = String(data.dataUri).match(/^data:(.+?);base64,(.+)$/);
+  if (!m) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: 'malformed dataUri' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  const mimeType = m[1];
+  const bytes = Utilities.base64Decode(m[2]);
+  const ext = mimeType.indexOf('png') >= 0 ? 'png' : 'jpg';
+  const name = 'hour-' + data.hour + '.' + ext;
+
+  /* If we're replacing an existing photo for this hour, trash the old one. */
+  const existing = surveyFolder.getFilesByName(name);
+  while (existing.hasNext()) existing.next().setTrashed(true);
+
+  const blob = Utilities.newBlob(bytes, mimeType, name);
+  const file = surveyFolder.createFile(blob);
+  /* Make the file viewable by anyone with the link so <img src> works
+     without a logged-in Google session on the client. */
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {
+    /* Some workspaces lock down link sharing — fall back to silent failure;
+       the file is still saved, the IH can grant access manually. */
+  }
+  const fileId = file.getId();
+  const url = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+  return ContentService
+    .createTextOutput(JSON.stringify({ success: true, url: url, fileId: fileId, name: name }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
