@@ -2506,6 +2506,13 @@ body { padding: 20px 18px; }
             <label><span class="lbl">Default Limit</span><select id="airOelLimit" onchange="Air.onOelBasis&amp;&amp;Air.onOelBasis()"><option>TWA</option><option>Action Level</option><option>STEL</option><option>Ceiling</option></select></label>
             <label><span class="lbl">Work Shift (hrs/day)</span><input type="number" step="any" name="twa_shift" id="airTwaShift" value="8" min="1" max="24" oninput="Air.refreshTWA&amp;&amp;Air.refreshTWA()"></label>
             <label><span class="lbl">Extended-Shift OEL Adjustment</span><select name="twa_adj_model" id="airTwaAdjModel" onchange="Air.refreshTWA&amp;&amp;Air.refreshTWA()"><option value="none">None (standard 8-hr OEL)</option><option value="bs_daily">Brief &amp; Scala (daily)</option></select></label>
+            <label><span class="lbl">Display Units</span>
+              <select id="airTwaDisplayUnit" onchange="Air.refreshTWA&amp;&amp;Air.refreshTWA()">
+                <option value="auto">As reported (per analyte)</option>
+                <option value="ppm">ppm (all rows)</option>
+                <option value="mg/m³">mg/m³ (all rows)</option>
+              </select>
+            </label>
           </div>
           <table class="cons" id="airTwaTable">
             <thead><tr>
