@@ -317,17 +317,19 @@ function samplePanel(i){
     '</fieldset>'+
 
     '<fieldset><legend>Minimum Sample Volume &amp; Time <span style="font-weight:400;text-transform:none">— per analyte: Min Vol (L) = LOD(µg) / (OEL × Fraction)&nbsp;|&nbsp;Req Time = Vol / Flow. OEL &amp; flow pre-fill from the method/OEL library.</span></legend>'+
-      '<table class="cons mvtable"><thead><tr>'+
-        '<th>Analyte</th>'+
-        '<th>LOD (µg)</th>'+
-        '<th>OEL</th>'+
-        '<th>Desired Fraction</th>'+
-        '<th>Rec. Flow (L/min)</th>'+
-        '<th>Rec. Vol (L)</th>'+
-        '<th>Planned Flow (L/min)</th>'+
-        '<th>Min Vol (L)</th>'+
-        '<th>Req Time (min)</th>'+
-      '</tr></thead><tbody id="airMvBody'+i+'"></tbody></table>'+
+      '<div class="air-scroll-x">'+
+        '<table class="cons mvtable"><thead><tr>'+
+          '<th>Analyte</th>'+
+          '<th>LOD (µg)</th>'+
+          '<th>OEL</th>'+
+          '<th>Desired Fraction</th>'+
+          '<th>Rec. Flow (L/min)</th>'+
+          '<th>Rec. Vol (L)</th>'+
+          '<th>Planned Flow (L/min)</th>'+
+          '<th>Min Vol (L)</th>'+
+          '<th>Req Time (min)</th>'+
+        '</tr></thead><tbody id="airMvBody'+i+'"></tbody></table>'+
+      '</div>'+
       '<div style="margin-top:8px"><button type="button" onclick="Air.addMvRow('+i+')">+ Add analyte</button></div>'+
     '</fieldset>'+
 
@@ -367,7 +369,9 @@ function samplePanel(i){
     '</fieldset>'+
 
     '<fieldset><legend>Measurement Results <span style="font-weight:400;text-transform:none">— one row per analyte. Enter lab MDL/LOD &amp; measured result (use &lt; for non-detect, e.g. &lt;0.002). OEL, 8-hr TWA &amp; % of OEL are computed in the TWA Calculator section below.</span></legend>'+
-      '<table class="cons fit"><thead><tr><th>Analyte</th><th>MDL / LOD</th><th>Measured Result</th><th>Units</th><th>Corrected</th></tr></thead><tbody id="airResBody'+i+'"></tbody></table>'+
+      '<div class="air-scroll-x">'+
+        '<table class="cons fit"><thead><tr><th>Analyte</th><th>MDL / LOD</th><th>Measured Result</th><th>Units</th><th>Corrected</th></tr></thead><tbody id="airResBody'+i+'"></tbody></table>'+
+      '</div>'+
       '<div style="margin-top:8px"><button type="button" onclick="Air.addAnalyte('+i+')">+ Add analyte</button></div>'+
     '</fieldset>'+
 
