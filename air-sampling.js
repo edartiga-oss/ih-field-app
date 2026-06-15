@@ -1172,12 +1172,13 @@ function refreshTWA(){
       ? (r.ndAny?'<':'')+round(r.pct,1)+'%'+(r.unitMismatch && !isOverride?' <span style="color:var(--ai-muted);font-size:10px" title="Result converted before comparing to OEL">*</span>':'')
       : '—';
     /* Tint the % cell: yellow at 50-99% of OEL (action-level range);
-       red at >= 100%. Applied via class so screen and print share the
-       threshold definition. */
-    let pctClass = 'calc-cell';
+       red at >= 100%. Use inline style — CSS classes were being
+       trumped on some browsers by the calc-cell green. Inline style
+       always wins. */
+    let pctStyle = '';
     if (r.pct != null) {
-      if (r.pct >= 100) pctClass = 'calc-cell pct-red';
-      else if (r.pct >= 50) pctClass = 'calc-cell pct-yellow';
+      if (r.pct >= 100)      pctStyle = 'background:#fbe1e1 !important;color:#a32d2d !important;font-weight:700;';
+      else if (r.pct >= 50)  pctStyle = 'background:#fff4d6 !important;color:#7a4f00 !important;font-weight:700;';
     }
     body.insertAdjacentHTML('beforeend',
       '<tr>'+workerCell+
@@ -1188,7 +1189,7 @@ function refreshTWA(){
       '<td>'+esc(r.dispResultUnit || r.unit)+'</td>'+
       '<td>'+oelCellHTML(r.name, displayMode)+'</td>'+
       '<td class="adjcol calc-cell" title="OEL reduced for the work shift (Brief & Scala)">'+(r.dispAdjOel!=null?round(r.dispAdjOel,4):'—')+'</td>'+
-      '<td class="'+pctClass+'">'+pctCell+'</td>'+
+      '<td class="calc-cell" style="'+pctStyle+'">'+pctCell+'</td>'+
       '</tr>');
   });
 }
