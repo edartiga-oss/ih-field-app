@@ -594,6 +594,74 @@ function buildOfficialDOM(){
         '<b>DD FORM 2214, JAN 2000</b>'+
         '<span style="float:right">Page 1 of 2</span>'+
       '</div>'+
+    '</div>'+
+
+    /* Page 2 — verbatim instructions panel, replicates the back of the
+       official DD 2214. Page-break before so it prints on a second sheet. */
+    '<div class="dd-form dd-page2" style="page-break-before:always;">'+
+      '<div class="dd-prescr">Prescribed by: <u>DODI 6055.12</u> &nbsp; <span style="float:right">(Updated 20250318)</span></div>'+
+      '<div class="dd-title" style="font-size:11pt;margin-bottom:4pt">INSTRUCTIONS<br>'+
+        '<span style="font-weight:normal;font-style:italic;font-size:8pt">(Refer to DoD Component Instructions for Additional Guidance)</span></div>'+
+      '<table class="dd dd-instr" style="border-collapse:collapse"><tr>'+
+        '<td style="vertical-align:top;width:50%;padding:4pt 6pt;border:0.5pt solid #000;font-size:8pt;line-height:1.25">'+
+          '<p style="margin:0 0 4pt"><b>PURPOSE:</b> This form is intended to record noise survey results for the identification of potentially noise-hazardous environments.</p>'+
+          '<p style="margin:0 0 4pt"><b>GENERAL:</b> Print all information in ink. Only medical, industrial hygiene, safety, or engineering personnel who meet training requirements specified by the DOD components will make sound level measurements.</p>'+
+          '<p style="margin:0 0 4pt"><b>1. Date</b> - Enter date noise survey conducted (e.g., if Jan. 14, 1999, enter 19990114).</p>'+
+          '<p style="margin:0 0 4pt"><b>2. Type, Survey</b> - Enter appropriate numeric code in box (e.g., enter "1" if area or operation not surveyed before or no available records of previous survey; enter "2" if resurvey conducted at regular intervals (such as once each 12 months); or enter "3" if noise being reevaluated to confirm validity of previously obtained measurements or for purposes other than indicated).</p>'+
+          '<p style="margin:0 0 4pt"><b>3. Sound Level Meter:</b><br>'+
+            '&nbsp;&nbsp;a. Mfgr - Enter name of company that produced sound level meter.<br>'+
+            '&nbsp;&nbsp;b. Model - Enter manufacturer\'s designation.<br>'+
+            '&nbsp;&nbsp;c. Serial No. - Enter manufacturer\'s serial number.<br>'+
+            '&nbsp;&nbsp;d. Last Electroacoustic Calib Date - Enter year, month, day (see Item 1) of last comprehensive calibration required by DOD component. Not to include calibration checks made with acoustical calibrator.</p>'+
+          '<p style="margin:0 0 4pt"><b>4. Microphone</b> (Fill in this section if microphone is detachable from sound level meter)<br>'+
+            '&nbsp;&nbsp;a. Manufacturer - Enter name of company that produced microphone.<br>'+
+            '&nbsp;&nbsp;b. Model - Enter manufacturer\'s designation.<br>'+
+            '&nbsp;&nbsp;c. Serial No. - Enter manufacturer\'s serial number.<br>'+
+            '&nbsp;&nbsp;d. Last Electroacoustic Calib Date - Enter year, month, and day (see Item 1) of last comprehensive calibration as required by DOD component.</p>'+
+          '<p style="margin:0 0 4pt"><b>5. Calibrator:</b><br>'+
+            '&nbsp;&nbsp;a. Manufacturer - Enter name of company that produced calibrator.<br>'+
+            '&nbsp;&nbsp;b. Model - Enter manufacturer\'s designation.<br>'+
+            '&nbsp;&nbsp;c. Serial Number. Enter manufacturer\'s serial number.<br>'+
+            '&nbsp;&nbsp;d. Last Electroacoustic Calib Date. Enter year, month, and day (see Item 1) of last comprehensive calibration as required by DoD component.</p>'+
+          '<p style="margin:0 0 4pt"><b>6. Wind Screen</b> - Check appropriate box indicating if manufacturer\'s device to reduce wind noise is mounted over microphone assembly.</p>'+
+          '<p style="margin:0 0 4pt"><b>7. Measurements Obtained</b> - Check appropriate box indicating if measurements obtained indoors or outdoors.</p>'+
+          '<p style="margin:0 0 4pt"><b>8. Description of Areas/Duties Where Noise Survey Conducted</b> - Include building number(s), name of activity and/or operation, identify specific microphone locations, performance conditions and descriptions of machinery (e.g., rpm, load, etc). Where applicable, include noise-hazard contours of area. On additional sheet make simple line drawing of area and identify noise sources and locations of measurement.</p>'+
+          '<p style="margin:0 0 4pt"><b>9. Primary Source of Noise</b> - If possible, identify the location(s) of the highest dBA value.</p>'+
+          '<p style="margin:0 0 4pt"><b>10. Secondary Source of Noise</b> - If possible, identify all other noise sources when the primary noise source is off (e.g. background noise sources and other noise sources that may or may not be noise hazardous).</p>'+
+        '</td>'+
+        '<td style="vertical-align:top;width:50%;padding:4pt 6pt;border:0.5pt solid #000;border-left:none;font-size:8pt;line-height:1.25">'+
+          '<p style="margin:0 0 4pt"><b>11. Sound Level Data</b><br>'+
+            '&nbsp;&nbsp;a. Location - Position where measurement is obtained should correspond with those identified, or illustrated on form.<br>'+
+            '&nbsp;&nbsp;b. Meter Action - See Notes in Sound Level Data Sec. levels measured with weighting switch of meter in "C" position.<br>'+
+            '&nbsp;&nbsp;c. dBC - If required by DOD component, enter sound levels measured with weighting switch of meter in "C" position.<br>'+
+            '&nbsp;&nbsp;d. dBA - Enter sound levels measured with weighting switch of meter in "A" position. See NOTES in Sound Level Data Section.<br>'+
+            '&nbsp;&nbsp;e. Risk Assessment Code - Enter expression of risk that combines elements of hazard severity and mishap probability. Hazard severity categories shall be assigned by roman numeral as follows:<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(1) Category I - Catastrophic: May cause death or loss of a facility (Code I).<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(2) Category II - Critical: May cause severe injury, e.g., severe occupational illness, or major property damage (Code II).<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(3) Category III - Marginal: May cause minor injury, e.g., minor occupational illness, or minor property damage (Code III).<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(4) Category IV - Negligible: Probably would not affect personnel safety or health, but is nevertheless in violation of specific criteria (Code IV). Mishap probability shall be assigned capital letter according to following criteria:<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(a) Subcategory A: Likely to occur immediately or within a short period of time (Code A).<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(b) Subcategory B: Probably will occur in time (Code B).<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(c) Subcategory C: May occur in time (Code C).<br>'+
+            '&nbsp;&nbsp;&nbsp;&nbsp;(d) Subcategory D: Unlikely to occur (Code D).<br>'+
+            'Enter codes as IIB, IIIC, etc. Refer to DOD Instruction 6055.1/DOD component instructions for specific definitions and guidance.</p>'+
+          '<p style="margin:0 0 4pt"><b>12. Protection Required</b> (re: dBA Level)<br>'+
+            '&nbsp;&nbsp;a. None (less than 85): If dBA levels less than 85, check this column. No hearing protectors required.<br>'+
+            '&nbsp;&nbsp;b. Plug or Muff (85 - 108): If dBA levels 85 - 108 inclusive, check this column. Earplugs, ear muffs, ear-canal caps, or noise-attenuating helmet required.<br>'+
+            '&nbsp;&nbsp;c. Plug and Muff (108 - 118): If dBA levels over 108 to 118 inclusive, check this column. Earplugs worn in combination with ear muffs or noise-attenuating helmet required.<br>'+
+            '&nbsp;&nbsp;d. Plug, Muff &amp; Time: If dBA levels over 118, check this column. Earplugs worn in combination with ear muffs or noise-attenuating helmet and time limit (to be determined by DOD component) required.</p>'+
+          '<p style="margin:0 0 4pt"><b>13. Remarks</b> - Enter type of hearing protection in use, whether area and equipment posted with appropriate caution signs, etc.</p>'+
+          '<p style="margin:0 0 4pt"><b>14. More Detailed Noise Evaluation Required</b> - Check "yes" box if more detailed noise evaluation is required; check "no" box if not. Specify the type of evaluation needed (e.g., octave band analysis, etc.).</p>'+
+          '<p style="margin:0 0 4pt"><b>15. Name(s) of Persons Identified for Audiometric Monitoring</b> - List names of individuals routinely exposed to noise in preceding locations.</p>'+
+          '<p style="margin:0 0 4pt"><b>16. Supervisor of Noise - Hazardous Area or Operation</b> - Enter name (surname, given name, &amp; middle initial) of the first-echelon (immediate) supervisor of the location (and personnel) surveyed.</p>'+
+          '<p style="margin:0 0 4pt"><b>17. Survey Performed by</b> - Enter name (surname, given name &amp; middle initial) of individual performing survey &amp; signature.</p>'+
+          '<p style="margin:0 0 4pt"><b>18. Hearing Conservation Monitor</b> - Enter name of individual reviewing survey results &amp; signature. Usually local surgeon or designated representative.</p>'+
+        '</td>'+
+      '</tr></table>'+
+      '<div class="dd-foot">'+
+        '<b>DD FORM 2214 (BACK), JAN 2000</b>'+
+        '<span style="float:right">Page 2 of 2</span>'+
+      '</div>'+
     '</div>';
 
   const root = document.createElement('div');
@@ -700,10 +768,64 @@ function initCollapsible(){
     if (h.dataset.collapInit) return; h.dataset.collapInit = '1';
     h.insertAdjacentHTML('afterbegin', '<span class="chev" aria-hidden="true">▾</span> ');
     h.addEventListener('click', function(e){
-      if (e.target.closest('button,select,input,a,textarea')) return;
+      if (e.target.closest('button,select,input,a,textarea,.sl-info') ||
+          (e.target.tagName === 'SPAN' && e.target.classList.contains('sl-info'))) return;
       h.parentElement.classList.toggle('collapsed');
     });
   });
+}
+
+/* ── DD 2214 tooltip handler — shows the verbatim page-2 instruction
+   from each `.sl-info` icon's data-help attribute. Tap to open, tap
+   outside or the icon again to close. */
+let _activeTip = null;
+let _activeIcon = null;
+function closeTooltip(){
+  if (_activeTip && _activeTip.parentNode) _activeTip.parentNode.removeChild(_activeTip);
+  if (_activeIcon) _activeIcon.classList.remove('open');
+  _activeTip = null; _activeIcon = null;
+}
+function openTooltip(icon){
+  closeTooltip();
+  const help = icon.getAttribute('data-help') || '';
+  if (!help) return;
+  const tip = document.createElement('div');
+  tip.className = 'sl-tooltip';
+  tip.textContent = help;
+  document.body.appendChild(tip);
+  const r = icon.getBoundingClientRect();
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = r.left;
+  if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+  if (left < 8) left = 8;
+  let top = r.bottom + 8;
+  let cls = 'below';
+  if (top + th > window.innerHeight - 8) {
+    top = r.top - th - 8;
+    cls = 'above';
+  }
+  tip.style.left = left + 'px';
+  tip.style.top  = top + 'px';
+  tip.classList.add(cls);
+  icon.classList.add('open');
+  _activeTip = tip; _activeIcon = icon;
+}
+function initTooltips(){
+  if (initTooltips._wired) return;
+  initTooltips._wired = true;
+  document.addEventListener('click', function(e){
+    const icon = e.target.closest && e.target.closest('#soundAppHost .sl-info');
+    if (icon) {
+      e.stopPropagation(); e.preventDefault();
+      if (_activeIcon === icon) closeTooltip();
+      else openTooltip(icon);
+      return;
+    }
+    if (_activeTip && !e.target.closest('.sl-tooltip')) closeTooltip();
+  }, true);
+  window.addEventListener('resize', closeTooltip);
+  window.addEventListener('scroll', closeTooltip, true);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeTooltip(); });
 }
 
 /* ── Init ── */
@@ -718,6 +840,7 @@ function initForm(){
     for (let i = 0; i < 3; i++) addMeasurement();
     renderSurveyList();
     initCollapsible();
+    initTooltips();
     recomputeDrift();
     if (navigator.onLine) setTimeout(flushSyncQueue, 2500);
     initialized = true;
