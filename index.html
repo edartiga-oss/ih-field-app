@@ -2527,6 +2527,25 @@ body { padding: 20px 18px; }
 #soundAppHost .sl-photo-btn{font-size:11px;padding:4px 8px;cursor:pointer;border:1px dashed var(--sl-line);border-radius:5px;background:#fff;color:var(--sl-accent);}
 #soundAppHost .sl-photo-thumb{max-width:80px;max-height:60px;border-radius:4px;border:1px solid var(--sl-line);object-fit:cover;display:block;margin-top:2px;}
 
+/* Inline DD 2214 tooltip icon — click/tap shows a small popover with the
+   official instruction text from page 2 of the form. */
+#soundAppHost .sl-info{display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:50%;background:var(--sl-accent-soft);
+  color:var(--sl-accent);font-size:10px;font-weight:700;cursor:pointer;
+  margin-left:4px;user-select:none;font-family:inherit;line-height:1;
+  font-style:normal;text-transform:none;letter-spacing:0;border:1px solid transparent;}
+#soundAppHost .sl-info:hover,#soundAppHost .sl-info:focus{
+  background:var(--sl-accent);color:#fff;outline:none;}
+#soundAppHost .sl-info.open{background:var(--sl-accent);color:#fff;}
+#soundAppHost .sl-tooltip{
+  position:fixed;z-index:9999;max-width:340px;padding:10px 12px;
+  background:#1c2430;color:#fff;font-size:12px;line-height:1.45;border-radius:8px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.25);font-weight:400;letter-spacing:0;
+  text-transform:none;font-style:normal;}
+#soundAppHost .sl-tooltip::after{content:'';position:absolute;border:6px solid transparent;}
+#soundAppHost .sl-tooltip.below::after{top:-12px;left:18px;border-bottom-color:#1c2430;}
+#soundAppHost .sl-tooltip.above::after{bottom:-12px;left:18px;border-top-color:#1c2430;}
+
 /* ─────────────────────────────────────────────────────────────────────── */
 </style>
 
@@ -2569,10 +2588,10 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>General Information <span class="hint">DD 2214 boxes 1 &amp; 2</span></h2>
+          <h2>1 &amp; 2. General Information <span class="hint">DD 2214 boxes 1 &amp; 2</span></h2>
           <div class="body grid c4">
-            <label><span class="lbl">Survey Date (YYYY-MM-DD)</span><input type="date" name="survey_date"></label>
-            <label><span class="lbl">Type Survey</span>
+            <label><span class="lbl">1. Date <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 1 instructions" data-help="Enter date noise survey conducted (e.g., if Jan. 14, 1999, enter 19990114).">i</span></span><input type="date" name="survey_date"></label>
+            <label><span class="lbl">2. Type, Survey <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 2 instructions" data-help="Enter appropriate numeric code in box: '1' if area or operation not surveyed before or no available records of previous survey; '2' if resurvey conducted at regular intervals (such as once each 12 months); '3' if noise being reevaluated to confirm validity of previously obtained measurements or for purposes other than indicated.">i</span></span>
               <select name="survey_type">
                 <option value="">—</option>
                 <option value="1">1 — Initial Survey</option>
@@ -2589,20 +2608,20 @@ body { padding: 20px 18px; }
         <section class="sl-card">
           <h2>3. Sound Level Meter</h2>
           <div class="body grid c4">
-            <label><span class="lbl">a. Manufacturer</span><input name="slm_make"></label>
-            <label><span class="lbl">b. Model</span><input name="slm_model"></label>
-            <label><span class="lbl">c. Serial No.</span><input name="slm_serial"></label>
-            <label><span class="lbl">d. Last Electroacoustic Calib Date</span><input type="date" name="slm_last_cal"></label>
+            <label><span class="lbl">a. Mfgr <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3a instructions" data-help="Enter name of company that produced sound level meter.">i</span></span><input name="slm_make"></label>
+            <label><span class="lbl">b. Model <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3b instructions" data-help="Enter manufacturer's designation.">i</span></span><input name="slm_model"></label>
+            <label><span class="lbl">c. Serial No. <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3c instructions" data-help="Enter manufacturer's serial number.">i</span></span><input name="slm_serial"></label>
+            <label><span class="lbl">d. Last Electroacoustic Calib Date <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3d instructions" data-help="Enter year, month, day (see Item 1) of last comprehensive calibration required by DOD component. Not to include calibration checks made with acoustical calibrator.">i</span></span><input type="date" name="slm_last_cal"></label>
           </div>
         </section>
 
         <section class="sl-card">
-          <h2>4. Microphone</h2>
+          <h2>4. Microphone <span class="hint">Fill in this section if microphone is detachable from sound level meter</span></h2>
           <div class="body grid c4">
-            <label><span class="lbl">a. Manufacturer</span><input name="mic_make"></label>
-            <label><span class="lbl">b. Model</span><input name="mic_model"></label>
-            <label><span class="lbl">c. Serial No.</span><input name="mic_serial"></label>
-            <label><span class="lbl">d. Last Electroacoustic Calib Date</span><input type="date" name="mic_last_cal"></label>
+            <label><span class="lbl">a. Manufacturer <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 4a instructions" data-help="Enter name of company that produced microphone.">i</span></span><input name="mic_make"></label>
+            <label><span class="lbl">b. Model <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 4b instructions" data-help="Enter manufacturer's designation.">i</span></span><input name="mic_model"></label>
+            <label><span class="lbl">c. Serial No. <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 4c instructions" data-help="Enter manufacturer's serial number.">i</span></span><input name="mic_serial"></label>
+            <label><span class="lbl">d. Last Electroacoustic Calib Date <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 4d instructions" data-help="Enter year, month, and day (see Item 1) of last comprehensive calibration as required by DOD component.">i</span></span><input type="date" name="mic_last_cal"></label>
           </div>
         </section>
 
@@ -2610,10 +2629,10 @@ body { padding: 20px 18px; }
           <h2>5. Calibrator <span class="hint">+ field cal check (drift &le; 0.5 dB)</span></h2>
           <div class="body">
             <div class="grid c4">
-              <label><span class="lbl">a. Manufacturer</span><input name="cal_make"></label>
-              <label><span class="lbl">b. Model</span><input name="cal_model"></label>
-              <label><span class="lbl">c. Serial No.</span><input name="cal_serial"></label>
-              <label><span class="lbl">d. Last Electroacoustic Calib Date</span><input type="date" name="cal_last_nist"></label>
+              <label><span class="lbl">a. Manufacturer <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 5a instructions" data-help="Enter name of company that produced calibrator.">i</span></span><input name="cal_make"></label>
+              <label><span class="lbl">b. Model <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 5b instructions" data-help="Enter manufacturer's designation.">i</span></span><input name="cal_model"></label>
+              <label><span class="lbl">c. Serial Number <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 5c instructions" data-help="Enter manufacturer's serial number.">i</span></span><input name="cal_serial"></label>
+              <label><span class="lbl">d. Last Electroacoustic Calib Date <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 5d instructions" data-help="Enter year, month, and day (see Item 1) of last comprehensive calibration as required by DoD component.">i</span></span><input type="date" name="cal_last_nist"></label>
               <label><span class="lbl">Reference Level (dB)</span><input name="cal_ref_level" placeholder="e.g. 94.0 or 114.0"></label>
             </div>
             <fieldset style="margin-top:10px">
@@ -2637,9 +2656,9 @@ body { padding: 20px 18px; }
         <section class="sl-card">
           <h2>6 &amp; 7. Survey Conditions</h2>
           <div class="body grid c4">
-            <label><span class="lbl">6. Wind Screen</span>
+            <label><span class="lbl">6. Wind Screen <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 6 instructions" data-help="Check appropriate box indicating if manufacturer's device to reduce wind noise is mounted over microphone assembly.">i</span></span>
               <select name="wind_screen"><option value="">—</option><option>Used</option><option>Not Used</option></select></label>
-            <label><span class="lbl">7. Measurements Obtained</span>
+            <label><span class="lbl">7. Measurements Obtained <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 7 instructions" data-help="Check appropriate box indicating if measurements obtained indoors or outdoors.">i</span></span>
               <select name="meas_location"><option value="">—</option><option>Indoors</option><option>Outdoors</option></select></label>
             <label><span class="lbl">SLM Frequency Weighting</span>
               <select name="slm_weighting"><option value="A" selected>A (dBA)</option><option value="C">C (dBC)</option><option value="Z">Z (linear)</option></select></label>
@@ -2651,10 +2670,10 @@ body { padding: 20px 18px; }
         <section class="sl-card">
           <h2>8 / 9 / 10. Area Description &amp; Noise Sources</h2>
           <div class="body grid c2">
-            <label class="span2"><span class="lbl">8. Description of Areas/Duties Where Noise Survey Conducted</span>
+            <label class="span2"><span class="lbl">8. Description of Areas/Duties Where Noise Survey Conducted <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 8 instructions" data-help="Include building number(s), name of activity and/or operation, identify specific microphone locations, performance conditions and descriptions of machinery (e.g., rpm, load, etc). Where applicable, include noise-hazard contours of area. On additional sheet make simple line drawing of area and identify noise sources and locations of measurement.">i</span></span>
               <textarea name="area_description" rows="3" placeholder="e.g. 'Readings collected from Vehicle Maintenance Bay. Pre Calibration - 113.6 dBA. Post Calibration - 113.6 dBA.'"></textarea></label>
-            <label><span class="lbl">9. Primary Source of Noise</span><input name="primary_source" placeholder="e.g. Vehicles and Tools"></label>
-            <label><span class="lbl">10. Secondary Source of Noise</span><input name="secondary_source" placeholder="e.g. Wind from outdoors"></label>
+            <label><span class="lbl">9. Primary Source of Noise <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 9 instructions" data-help="If possible, identify the location(s) of the highest dBA value.">i</span></span><input name="primary_source" placeholder="e.g. Vehicles and Tools"></label>
+            <label><span class="lbl">10. Secondary Source of Noise <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 10 instructions" data-help="If possible, identify all other noise sources when the primary noise source is off (e.g. background noise sources and other noise sources that may or may not be noise hazardous).">i</span></span><input name="secondary_source" placeholder="e.g. Wind from outdoors"></label>
           </div>
         </section>
 
@@ -2739,15 +2758,15 @@ body { padding: 20px 18px; }
                 <thead>
                   <tr>
                     <th style="width:24px">#</th>
-                    <th>a. Location</th>
-                    <th style="width:80px">b. Meter Action</th>
-                    <th style="width:70px">c. dBC</th>
-                    <th style="width:70px">d. dBA</th>
-                    <th style="width:80px">e. RAC</th>
-                    <th style="width:90px">12a. None (&lt;85)</th>
-                    <th style="width:90px">12b. Plug or Muff (85-108)</th>
-                    <th style="width:90px">12c. Plug+Muff (108-118)</th>
-                    <th style="width:90px">12d. Plug+Muff+Time (&gt;118)</th>
+                    <th>11a. Location <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 11a instructions" data-help="Position where measurement is obtained should correspond with those identified, or illustrated on form.">i</span></th>
+                    <th style="width:80px">11b. Meter Action <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 11b instructions" data-help="See Notes in Sound Level Data Sec. Levels measured with weighting switch of meter in 'C' position.">i</span></th>
+                    <th style="width:70px">11c. dBC <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 11c instructions" data-help="If required by DOD component, enter sound levels measured with weighting switch of meter in 'C' position.">i</span></th>
+                    <th style="width:70px">11d. dBA <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 11d instructions" data-help="Enter sound levels measured with weighting switch of meter in 'A' position. See NOTES in Sound Level Data Section.">i</span></th>
+                    <th style="width:80px">11e. RAC <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 11e instructions" data-help="Risk Assessment Code — Enter expression of risk that combines hazard severity (Roman numeral I–IV) and mishap probability (capital letter A–D). Enter codes as IIB, IIIC, etc. I=Catastrophic, II=Critical, III=Marginal, IV=Negligible. A=Likely immediately, B=Probably in time, C=May occur in time, D=Unlikely. Refer to DOD Instruction 6055.1/DOD component instructions.">i</span></th>
+                    <th style="width:90px">12a. None (&lt;85) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 12a instructions" data-help="If dBA levels less than 85, check this column. No hearing protectors required.">i</span></th>
+                    <th style="width:90px">12b. Plug or Muff (85-108) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 12b instructions" data-help="If dBA levels 85 - 108 inclusive, check this column. Earplugs, ear muffs, ear-canal caps, or noise-attenuating helmet required.">i</span></th>
+                    <th style="width:90px">12c. Plug and Muff (108-118) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 12c instructions" data-help="If dBA levels over 108 to 118 inclusive, check this column. Earplugs worn in combination with ear muffs or noise-attenuating helmet required.">i</span></th>
+                    <th style="width:90px">12d. Plug, Muff &amp; Time (&gt;118) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 12d instructions" data-help="If dBA levels over 118, check this column. Earplugs worn in combination with ear muffs or noise-attenuating helmet and time limit (to be determined by DOD component) required.">i</span></th>
                     <th>Notes / Photo</th>
                     <th style="width:26px"></th>
                   </tr>
@@ -2763,7 +2782,7 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>13. Remarks</h2>
+          <h2>13. Remarks <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 13 instructions" data-help="Enter type of hearing protection in use, whether area and equipment posted with appropriate caution signs, etc.">i</span></h2>
           <div class="body">
             <label class="span4"><span class="lbl">Area &amp; equipment posted, hearing protection required in use, etc.</span>
               <textarea name="remarks" rows="3"></textarea></label>
@@ -2771,7 +2790,7 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>14. More Detailed Noise Evaluation Required</h2>
+          <h2>14. More Detailed Noise Evaluation Required <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 14 instructions" data-help="Check 'yes' box if more detailed noise evaluation is required; check 'no' box if not. Specify the type of evaluation needed (e.g., octave band analysis, etc.).">i</span></h2>
           <div class="body grid c4">
             <label><span class="lbl">Required?</span>
               <select name="more_eval"><option value="">—</option><option value="Yes">Yes</option><option value="No">No</option></select></label>
@@ -2781,7 +2800,7 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>15. Audiometric Monitoring</h2>
+          <h2>15. Audiometric Monitoring <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 15 instructions" data-help="Name(s) of Persons Identified for Audiometric Monitoring — List names of individuals routinely exposed to noise in preceding locations.">i</span></h2>
           <div class="body">
             <label class="span4"><span class="lbl">Names of Persons Identified for Audiometric Monitoring</span>
               <textarea name="audiometric_names" rows="3" placeholder="e.g. Noise Dosimetry conducted on 24 and 25 March 2026 for 11 employees."></textarea></label>
@@ -2789,7 +2808,7 @@ body { padding: 20px 18px; }
         </section>
 
         <section class="sl-card">
-          <h2>16. Supervisor of Noise-Hazardous Area or Operation</h2>
+          <h2>16. Supervisor of Noise-Hazardous Area or Operation <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 16 instructions" data-help="Enter name (surname, given name, &amp; middle initial) of the first-echelon (immediate) supervisor of the location (and personnel) surveyed.">i</span></h2>
           <div class="body grid c3">
             <label><span class="lbl">a. Name (Last, First, MI)</span><input name="supervisor_name"></label>
             <label><span class="lbl">b. Telephone (include area code)</span><input name="supervisor_phone"></label>
@@ -2800,8 +2819,8 @@ body { padding: 20px 18px; }
         <section class="sl-card">
           <h2>17 &amp; 18. Survey Performed By / Hearing Conservation Monitor</h2>
           <div class="body grid c2">
-            <label><span class="lbl">17. Survey Performed By (Last, First, MI)</span><input name="performed_by"></label>
-            <label><span class="lbl">18. Hearing Conservation Monitor (Last, First, MI)</span><input name="hcm_name"></label>
+            <label><span class="lbl">17. Survey Performed By (Last, First, MI) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 17 instructions" data-help="Enter name (surname, given name &amp; middle initial) of individual performing survey &amp; signature.">i</span></span><input name="performed_by"></label>
+            <label><span class="lbl">18. Hearing Conservation Monitor (Last, First, MI) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 18 instructions" data-help="Enter name of individual reviewing survey results &amp; signature. Usually local surgeon or designated representative.">i</span></span><input name="hcm_name"></label>
           </div>
         </section>
       </form>
