@@ -1413,7 +1413,8 @@ body { padding: 20px 18px; }
 
         <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
           <button class="toggle-chip active" id="invTypeBtn-dosimeter" onclick="setInvType('dosimeter')">Dosimeter</button>
-          <button class="toggle-chip" id="invTypeBtn-calibrator" onclick="setInvType('calibrator')">Calibrator</button>
+          <button class="toggle-chip" id="invTypeBtn-sound_level_meter" onclick="setInvType('sound_level_meter')">Sound Level Meter</button>
+          <button class="toggle-chip" id="invTypeBtn-calibrator" onclick="setInvType('calibrator')">Acoustic Calibrator</button>
           <button class="toggle-chip" id="invTypeBtn-air_pump" onclick="setInvType('air_pump')">Air Sampling Pump</button>
           <button class="toggle-chip" id="invTypeBtn-air_calibrator" onclick="setInvType('air_calibrator')">Air Sampling Calibrator</button>
         </div>
@@ -1454,6 +1455,37 @@ body { padding: 20px 18px; }
               </select>
             </div>
             <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="inv_dosNotes" placeholder="e.g., Field kit #1, battery replaced today"></div>
+          </div>
+        </div>
+
+        <!-- Sound Level Meter check-in fields -->
+        <div id="invSLMFields" style="display:none;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:10px;">
+            <div class="field"><label>Make <span class="req">*</span></label><input type="text" id="inv_slmMake" placeholder="e.g., Larson Davis, 3M Quest"></div>
+            <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="inv_slmModel" placeholder="e.g., SoundTrack LxT"></div>
+            <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="inv_slmSerial" placeholder="e.g., LD-2024-0042"></div>
+            <div class="field"><label>Asset / Tag #</label><input type="text" id="inv_slmAsset" placeholder="Internal tag"></div>
+            <div class="field"><label>Microphone Make</label><input type="text" id="inv_slmMicMake" placeholder="e.g., PCB Piezotronics"></div>
+            <div class="field"><label>Microphone Model</label><input type="text" id="inv_slmMicModel" placeholder="e.g., 377B02"></div>
+            <div class="field"><label>Microphone Serial</label><input type="text" id="inv_slmMicSerial" placeholder="Mic S/N"></div>
+            <div class="field"><label>Last Electroacoustic Cal Date</label><input type="date" id="inv_slmLastCal"></div>
+            <div class="field"><label>Cal. Due Date</label><input type="date" id="inv_slmCalDue"></div>
+            <div class="field"><label>SLM Type / Class</label>
+              <select id="inv_slmClass">
+                <option value="">—</option>
+                <option value="1">Type/Class 1 (precision)</option>
+                <option value="2">Type/Class 2 (general)</option>
+              </select>
+            </div>
+            <div class="field"><label>Condition</label>
+              <select id="inv_slmCondition">
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Needs service">Needs service</option>
+                <option value="Out of service">Out of service</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="inv_slmNotes" placeholder="e.g., Field kit #2, mic detachable"></div>
           </div>
         </div>
 
@@ -1565,11 +1597,25 @@ body { padding: 20px 18px; }
     </div>
   </div>
 
+  <!-- SOUND LEVEL METERS -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg>
+      Sound Level Meters
+      <span class="badge" id="slmBadgeLib">0</span>
+    </div>
+    <div id="equipSLMList" style="min-height:60px;">
+      <div class="empty-state" style="padding:28px 16px;">
+        <div class="empty-sub">No sound level meters saved yet.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- CALIBRATORS -->
   <div class="card">
     <div class="card-header">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      Calibrators
+      Acoustic Calibrators
       <span class="badge" id="calBadgeLib">0</span>
     </div>
     <div id="equipCalList" style="min-height:60px;">
@@ -1619,7 +1665,8 @@ body { padding: 20px 18px; }
     <div class="modal-body">
       <div style="display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;">
         <button class="toggle-chip active" id="equipTypeBtn-dosimeter" onclick="setEquipType('dosimeter')">Dosimeter</button>
-        <button class="toggle-chip" id="equipTypeBtn-calibrator" onclick="setEquipType('calibrator')">Calibrator</button>
+        <button class="toggle-chip" id="equipTypeBtn-sound_level_meter" onclick="setEquipType('sound_level_meter')">Sound Level Meter</button>
+        <button class="toggle-chip" id="equipTypeBtn-calibrator" onclick="setEquipType('calibrator')">Acoustic Calibrator</button>
         <button class="toggle-chip" id="equipTypeBtn-air_pump" onclick="setEquipType('air_pump')">Air Sampling Pump</button>
         <button class="toggle-chip" id="equipTypeBtn-air_calibrator" onclick="setEquipType('air_calibrator')">Air Sampling Calibrator</button>
       </div>
@@ -1662,6 +1709,38 @@ body { padding: 20px 18px; }
           </div>
           <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_dosCondNote" placeholder="Optional note for this update"></div>
           <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_dosNotes" placeholder="Optional notes (e.g., spare unit, assigned to field kit #2)"></div>
+        </div>
+      </div>
+
+      <!-- SOUND LEVEL METER FIELDS -->
+      <div id="equipSLMFields" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Make / Manufacturer <span class="req">*</span></label><input type="text" id="eq_slmMake" placeholder="e.g., Larson Davis, 3M Quest"></div>
+          <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="eq_slmModel" placeholder="e.g., SoundTrack LxT"></div>
+          <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="eq_slmSerial" placeholder="e.g., LD-2024-0042"></div>
+          <div class="field"><label>Asset / Tag #</label><input type="text" id="eq_slmAsset" placeholder="Internal asset tag"></div>
+          <div class="field"><label>Microphone Make</label><input type="text" id="eq_slmMicMake" placeholder="e.g., PCB Piezotronics"></div>
+          <div class="field"><label>Microphone Model</label><input type="text" id="eq_slmMicModel" placeholder="e.g., 377B02"></div>
+          <div class="field"><label>Microphone Serial</label><input type="text" id="eq_slmMicSerial" placeholder="Mic S/N"></div>
+          <div class="field"><label>Last Electroacoustic Cal Date</label><input type="date" id="eq_slmLastCal"></div>
+          <div class="field"><label>Cal. Due Date</label><input type="date" id="eq_slmCalDue"></div>
+          <div class="field"><label>SLM Type / Class</label>
+            <select id="eq_slmClass">
+              <option value="">—</option>
+              <option value="1">Type/Class 1 (precision)</option>
+              <option value="2">Type/Class 2 (general)</option>
+            </select>
+          </div>
+          <div class="field"><label>Condition</label>
+            <select id="eq_slmCondition">
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Needs service">Needs service</option>
+              <option value="Out of service">Out of service</option>
+            </select>
+          </div>
+          <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_slmCondNote" placeholder="Optional note for this update"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_slmNotes" placeholder="Optional notes"></div>
         </div>
       </div>
 
@@ -2608,11 +2687,20 @@ body { padding: 20px 18px; }
 
         <section class="sl-card">
           <h2>3. Sound Level Meter</h2>
-          <div class="body grid c4">
-            <label><span class="lbl">a. Mfgr <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3a instructions" data-help="Enter name of company that produced sound level meter.">i</span></span><input name="slm_make"></label>
-            <label><span class="lbl">b. Model <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3b instructions" data-help="Enter manufacturer's designation.">i</span></span><input name="slm_model"></label>
-            <label><span class="lbl">c. Serial No. <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3c instructions" data-help="Enter manufacturer's serial number.">i</span></span><input name="slm_serial"></label>
-            <label><span class="lbl">d. Last Electroacoustic Calib Date <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3d instructions" data-help="Enter year, month, day (see Item 1) of last comprehensive calibration required by DOD component. Not to include calibration checks made with acoustical calibrator.">i</span></span><input type="date" name="slm_last_cal"></label>
+          <div class="body">
+            <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--sl-muted);">From Library:</span>
+              <select id="soundSLMPicker" onchange="Sound.loadSLMFromLibrary&amp;&amp;Sound.loadSLMFromLibrary(this.value)" style="flex:1;min-width:200px;padding:6px 8px;border-radius:6px;border:1px solid var(--sl-line);background:#fff;cursor:pointer">
+                <option value="">Select from library…</option>
+              </select>
+              <span style="font-size:11px;color:var(--sl-muted);">Or check in a new one in Equipment Inventory.</span>
+            </div>
+            <div class="grid c4">
+              <label><span class="lbl">a. Mfgr <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3a instructions" data-help="Enter name of company that produced sound level meter.">i</span></span><input name="slm_make"></label>
+              <label><span class="lbl">b. Model <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3b instructions" data-help="Enter manufacturer's designation.">i</span></span><input name="slm_model"></label>
+              <label><span class="lbl">c. Serial No. <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3c instructions" data-help="Enter manufacturer's serial number.">i</span></span><input name="slm_serial"></label>
+              <label><span class="lbl">d. Last Electroacoustic Calib Date <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 3d instructions" data-help="Enter year, month, day (see Item 1) of last comprehensive calibration required by DOD component. Not to include calibration checks made with acoustical calibrator.">i</span></span><input type="date" name="slm_last_cal"></label>
+            </div>
           </div>
         </section>
 
@@ -2629,6 +2717,13 @@ body { padding: 20px 18px; }
         <section class="sl-card">
           <h2>5. Calibrator <span class="hint">+ field cal check (drift &le; 0.5 dB)</span></h2>
           <div class="body">
+            <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--sl-muted);">From Library:</span>
+              <select id="soundCalPicker" onchange="Sound.loadCalFromLibrary&amp;&amp;Sound.loadCalFromLibrary(this.value)" style="flex:1;min-width:200px;padding:6px 8px;border-radius:6px;border:1px solid var(--sl-line);background:#fff;cursor:pointer">
+                <option value="">Select from library…</option>
+              </select>
+              <span style="font-size:11px;color:var(--sl-muted);">Acoustic calibrator records (shared with dosimeter calibrators).</span>
+            </div>
             <div class="grid c4">
               <label><span class="lbl">a. Manufacturer <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 5a instructions" data-help="Enter name of company that produced calibrator.">i</span></span><input name="cal_make"></label>
               <label><span class="lbl">b. Model <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 5b instructions" data-help="Enter manufacturer's designation.">i</span></span><input name="cal_model"></label>
@@ -6411,9 +6506,10 @@ let currentEquipType = 'dosimeter';
 
 function setEquipType(type) {
   currentEquipType = type;
-  const types = ['dosimeter','calibrator','air_pump','air_calibrator'];
+  const types = ['dosimeter','sound_level_meter','calibrator','air_pump','air_calibrator'];
   const fieldIds = {
     dosimeter: 'equipDosFields',
+    sound_level_meter: 'equipSLMFields',
     calibrator: 'equipCalFields',
     air_pump: 'equipAirPumpFields',
     air_calibrator: 'equipAirCalFields',
@@ -6428,6 +6524,7 @@ function openEquipModal(editId) {
   document.getElementById('equipEditId').value = editId || '';
   // Clear all fields first
   ['eq_dosMake','eq_dosModel','eq_dosSerial','eq_dosAsset','eq_dosFactoryCal','eq_dosCalDue','eq_dosNotes','eq_dosCondNote',
+   'eq_slmMake','eq_slmModel','eq_slmSerial','eq_slmAsset','eq_slmMicMake','eq_slmMicModel','eq_slmMicSerial','eq_slmLastCal','eq_slmCalDue','eq_slmNotes','eq_slmCondNote',
    'eq_calMake','eq_calModel','eq_calSerial','eq_calAsset','eq_calLastNistCal','eq_calNistDue','eq_calRefLevel','eq_calNotes','eq_calCondNote',
    'eq_apMake','eq_apModel','eq_apSerial','eq_apAsset','eq_apFactoryCal','eq_apCalDue','eq_apFlowMin','eq_apFlowMax','eq_apNotes','eq_apCondNote',
    'eq_acMake','eq_acModel','eq_acSerial','eq_acAsset','eq_acFactoryCal','eq_acCalDue','eq_acNotes','eq_acCondNote']
@@ -6436,6 +6533,8 @@ function openEquipModal(editId) {
   document.getElementById('eq_dosCriterion').value = '90';
   document.getElementById('eq_dosThreshold').value = '80';
   document.getElementById('eq_dosCondition').value = 'Good';
+  document.getElementById('eq_slmCondition').value = 'Good';
+  document.getElementById('eq_slmClass').value = '';
   document.getElementById('eq_calCondition').value = 'Good';
   document.getElementById('eq_apCondition').value = 'Good';
   document.getElementById('eq_acCondition').value = 'Good';
@@ -6457,6 +6556,19 @@ function openEquipModal(editId) {
       document.getElementById('eq_dosThreshold').value = (eq.threshold !== undefined ? eq.threshold : '80');
       document.getElementById('eq_dosCondition').value = eq.condition  || 'Good';
       document.getElementById('eq_dosNotes').value     = eq.notes      || '';
+    } else if (eq.type === 'sound_level_meter') {
+      document.getElementById('eq_slmMake').value      = eq.make       || '';
+      document.getElementById('eq_slmModel').value     = eq.model      || '';
+      document.getElementById('eq_slmSerial').value    = eq.serial     || '';
+      document.getElementById('eq_slmAsset').value     = eq.asset      || '';
+      document.getElementById('eq_slmMicMake').value   = eq.micMake    || '';
+      document.getElementById('eq_slmMicModel').value  = eq.micModel   || '';
+      document.getElementById('eq_slmMicSerial').value = eq.micSerial  || '';
+      document.getElementById('eq_slmLastCal').value   = eq.lastCal    || '';
+      document.getElementById('eq_slmCalDue').value    = eq.calDue     || '';
+      document.getElementById('eq_slmClass').value     = eq.slmClass   || '';
+      document.getElementById('eq_slmCondition').value = eq.condition  || 'Good';
+      document.getElementById('eq_slmNotes').value     = eq.notes      || '';
     } else if (eq.type === 'calibrator') {
       document.getElementById('eq_calMake').value      = eq.make      || '';
       document.getElementById('eq_calModel').value     = eq.model     || '';
@@ -6529,6 +6641,34 @@ function saveEquipment() {
       checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
       checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
       notes:            document.getElementById('eq_dosNotes').value.trim(),
+    };
+  } else if (type === 'sound_level_meter') {
+    const make   = document.getElementById('eq_slmMake').value.trim();
+    const model  = document.getElementById('eq_slmModel').value.trim();
+    const serial = document.getElementById('eq_slmSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model, and serial are required', 'error'); return; }
+    const newCondition = document.getElementById('eq_slmCondition').value;
+    const condNote     = document.getElementById('eq_slmCondNote').value.trim();
+    const condHistory  = (existing && existing.conditionHistory) ? [...existing.conditionHistory] : [];
+    if (!isEdit || newCondition !== (existing && existing.condition) || condNote) {
+      condHistory.push({ date: new Date().toISOString(), condition: newCondition, notes: condNote, by: deviceNickname || '' });
+    }
+    rec = {
+      id:               editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
+      type:             'sound_level_meter',
+      make, model, serial,
+      asset:            document.getElementById('eq_slmAsset').value.trim(),
+      micMake:          document.getElementById('eq_slmMicMake').value.trim(),
+      micModel:         document.getElementById('eq_slmMicModel').value.trim(),
+      micSerial:        document.getElementById('eq_slmMicSerial').value.trim(),
+      lastCal:          document.getElementById('eq_slmLastCal').value,
+      calDue:           document.getElementById('eq_slmCalDue').value,
+      slmClass:         document.getElementById('eq_slmClass').value,
+      condition:        newCondition,
+      conditionHistory: condHistory,
+      checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
+      checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
+      notes:            document.getElementById('eq_slmNotes').value.trim(),
     };
   } else if (type === 'calibrator') {
     const make   = document.getElementById('eq_calMake').value.trim();
@@ -6659,11 +6799,13 @@ function renderEquipmentLists() {
   // Apply IH filter
   var filtered = selectedIH ? equipment.filter(function(e) { return (e.checkedInBy || '') === selectedIH; }) : equipment;
   var dosimeters       = filtered.filter(function(e) { return e.type === 'dosimeter'; });
+  var slms             = filtered.filter(function(e) { return e.type === 'sound_level_meter'; });
   var calibrators      = filtered.filter(function(e) { return e.type === 'calibrator'; });
   var airPumps         = filtered.filter(function(e) { return e.type === 'air_pump'; });
   var airCalibrators   = filtered.filter(function(e) { return e.type === 'air_calibrator'; });
 
   document.getElementById('dosBadge').textContent = dosimeters.length;
+  var slmBadge = document.getElementById('slmBadgeLib'); if (slmBadge) slmBadge.textContent = slms.length;
   document.getElementById('calBadgeLib').textContent = calibrators.length;
   var apBadge = document.getElementById('apBadgeLib'); if (apBadge) apBadge.textContent = airPumps.length;
   var acBadge = document.getElementById('acBadgeLib'); if (acBadge) acBadge.textContent = airCalibrators.length;
@@ -6704,7 +6846,9 @@ function renderEquipmentLists() {
     var condBg     = condBgs[eq.condition]    || 'var(--surface)';
     var calDateStr = eq.type === 'calibrator'
       ? (eq.nistDue || '')
-      : (eq.calDue || eq.factoryCal || '');
+      : eq.type === 'sound_level_meter'
+        ? (eq.calDue || eq.lastCal || '')
+        : (eq.calDue || eq.factoryCal || '');
     var calSt      = getCalStatus(calDateStr);
     var calBadge   = calSt
       ? '<span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; background:' + calSt.bg + '; color:' + calSt.color + '; border:1px solid ' + calSt.border + '; margin-left:6px;">' + calSt.label + '</span>'
@@ -6771,6 +6915,13 @@ function renderEquipmentLists() {
       detailLine = (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : '')) + flowRange;
     } else if (eq.type === 'air_calibrator') {
       detailLine = (eq.calDue ? ' · Cal due: ' + eq.calDue : (eq.factoryCal ? ' · Factory cal: ' + eq.factoryCal : ''));
+    } else if (eq.type === 'sound_level_meter') {
+      var micDetail = '';
+      if (eq.micMake || eq.micModel) micDetail = ' · Mic: ' + (eq.micMake || '') + ' ' + (eq.micModel || '');
+      detailLine = (eq.lastCal ? ' · Last cal: ' + eq.lastCal : '')
+        + (eq.calDue ? ' · Cal due: ' + eq.calDue : '')
+        + (eq.slmClass ? ' · Type ' + eq.slmClass : '')
+        + micDetail;
     }
 
     return '<div style="padding:13px 18px; border-bottom:1px solid var(--surface2);">'
@@ -6797,6 +6948,11 @@ function renderEquipmentLists() {
     ? dosimeters.map(renderEqCard).join('')
     : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No dosimeters' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
 
+  var slmCont = document.getElementById('equipSLMList');
+  if (slmCont) slmCont.innerHTML = slms.length
+    ? slms.map(renderEqCard).join('')
+    : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No sound level meters' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
+
   var calCont = document.getElementById('equipCalList');
   calCont.innerHTML = calibrators.length
     ? calibrators.map(renderEqCard).join('')
@@ -6818,17 +6974,35 @@ function renderEquipmentLists() {
 
 function refreshEquipmentPickers() {
   const dosimeters = equipment.filter(e => e.type === 'dosimeter');
+  const slms       = equipment.filter(e => e.type === 'sound_level_meter');
   const calibrators = equipment.filter(e => e.type === 'calibrator');
 
   const optStyle = 'background:#1a2940; color:#e0e8f0;';
 
   const dosPicker = document.getElementById('dosimeterPicker');
-  dosPicker.innerHTML = `<option value="" style="${optStyle}">Load from library...</option>` +
+  if (dosPicker) dosPicker.innerHTML = `<option value="" style="${optStyle}">Load from library...</option>` +
     dosimeters.map(eq => `<option value="${eq.id}" style="${optStyle}">${esc(eq.make)} ${esc(eq.model)} — S/N ${esc(eq.serial)}</option>`).join('');
 
   const calPicker = document.getElementById('calibratorPicker');
-  calPicker.innerHTML = `<option value="" style="${optStyle}">Load from library...</option>` +
+  if (calPicker) calPicker.innerHTML = `<option value="" style="${optStyle}">Load from library...</option>` +
     calibrators.map(eq => `<option value="${eq.id}" style="${optStyle}">${esc(eq.make)} ${esc(eq.model)} — S/N ${esc(eq.serial)}</option>`).join('');
+
+  // Sound Level tab pickers — light-theme styling.
+  const slOpt = '';
+  const slmPicker = document.getElementById('soundSLMPicker');
+  if (slmPicker) {
+    const prev = slmPicker.value;
+    slmPicker.innerHTML = '<option value="">Select from library…</option>' +
+      slms.map(eq => `<option value="${eq.id}">${esc(eq.make)} ${esc(eq.model)} — S/N ${esc(eq.serial)}</option>`).join('');
+    if (prev) slmPicker.value = prev;
+  }
+  const slCalPicker = document.getElementById('soundCalPicker');
+  if (slCalPicker) {
+    const prev = slCalPicker.value;
+    slCalPicker.innerHTML = '<option value="">Select from library…</option>' +
+      calibrators.map(eq => `<option value="${eq.id}">${esc(eq.make)} ${esc(eq.model)} — S/N ${esc(eq.serial)}</option>`).join('');
+    if (prev) slCalPicker.value = prev;
+  }
 }
 
 function loadEquipmentOntoForm(type) {
@@ -6889,9 +7063,10 @@ let currentInvType = 'dosimeter';
 
 function setInvType(type) {
   currentInvType = type;
-  const types = ['dosimeter','calibrator','air_pump','air_calibrator'];
+  const types = ['dosimeter','sound_level_meter','calibrator','air_pump','air_calibrator'];
   const fieldIds = {
     dosimeter: 'invDosFields',
+    sound_level_meter: 'invSLMFields',
     calibrator: 'invCalFields',
     air_pump: 'invAirPumpFields',
     air_calibrator: 'invAirCalFields',
@@ -6921,6 +7096,25 @@ function checkInItem() {
       threshold:  document.getElementById('inv_dosThreshold').value,
       condition:  document.getElementById('inv_dosCondition').value,
       notes:      document.getElementById('inv_dosNotes').value.trim(),
+      checkedInBy: deviceNickname || '',
+      checkedInAt: new Date().toISOString(),
+    };
+  } else if (type === 'sound_level_meter') {
+    const make   = document.getElementById('inv_slmMake').value.trim();
+    const model  = document.getElementById('inv_slmModel').value.trim();
+    const serial = document.getElementById('inv_slmSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model and serial are required', 'error'); return; }
+    rec = {
+      type, make, model, serial,
+      asset:       document.getElementById('inv_slmAsset').value.trim(),
+      micMake:     document.getElementById('inv_slmMicMake').value.trim(),
+      micModel:    document.getElementById('inv_slmMicModel').value.trim(),
+      micSerial:   document.getElementById('inv_slmMicSerial').value.trim(),
+      lastCal:     document.getElementById('inv_slmLastCal').value,
+      calDue:      document.getElementById('inv_slmCalDue').value,
+      slmClass:    document.getElementById('inv_slmClass').value,
+      condition:   document.getElementById('inv_slmCondition').value,
+      notes:       document.getElementById('inv_slmNotes').value.trim(),
       checkedInBy: deviceNickname || '',
       checkedInAt: new Date().toISOString(),
     };
@@ -6998,6 +7192,13 @@ function checkInItem() {
       if (rec.calDue)     existing.calDue     = rec.calDue;
       existing.exchange  = rec.exchange;
       existing.criterion = rec.criterion;
+    } else if (type === 'sound_level_meter') {
+      if (rec.lastCal)   existing.lastCal   = rec.lastCal;
+      if (rec.calDue)    existing.calDue    = rec.calDue;
+      if (rec.micMake)   existing.micMake   = rec.micMake;
+      if (rec.micModel)  existing.micModel  = rec.micModel;
+      if (rec.micSerial) existing.micSerial = rec.micSerial;
+      if (rec.slmClass)  existing.slmClass  = rec.slmClass;
     } else if (type === 'calibrator') {
       if (rec.lastNistCal) existing.lastNistCal = rec.lastNistCal;
       if (rec.nistDue)     existing.nistDue     = rec.nistDue;
@@ -7034,6 +7235,13 @@ function checkInItem() {
         calDue:     rec.calDue,
         exchange:   rec.exchange,
         criterion:  rec.criterion,
+      } : type === 'sound_level_meter' ? {
+        lastCal:   rec.lastCal,
+        calDue:    rec.calDue,
+        micMake:   rec.micMake,
+        micModel:  rec.micModel,
+        micSerial: rec.micSerial,
+        slmClass:  rec.slmClass,
       } : type === 'calibrator' ? {
         nistDue:  rec.nistDue,
         refLevel: rec.refLevel,
@@ -7077,6 +7285,9 @@ function checkInItem() {
 function clearInvForm() {
   ['inv_dosMake','inv_dosModel','inv_dosSerial','inv_dosAsset',
    'inv_dosFactoryCal','inv_dosCalDue','inv_dosNotes',
+   'inv_slmMake','inv_slmModel','inv_slmSerial','inv_slmAsset',
+   'inv_slmMicMake','inv_slmMicModel','inv_slmMicSerial',
+   'inv_slmLastCal','inv_slmCalDue','inv_slmNotes',
    'inv_calMake','inv_calModel','inv_calSerial','inv_calAsset',
    'inv_calNistDue','inv_calRefLevel','inv_calNotes','inv_calLastNistCal',
    'inv_apMake','inv_apModel','inv_apSerial','inv_apAsset',
@@ -7088,6 +7299,8 @@ function clearInvForm() {
   const cr = document.getElementById('inv_dosCriterion');  if (cr) cr.value = '90';
   const th = document.getElementById('inv_dosThreshold');  if (th) th.value = '80';
   const dc = document.getElementById('inv_dosCondition');  if (dc) dc.value = 'Good';
+  const sc = document.getElementById('inv_slmCondition');  if (sc) sc.value = 'Good';
+  const sk = document.getElementById('inv_slmClass');      if (sk) sk.value = '';
   const cc = document.getElementById('inv_calCondition');  if (cc) cc.value = 'Good';
   const apC = document.getElementById('inv_apCondition');  if (apC) apC.value = 'Good';
   const acC = document.getElementById('inv_acCondition');  if (acC) acC.value = 'Good';

@@ -850,6 +850,44 @@ function initForm(){
   }
 }
 
+/* ── Library pickers — populate SLM (box 3 + 4) and calibrator (box 5)
+   fields from the global `equipment` array maintained by the Equipment
+   Inventory tab. */
+function findEquip(id){
+  if (!id || !Array.isArray(window.equipment)) return null;
+  return window.equipment.find(function(e){ return e && e.id === id; }) || null;
+}
+function setFld(name, value){
+  const f = fld(name);
+  if (f) f.value = value == null ? '' : value;
+}
+function loadSLMFromLibrary(id){
+  const eq = findEquip(id);
+  if (!eq) return;
+  setFld('slm_make',     eq.make);
+  setFld('slm_model',    eq.model);
+  setFld('slm_serial',   eq.serial);
+  setFld('slm_last_cal', eq.lastCal);
+  /* If the SLM record has a detachable mic, fill box 4 too. */
+  if (eq.micMake || eq.micModel || eq.micSerial) {
+    setFld('mic_make',   eq.micMake);
+    setFld('mic_model',  eq.micModel);
+    setFld('mic_serial', eq.micSerial);
+    if (eq.lastCal) setFld('mic_last_cal', eq.lastCal);
+  }
+  if (window.showToast) showToast('SLM loaded: ' + (eq.make || '') + ' ' + (eq.model || ''), 'success');
+}
+function loadCalFromLibrary(id){
+  const eq = findEquip(id);
+  if (!eq) return;
+  setFld('cal_make',      eq.make);
+  setFld('cal_model',     eq.model);
+  setFld('cal_serial',    eq.serial);
+  setFld('cal_last_nist', eq.lastNistCal);
+  setFld('cal_ref_level', eq.refLevel);
+  if (window.showToast) showToast('Calibrator loaded: ' + (eq.make || '') + ' ' + (eq.model || ''), 'success');
+}
+
 window.Sound = Object.assign(window.Sound || {}, {
   addMeasurement, duplicateLastMeasurement, deleteMeasurement, refreshHpd,
   onMeasPhoto, removeMeasPhoto,
@@ -858,6 +896,7 @@ window.Sound = Object.assign(window.Sound || {}, {
   saveSession, onLoadFile, loadExample,
   printForm, printOfficialForm,
   flushSyncQueue, mergeRemoteSurveys,
+  loadSLMFromLibrary, loadCalFromLibrary,
   init: initForm,
 });
 
