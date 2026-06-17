@@ -1034,6 +1034,30 @@ body { padding: 20px 18px; }
       <span class="badge" id="calBadge">PENDING</span>
     </div>
     <div class="card-body">
+      <!-- Cal-entry mode toggle. Most dosimeters (Casella, TSI) report the
+           pre/post calibration as an absolute SPL reading near 114 dB; the
+           Larson Davis Spartan series reports it as a sensitivity offset
+           (e.g. -41.3 dB) — the delta applied to make the meter read 114.
+           Drift = |post − pre| is identical in both modes, so the
+           calibration check works regardless of which you enter, as long
+           as both values are in the same mode. -->
+      <div class="section-label" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span>Cal Entry Mode</span>
+        <button type="button" id="calModeChipAbs" onclick="setCalMode('abs')"
+                style="padding:3px 10px; border-radius:18px; border:1.5px solid var(--teal); background:rgba(0,184,160,0.12); color:var(--teal); font-size:10.5px; font-weight:700; cursor:pointer;">Absolute Reading (114 dB)</button>
+        <button type="button" id="calModeChipOffset" onclick="setCalMode('offset')"
+                style="padding:3px 10px; border-radius:18px; border:1.5px solid var(--border); background:var(--surface); color:var(--text2); font-size:10.5px; font-weight:700; cursor:pointer;">Sensitivity Offset (-41 dB)</button>
+      </div>
+      <div id="calModeInfo" style="display:none; font-size:11px; color:#7a4f00; background:#fff8e6; border:1px solid #f0d27a; border-radius:6px; padding:8px 10px; margin-bottom:10px; line-height:1.5;">
+        <b>Sensitivity Offset mode:</b> the Larson Davis Spartan PDF records
+        the microphone sensitivity required to make the meter read 114 dB at
+        the calibrator — e.g. <span style="font-family:var(--mono)">-41.3 dB</span>
+        pre, <span style="font-family:var(--mono)">-41.4 dB</span> post. Enter
+        those offsets directly (not 114). Drift = |post − pre| stays the
+        same: 0.1 dB drift in this example. The QA threshold is 5% of
+        the pre-cal value (also dB-equivalent in offset mode).
+      </div>
+
       <div class="section-label">Pre-calibration</div>
       <div class="form-grid-3">
         <div class="field">
@@ -1042,7 +1066,7 @@ body { padding: 20px 18px; }
         </div>
         <div class="field">
           <label>Reading (dB) <span class="req">*</span></label>
-          <input type="number" id="preCalReading" placeholder="113.8" step="0.1" oninput="runQA(); autosave()">
+          <input type="number" id="preCalReading" placeholder="113.8" step="0.1" oninput="runQA(); autosave()" data-placeholder-abs="113.8" data-placeholder-offset="-41.3">
         </div>
         <div class="field">
           <label>Initials</label>
@@ -1072,7 +1096,7 @@ body { padding: 20px 18px; }
         </div>
         <div class="field">
           <label>Reading (dB) <span class="req">*</span></label>
-          <input type="number" id="postCalReading" placeholder="113.9" step="0.1" oninput="runQA(); autosave()">
+          <input type="number" id="postCalReading" placeholder="113.9" step="0.1" oninput="runQA(); autosave()" data-placeholder-abs="113.9" data-placeholder-offset="-41.4">
         </div>
         <div class="field">
           <label>Initials</label>
@@ -2247,7 +2271,7 @@ body { padding: 20px 18px; }
       <div style="font-size:20px; font-weight:700; color:var(--text); margin-bottom:4px;">Instrument Report Verification</div>
       <div style="font-size:13px; color:var(--text2);">
         Compare dosimeter report files against data entered by the IH.
-        Accepts Casella dBadge2 (PDF/CSV/DOCX) and TSI Edge5 (PDF Session Report) — single file or a ZIP for batch.
+        Accepts Casella dBadge2 (PDF/CSV/DOCX), TSI Edge5 (PDF Session Report), and Larson Davis Spartan (PDF Summary) — single file or a ZIP for batch.
       </div>
     </div>
 
@@ -2275,7 +2299,7 @@ body { padding: 20px 18px; }
         Drop report file(s) here or click to browse
       </div>
       <div style="font-size:12px; color:var(--text3);">
-        Supported: Casella dBadge2 PDF/CSV/DOCX, TSI Edge5 PDF &nbsp;·&nbsp; ZIP for batch
+        Supported: Casella dBadge2 PDF/CSV/DOCX, TSI Edge5 PDF, Larson Davis Spartan PDF &nbsp;·&nbsp; ZIP for batch
       </div>
       <input type="file" id="verifyFileInput" accept=".pdf,.csv,.docx,.zip"
              multiple style="display:none" onchange="verifyHandleFiles(this.files)">
@@ -4677,6 +4701,8 @@ function startNewSurvey() {
 }
 
 function clearFormFields(keepInstruments) {
+  // Reset cal entry mode to the absolute default on a fresh form.
+  if (typeof setCalMode === 'function') setCalMode('abs');
   // Instrument/IH fields preserved when keepInstruments=true (after Save & Finalize)
   const instrumentIds = [
     'dosMake','dosModel','dosSerial','dosFactoryCal',
@@ -4818,6 +4844,7 @@ function getFormData() {
       lastNistCal: g('calLastNistCal'), nistDue: g('calNistDue'), refLevel: g('calRefLevel')
     },
     calibration: {
+      mode: currentCalMode || 'abs',
       preTime: g('preCalTime'), preReading: g('preCalReading'), preInitials: g('preCalInitials'),
       postTime: g('postCalTime'), postReading: g('postCalReading'), postInitials: g('postCalInitials'),
       surveyStart: g('surveyStart'), surveyEnd: g('surveyEnd')
@@ -4920,6 +4947,7 @@ function populateForm(s) {
   if (typeof renderMeasuredValuesGrid === 'function') renderMeasuredValuesGrid();
   sv('calMake', s.calibrator?.make); sv('calModel', s.calibrator?.model); sv('calSerial', s.calibrator?.serial);
   sv('calLastNistCal', s.calibrator?.lastNistCal); sv('calNistDue', s.calibrator?.nistDue); sv('calRefLevel', s.calibrator?.refLevel);
+  setCalMode(s.calibration?.mode === 'offset' ? 'offset' : 'abs');
   sv('preCalTime', s.calibration?.preTime); sv('preCalReading', s.calibration?.preReading); sv('preCalInitials', s.calibration?.preInitials);
   sv('surveyStart', s.calibration?.surveyStart); sv('surveyEnd', s.calibration?.surveyEnd);
   sv('postCalTime', s.calibration?.postTime); sv('postCalReading', s.calibration?.postReading); sv('postCalInitials', s.calibration?.postInitials);
@@ -5356,6 +5384,44 @@ function resetQADisplay() {
   });
 }
 
+// Cal entry mode: 'abs' (default, Casella/TSI absolute SPL reading near 114)
+// or 'offset' (Larson Davis Spartan sensitivity offset around -41). Persisted
+// per-survey under survey.calibration.mode so loaded surveys restore correctly.
+var currentCalMode = 'abs';
+function setCalMode(mode) {
+  currentCalMode = (mode === 'offset') ? 'offset' : 'abs';
+  var chipAbs = document.getElementById('calModeChipAbs');
+  var chipOff = document.getElementById('calModeChipOffset');
+  var info    = document.getElementById('calModeInfo');
+  var preEl   = document.getElementById('preCalReading');
+  var postEl  = document.getElementById('postCalReading');
+  function activate(el) {
+    if (!el) return;
+    el.style.borderColor = 'var(--teal)';
+    el.style.background  = 'rgba(0,184,160,0.12)';
+    el.style.color       = 'var(--teal)';
+  }
+  function deactivate(el) {
+    if (!el) return;
+    el.style.borderColor = 'var(--border)';
+    el.style.background  = 'var(--surface)';
+    el.style.color       = 'var(--text2)';
+  }
+  if (currentCalMode === 'offset') {
+    activate(chipOff); deactivate(chipAbs);
+    if (info) info.style.display = 'block';
+    if (preEl)  preEl.placeholder  = preEl.dataset.placeholderOffset  || '-41.3';
+    if (postEl) postEl.placeholder = postEl.dataset.placeholderOffset || '-41.4';
+  } else {
+    activate(chipAbs); deactivate(chipOff);
+    if (info) info.style.display = 'none';
+    if (preEl)  preEl.placeholder  = preEl.dataset.placeholderAbs  || '113.8';
+    if (postEl) postEl.placeholder = postEl.dataset.placeholderAbs || '113.9';
+  }
+  if (typeof runQA === 'function') runQA();
+  if (typeof autosave === 'function') autosave();
+}
+
 function getQAResult() {
   const preT = document.getElementById('preCalTime').value;
   const postT = document.getElementById('postCalTime').value;
@@ -5385,8 +5451,10 @@ function getQAResult() {
     checks.postWithin1hr = diffMin >= 0 && diffMin <= 60;
     checks.postGap = diffMin;
   }
-  if (!isNaN(preR) && !isNaN(postR) && preR > 0) {
-    const diff = Math.abs(postR - preR) / preR * 100;
+  if (!isNaN(preR) && !isNaN(postR) && preR !== 0) {
+    // Use the absolute pre value so the percentage stays positive even
+    // when the IH is in sensitivity-offset mode and preR is ~-41.
+    const diff = Math.abs(postR - preR) / Math.abs(preR) * 100;
     checks.calDiff = diff;
     checks.calWithin5pct = diff <= 5;
   }
@@ -8594,11 +8662,189 @@ function verifyExtractFieldsTSI(text, filename) {
   };
 }
 
+// ── Larson Davis Spartan (730 / 731) PDF parser ───────────────────────
+// Layout is column-based:
+//   Top:    "Spartan 730 Summary: <yyyy-mm-dd hh:mm:ss>", User, Location, Description
+//   Block:  "Virtual Dosimeters" with 1-4 numeric columns; row labels include
+//           Dose, Projected Dose, Lavg, TWA(8), Projected TWA(8),
+//           Criterion Level, Threshold Level, Exchange Rate, LEP'd/Lex,8h
+//   Block:  "Overall Measurement" — Start/Stop Date & Time, Run Time,
+//           Pre-Calibration / Post-Calibration as SENSITIVITY OFFSETS
+//           (e.g. -41.3 dB), Motion Percent, LA eq, LC peak, LAS max, LAF max
+//   Block:  "Meter General Information" — Serial Number, Model, HW Version,
+//           FW Version, Sensitivity (s)
+//
+// Pre/Post-Calibration on LD reports is the microphone sensitivity
+// offset applied to make the meter read 114 dB at the calibrator, not
+// the absolute 114 dB reading other dosimeters log. Drift = |post − pre|
+// is identical in both representations, so we surface the offsets as
+// reference values but do NOT compare them against the app fields
+// (which may be in absolute mode). Verification rows mark pre/post cal
+// as INFO for these reports and the drawer explains why.
+function verifyDetectLD(text) {
+  if (!text) return false;
+  var s = String(text);
+  var sigs = [
+    /Powered by Larson Davis/i,
+    /Spartan\s*73\d/i,
+    /Virtual Dosimeters/i,
+    /LEP'd\/Lex,8h/i,
+    /Sensitivity\s*\(s\)/i
+  ];
+  var hits = sigs.reduce(function(a, r){ return a + (r.test(s) ? 1 : 0); }, 0);
+  return hits >= 2;
+}
+
+function verifyExtractFieldsLD(text, filename) {
+  try {
+    console.log('[LD parser] ' + (filename || '') + ' raw (first 2000 of ' + String(text||'').length + '):\n' + String(text || '').slice(0, 2000));
+    if (!window._ldRawByFile) window._ldRawByFile = {};
+    window._ldRawByFile[filename || '(unnamed)'] = String(text || '');
+  } catch(e){}
+
+  var t = String(text || '')
+    .replace(/[   ]/g, ' ')
+    .replace(/\r/g, '');
+
+  function firstMatch(re) { var m = t.match(re); return m ? m[1] : null; }
+  function firstNum(re) { var v = firstMatch(re); if (v == null) return null; var n = parseFloat(v.replace(/,/g,'')); return isNaN(n) ? null : n; }
+
+  // Meter General Information
+  var serialRaw = firstMatch(/Serial\s*Number\s+(\S+)/i) || null;
+  var modelRaw  = firstMatch(/Model\s+(\S+)/i) || null;
+
+  // Pre/Post calibration — sensitivity offsets like "-41.3 dB". The
+  // following date+time on the line tells us when the cal happened.
+  var preMatch  = t.match(/Pre-?Calibration\s+(-?\d+(?:\.\d+)?)\s*dB\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})?/i);
+  var postMatch = t.match(/Post-?Calibration\s+(-?\d+(?:\.\d+)?)\s*dB\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})?/i);
+  var preOffset  = preMatch  ? parseFloat(preMatch[1])  : null;
+  var postOffset = postMatch ? parseFloat(postMatch[1]) : null;
+  var preCalTime  = preMatch  ? preMatch[2]  || null : null;
+  var postCalTime = postMatch ? postMatch[2] || null : null;
+  var ldDrift = (preOffset != null && postOffset != null) ? Math.abs(postOffset - preOffset) : null;
+
+  // Start / Stop / Run Time
+  var startRaw = firstMatch(/Start\s*Date\s*&\s*Time\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i);
+  var stopRaw  = firstMatch(/Stop\s*Date\s*&\s*Time\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i);
+  var runTime  = firstMatch(/Run\s*Time\s+(\d{1,3}:\d{2}:\d{2})/i);
+
+  // Overall measurement single-value fields. LA eq is the report-side
+  // 8-hour equivalent of TWA when no projection is in play; we still
+  // prefer the TWA(8) value from the Virtual Dosimeter block when both
+  // are present.
+  var laeq    = firstNum(/LA\s*eq\s+(-?\d+(?:\.\d+)?)\s*dB/i);
+  var lcpeak  = firstNum(/LC\s*peak\s+(-?\d+(?:\.\d+)?)\s*dB/i);
+  var lasmax  = firstNum(/LAS\s*max\s+(-?\d+(?:\.\d+)?)\s*dB/i);
+
+  // Virtual Dosimeters block: 1-4 columns; each row label is followed by
+  // up to four whitespace-separated numeric values (each may carry a "dB"
+  // or "%" unit). Extract every numeric token after the row label and
+  // align by column index. Column 1 is the primary dosimeter slot.
+  //
+  // Each LD column has its own (exchange, criterion, threshold) triple.
+  // Map by triple to ACGIH (3/85/80), OSHA HC (5/90/80), OSHA PEL
+  // (5/90/90); fall back to slot 1 for "primary". The kvRow helper
+  // captures the values portion of a labeled line and keeps the rest of
+  // the line intact for the next row's regex.
+  function kvRow(label) {
+    // Match the label, then capture everything up to the next labeled
+    // row. Labels are recognised by their full word + a numeric or %/dB
+    // suffix on the same line.
+    var re = new RegExp('^[ \\t]*' + label.replace(/[-/\\\.()|]/g, '\\$&') + '\\s+(.+)$', 'm');
+    var m = t.match(re);
+    return m ? m[1] : '';
+  }
+  function colVals(row) {
+    if (!row) return [];
+    // Strip units, split on whitespace, keep only numeric tokens.
+    var toks = row.replace(/\s*(dB|%)\b/gi, '').trim().split(/\s+/);
+    return toks.map(function(s){ var n = parseFloat(s.replace(/,/g,'')); return isNaN(n) ? null : n; });
+  }
+  var dose       = colVals(kvRow('Dose'));
+  var pDose      = colVals(kvRow('Projected Dose'));
+  var lavg       = colVals(kvRow('Lavg'));
+  var twa8       = colVals(kvRow('TWA\\(8\\)'));
+  var pTwa8      = colVals(kvRow('Projected TWA\\(8\\)'));
+  var criterion  = colVals(kvRow('Criterion Level'));
+  var threshold  = colVals(kvRow('Threshold Level'));
+  var exchange   = colVals(kvRow('Exchange Rate'));
+
+  function classifySlot(ex, cr, th) {
+    if (ex == null) return null;
+    if (ex === 3 && cr === 85 && th === 80) return 1; // ACGIH
+    if (ex === 5 && cr === 90 && th === 80) return 2; // OSHA HC
+    if (ex === 5 && cr === 90 && th === 90) return 3; // OSHA PEL
+    return null;
+  }
+  var dosSlots = [null, null, null, null];
+  var nCols = Math.max(dose.length, lavg.length, twa8.length, criterion.length, exchange.length);
+  for (var ci = 0; ci < nCols; ci++) {
+    var slotIdx = classifySlot(exchange[ci], criterion[ci], threshold[ci]);
+    if (slotIdx === null) slotIdx = ci + 1; // fallback: position-based
+    var slot = {
+      slot:      slotIdx,
+      setupRaw:  (criterion[ci]!=null?'C'+criterion[ci]:'') + (threshold[ci]!=null?' T'+threshold[ci]:'') + (exchange[ci]!=null?' Q'+exchange[ci]:''),
+      dose:      dose[ci]      != null ? dose[ci]      : null,
+      lavg:      lavg[ci]      != null ? lavg[ci]      : null,
+      twa:       twa8[ci]      != null ? twa8[ci]      : (pTwa8[ci] != null ? pTwa8[ci] : null),
+      criterion: criterion[ci],
+      threshold: threshold[ci],
+      exchange:  exchange[ci],
+      weighting: 'A',     // LD Spartan logs A-weighting by default for HCP
+      response:  'Slow',
+    };
+    if (slotIdx >= 1 && slotIdx <= 3 && !dosSlots[slotIdx]) dosSlots[slotIdx] = slot;
+  }
+  var primary = dosSlots[1] || dosSlots[2] || dosSlots[3] || null;
+
+  var surveyDate = '';
+  if (startRaw) {
+    var d = new Date(startRaw.replace(' ', 'T'));
+    if (!isNaN(d.getTime())) surveyDate = d.toISOString().slice(0, 10);
+  }
+
+  return {
+    _filename:        filename,
+    _rawText:         text,
+    _kvMap:           { _info: { model: modelRaw } },
+    _dosSlots:        dosSlots,
+    _format:          'ld-spartan',
+    serial:           serialRaw || null,
+    reportName:       '',                    // LD report does not embed worker name
+    surveyDate:       surveyDate,
+    startRaw:         startRaw,
+    stopRaw:          stopRaw,
+    preCalTime:       preCalTime,
+    postCalTime:      postCalTime,
+    twa:              primary ? primary.twa  : null,
+    dose:             primary ? primary.dose : null,
+    lavg:             primary ? primary.lavg : null,
+    lasmax:           lasmax,
+    runTime:          runTime,
+    // Pre/Post-cal absolute SPL is NOT on LD reports — only the
+    // sensitivity offset. Leave the canonical preCal/postCal null so
+    // verifyCompareFields skips the absolute-value comparison; surface
+    // the actual offsets and computed drift as auxiliary fields so the
+    // drawer can show them.
+    preCal:           null,
+    postCal:          null,
+    calDrift:         ldDrift,
+    _ldPreCalOffset:  preOffset,
+    _ldPostCalOffset: postOffset,
+    exchange:         primary ? primary.exchange  : null,
+    criterion:        primary ? primary.criterion : null,
+    threshold:        primary ? primary.threshold : null,
+    weighting:        primary ? primary.weighting : null,
+    response:         primary ? primary.response  : null
+  };
+}
+
 // Note: Inclusion Zone section repeats all D1 values — stop at first occurrence.
 function verifyExtractFields(text, filename) {
   // Dispatch by detected report format. TSI Edge5 Session Reports are
   // laid out completely differently from Casella; route them through
   // the dedicated parser. The Casella code below is untouched.
+  if (verifyDetectLD(text))  return verifyExtractFieldsLD(text, filename);
   if (verifyDetectTSI(text)) return verifyExtractFieldsTSI(text, filename);
 
 
@@ -9203,8 +9449,26 @@ function verifyCompareFields(survey, report) {
   numCheck(_appTWA,  _rptTWA,  0.5, 'twa');
   numCheck(_appDose, _rptDose, 5.0, 'dose');  // ±5% — firmware display rounding
   numCheck(_appLavg, _rptLavg, 1.0, 'lavg');  // ±1 dB — threshold differences
-  numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
-  numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
+  // Larson Davis reports record pre/post cal as a sensitivity offset
+  // (e.g. -41.3 dB) instead of the absolute 114 dB SPL reading other
+  // dosimeters log, so the report has no comparable absolute value.
+  // Mark these cells INFO with the report's offset as the reference;
+  // the drawer adds an explanation panel.
+  if (report._format === 'ld-spartan') {
+    checks.preCal  = {
+      app: cal.preReading  || cal.preCal  || '—',
+      rpt: (report._ldPreCalOffset  != null) ? (report._ldPreCalOffset.toFixed(1)  + ' dB (sens. offset)')  : '—',
+      status: 'INFO'
+    };
+    checks.postCal = {
+      app: cal.postReading || cal.postCal || '—',
+      rpt: (report._ldPostCalOffset != null) ? (report._ldPostCalOffset.toFixed(1) + ' dB (sens. offset)') : '—',
+      status: 'INFO'
+    };
+  } else {
+    numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
+    numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
+  }
 
   // Run time — calculate from surveyStart/surveyEnd for comparison.
   // App stores run time as decimal hours (e.g. "8.0") via resRunTime field,
@@ -9433,6 +9697,7 @@ function verifyRenderResults(rows) {
       if (!chk) return tdCell('—', 'var(--text3)');
       if (chk.status === 'PASS') return tdCell('✓', '#1d7a45');
       if (chk.status === 'MISSING') return tdCell('—', 'var(--text3)');
+      if (chk.status === 'INFO') return tdCell('ⓘ', '#185a8a', '#e6f1fa');
       if (chk.status === 'WARN') {
         var label = fmt ? fmt(chk) : '⚠';
         return tdCell(label, '#8a5c00', '#fff8e6');
@@ -9549,10 +9814,11 @@ function verifyOpenDrawer(row) {
     var statusColor = chk.status === 'PASS'    ? '#1d7a45'
                     : chk.status === 'WARN'    ? '#8a5c00'
                     : chk.status === 'FAIL'    ? '#b83030'
+                    : chk.status === 'INFO'    ? '#185a8a'
                     : chk.status === 'MISSING' ? 'var(--text3)'
                     : 'var(--text3)';
     var icon = chk.status === 'PASS' ? '✓' : chk.status === 'WARN' ? '⚠' :
-               chk.status === 'FAIL' ? '✗' : '—';
+               chk.status === 'FAIL' ? '✗' : chk.status === 'INFO' ? 'ⓘ' : '—';
     var detail = fmtFn ? fmtFn(chk) : '';
     return '<div style="display:grid; grid-template-columns:1fr auto; gap:8px; padding:9px 0; border-bottom:1px solid var(--border); align-items:start;">' +
       '<div>' +
@@ -9600,7 +9866,23 @@ function verifyOpenDrawer(row) {
   lines.push(detailRow('Post-Cal (dB)', c.postCal, function(k) {
     return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
   }));
-  if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
+  if (row._report && row._report._format === 'ld-spartan') {
+    var _ldDrift = (row._report.calDrift != null) ? row._report.calDrift.toFixed(2) : '—';
+    var _ldDriftPass = (row._report.calDrift != null) && row._report.calDrift <= 0.5;
+    var _driftColor = _ldDriftPass ? '#0a7a3f' : (row._report.calDrift != null ? '#a8323a' : 'var(--text3)');
+    lines.push(
+      '<div style="font-size:11px; color:#185a8a; background:#e6f1fa; border:1px solid #b9d4e8; ' +
+      'border-radius:6px; padding:8px 10px; margin:6px 0 10px; line-height:1.5;">' +
+      '<b>Larson Davis Spartan PDF:</b> the report stores pre/post calibration as a ' +
+      '<i>sensitivity offset</i> (e.g. ' + (row._report._ldPreCalOffset != null ? row._report._ldPreCalOffset.toFixed(1) + ' dB' : '−41 dB') + ') — the mic-correction value applied to make the meter read 114 dB at the calibrator — not the absolute 114 dB SPL itself. Direct comparison against an absolute App entry is meaningless, so the pre/post rows show <span style="color:#185a8a;font-weight:700;">ⓘ</span> instead of pass/fail. ' +
+      'The drift is identical in both representations: ' +
+      '<span style="color:' + _driftColor + ';font-weight:700;">|post − pre| = ' + _ldDrift + ' dB</span>' +
+      (_ldDriftPass ? ' ✓ (≤ 0.5 dB)' : (row._report.calDrift != null ? ' ✗ (exceeds 0.5 dB)' : '')) +
+      '. To compare against this report in the App, switch the dosimetry form to ' +
+      '<b>Sensitivity Offset</b> mode and enter the offsets (' + (row._report._ldPreCalOffset != null ? row._report._ldPreCalOffset.toFixed(1) : '−41.3') + ' pre, ' + (row._report._ldPostCalOffset != null ? row._report._ldPostCalOffset.toFixed(1) : '−41.4') + ' post).' +
+      '</div>'
+    );
+  } else if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
     lines.push('<div style="font-size:10px; color:var(--text3); margin:-4px 0 8px; padding-left:2px;">Report stores Cal Drift (' + row._report.calDrift.toFixed(1) + ' dB); Post-Cal derived as Pre-Cal + Drift.</div>');
   }
   // TSI Edge5 reports carry a separate "Deviation" column on the Calibration
