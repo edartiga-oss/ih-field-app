@@ -8823,13 +8823,16 @@ function verifyExtractFieldsLD(text, filename) {
     lavg:             primary ? primary.lavg : null,
     lasmax:           lasmax,
     runTime:          runTime,
-    // Pre/Post-cal absolute SPL is NOT on LD reports — only the
-    // sensitivity offset. Leave the canonical preCal/postCal null so
-    // verifyCompareFields skips the absolute-value comparison; surface
-    // the actual offsets and computed drift as auxiliary fields so the
-    // drawer can show them.
-    preCal:           null,
-    postCal:          null,
+    // Pre/Post-Cal: surface the sensitivity offsets here so the normal
+    // numCheck() path can do a direct pass/fail comparison when the IH
+    // has the dosimetry form switched to Sensitivity Offset mode and
+    // entered the same -41-ish values. (When the form is in Absolute
+    // mode but the report is LD, the comparison will fail loudly — by
+    // design, so the IH knows to flip the toggle.) The dosimetry
+    // form's Cal Entry Mode panel already explains the offset
+    // convention; no extra prose needed here.
+    preCal:           preOffset,
+    postCal:          postOffset,
     calDrift:         ldDrift,
     _ldPreCalOffset:  preOffset,
     _ldPostCalOffset: postOffset,
@@ -9451,26 +9454,8 @@ function verifyCompareFields(survey, report) {
   numCheck(_appTWA,  _rptTWA,  0.5, 'twa');
   numCheck(_appDose, _rptDose, 5.0, 'dose');  // ±5% — firmware display rounding
   numCheck(_appLavg, _rptLavg, 1.0, 'lavg');  // ±1 dB — threshold differences
-  // Larson Davis reports record pre/post cal as a sensitivity offset
-  // (e.g. -41.3 dB) instead of the absolute 114 dB SPL reading other
-  // dosimeters log, so the report has no comparable absolute value.
-  // Mark these cells INFO with the report's offset as the reference;
-  // the drawer adds an explanation panel.
-  if (report._format === 'ld-spartan') {
-    checks.preCal  = {
-      app: cal.preReading  || cal.preCal  || '—',
-      rpt: (report._ldPreCalOffset  != null) ? (report._ldPreCalOffset.toFixed(1)  + ' dB (sens. offset)')  : '—',
-      status: 'INFO'
-    };
-    checks.postCal = {
-      app: cal.postReading || cal.postCal || '—',
-      rpt: (report._ldPostCalOffset != null) ? (report._ldPostCalOffset.toFixed(1) + ' dB (sens. offset)') : '—',
-      status: 'INFO'
-    };
-  } else {
-    numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
-    numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
-  }
+  numCheck(cal.preCal  || cal.preReading,    report.preCal,  0.1, 'preCal');
+  numCheck(cal.postCal || cal.postReading,   report.postCal, 0.1, 'postCal');
 
   // Run time — calculate from surveyStart/surveyEnd for comparison.
   // App stores run time as decimal hours (e.g. "8.0") via resRunTime field,
@@ -9868,23 +9853,7 @@ function verifyOpenDrawer(row) {
   lines.push(detailRow('Post-Cal (dB)', c.postCal, function(k) {
     return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
   }));
-  if (row._report && row._report._format === 'ld-spartan') {
-    var _ldDrift = (row._report.calDrift != null) ? row._report.calDrift.toFixed(2) : '—';
-    var _ldDriftPass = (row._report.calDrift != null) && row._report.calDrift <= 0.5;
-    var _driftColor = _ldDriftPass ? '#0a7a3f' : (row._report.calDrift != null ? '#a8323a' : 'var(--text3)');
-    lines.push(
-      '<div style="font-size:11px; color:#185a8a; background:#e6f1fa; border:1px solid #b9d4e8; ' +
-      'border-radius:6px; padding:8px 10px; margin:6px 0 10px; line-height:1.5;">' +
-      '<b>Larson Davis Spartan PDF:</b> the report stores pre/post calibration as a ' +
-      '<i>sensitivity offset</i> (e.g. ' + (row._report._ldPreCalOffset != null ? row._report._ldPreCalOffset.toFixed(1) + ' dB' : '−41 dB') + ') — the mic-correction value applied to make the meter read 114 dB at the calibrator — not the absolute 114 dB SPL itself. Direct comparison against an absolute App entry is meaningless, so the pre/post rows show <span style="color:#185a8a;font-weight:700;">ⓘ</span> instead of pass/fail. ' +
-      'The drift is identical in both representations: ' +
-      '<span style="color:' + _driftColor + ';font-weight:700;">|post − pre| = ' + _ldDrift + ' dB</span>' +
-      (_ldDriftPass ? ' ✓ (≤ 0.5 dB)' : (row._report.calDrift != null ? ' ✗ (exceeds 0.5 dB)' : '')) +
-      '. To compare against this report in the App, switch the dosimetry form to ' +
-      '<b>Sensitivity Offset</b> mode and enter the offsets (' + (row._report._ldPreCalOffset != null ? row._report._ldPreCalOffset.toFixed(1) : '−41.3') + ' pre, ' + (row._report._ldPostCalOffset != null ? row._report._ldPostCalOffset.toFixed(1) : '−41.4') + ' post).' +
-      '</div>'
-    );
-  } else if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
+  if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
     lines.push('<div style="font-size:10px; color:var(--text3); margin:-4px 0 8px; padding-left:2px;">Report stores Cal Drift (' + row._report.calDrift.toFixed(1) + ' dB); Post-Cal derived as Pre-Cal + Drift.</div>');
   }
   // TSI Edge5 reports carry a separate "Deviation" column on the Calibration
