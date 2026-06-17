@@ -762,6 +762,13 @@ body { padding: 20px 18px; }
     <select id="processFilter" onchange="renderSurveyList()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;">
       <option value="">All Processes</option>
     </select>
+    <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
+      <span style="font-size:11px; color:var(--text3); white-space:nowrap;">From</span>
+      <input type="date" id="dateFromFilter" onchange="renderSurveyList()" style="padding:6px 8px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px; width:140px;">
+      <span style="font-size:11px; color:var(--text3); white-space:nowrap;">To</span>
+      <input type="date" id="dateToFilter" onchange="renderSurveyList()" style="padding:6px 8px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px; width:140px;">
+      <button type="button" id="dateClearBtn" onclick="clearDateFilter()" title="Clear date filter" style="padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text2); font-size:11px; cursor:pointer; display:none;">&times;</button>
+    </div>
     <div id="filterCount" style="font-size:11px; color:var(--text3); white-space:nowrap;"></div>
   </div>
   <div id="surveyList" class="survey-list">
@@ -5275,6 +5282,14 @@ function confirmDeleteAll() {
 // ═══════════════════════════════════════════════════════════
 //  RENDER SURVEY LIST
 // ═══════════════════════════════════════════════════════════
+function clearDateFilter() {
+  var f = document.getElementById('dateFromFilter');
+  var t = document.getElementById('dateToFilter');
+  if (f) f.value = '';
+  if (t) t.value = '';
+  renderSurveyList();
+}
+
 function renderSurveyList() {
   const container = document.getElementById('surveyList');
   const filterSel = document.getElementById('ihFilter');
@@ -5315,18 +5330,43 @@ function renderSurveyList() {
       allProcs.map(p => `<option value="${esc(p)}" ${p === selectedProc ? 'selected' : ''}>${esc(p)}</option>`).join('');
   }
 
+  // ── Date range filter ──
+  // Inputs are YYYY-MM-DD; survey calibration.surveyStart is an ISO/
+  // datetime-local string. Compare on the date portion so the
+  // boundaries are inclusive of the whole day regardless of timezone
+  // drift in the stored datetime.
+  const fromEl = document.getElementById('dateFromFilter');
+  const toEl   = document.getElementById('dateToFilter');
+  const fromVal = fromEl ? fromEl.value : '';
+  const toVal   = toEl   ? toEl.value   : '';
+  const dateClearBtn = document.getElementById('dateClearBtn');
+  if (dateClearBtn) dateClearBtn.style.display = (fromVal || toVal) ? '' : 'none';
+  function surveyDateKey(s) {
+    var raw = s.calibration && s.calibration.surveyStart;
+    if (!raw) return '';
+    // ISO and datetime-local both start "YYYY-MM-DD"; slice to compare
+    // as strings — avoids Date()/timezone surprises for date-only.
+    return String(raw).slice(0, 10);
+  }
+
   // ── Apply all filters ──
   const filtered = surveys.filter(s => {
     if (selectedIH   && (s.ih?.name || s.deviceNickname || '') !== selectedIH)  return false;
     if (selectedSEG  && (s.employee?.seg  || '') !== selectedSEG)  return false;
     if (selectedLoc  && (s.employee?.location || '') !== selectedLoc) return false;
     if (selectedProc && (s.employee?.process || '') !== selectedProc) return false;
+    if (fromVal || toVal) {
+      const dk = surveyDateKey(s);
+      if (!dk) return false;
+      if (fromVal && dk < fromVal) return false;
+      if (toVal   && dk > toVal)   return false;
+    }
     return true;
   });
 
   // Update counts
   document.getElementById('surveyCount').textContent = surveys.length + ' survey' + (surveys.length !== 1 ? 's' : '') + ' saved';
-  const activeFilters = [selectedIH, selectedSEG, selectedLoc, selectedProc].filter(Boolean).length;
+  const activeFilters = [selectedIH, selectedSEG, selectedLoc, selectedProc, fromVal, toVal].filter(Boolean).length;
   if (filterCount) {
     filterCount.textContent = activeFilters ? filtered.length + ' of ' + surveys.length + ' shown' : '';
   }
