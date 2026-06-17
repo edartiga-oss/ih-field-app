@@ -5605,9 +5605,11 @@ function runQA() {
     setCheck('qa4','qa4val', pass, diffMin + ' min gap');
   } else setCheck('qa4','qa4val', null);
 
-  // QA5: pre vs post within 5%
-  if (!isNaN(preR) && !isNaN(postR) && preR > 0) {
-    const diff = Math.abs(postR - preR) / preR * 100;
+  // QA5: pre vs post within 5%. Works for both Absolute mode (preR ~114)
+  // and Sensitivity Offset mode (preR ~-41) — abs(preR) keeps the
+  // percentage positive when the IH enters negative offsets.
+  if (!isNaN(preR) && !isNaN(postR) && preR !== 0) {
+    const diff = Math.abs(postR - preR) / Math.abs(preR) * 100;
     const pass = diff <= 5;
     setCheck('qa5','qa5val', pass, diff.toFixed(2) + '% diff');
   } else setCheck('qa5','qa5val', null);
