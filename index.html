@@ -1086,7 +1086,7 @@ body { padding: 20px 18px; }
       <div class="form-grid-2">
         <div class="field">
           <label>Start Time <span class="req">*</span></label>
-          <input type="datetime-local" id="surveyStart" oninput="runQA(); autosave()">
+          <input type="datetime-local" id="surveyStart" oninput="runQA(); updateHourlyLabels(); autosave()">
         </div>
         <div class="field">
           <label>End Time <span class="req">*</span></label>
@@ -1330,34 +1330,34 @@ body { padding: 20px 18px; }
           <span style="font-size:11px; font-weight:600; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:0.7px;">Field Observations / Notes</span>
         </div>
         <div id="hourlyRowsContainer" style="display:contents;">
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 1</div>
+          <div id="hourLabel1" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 1</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour1" rows="2" placeholder="Tasks, location, noise sources observed during hour 1..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 2</div>
+          <div id="hourLabel2" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 2</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour2" rows="2" placeholder="Tasks, location, noise sources observed during hour 2..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 3</div>
+          <div id="hourLabel3" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 3</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour3" rows="2" placeholder="Tasks, location, noise sources observed during hour 3..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 4</div>
+          <div id="hourLabel4" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 4</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour4" rows="2" placeholder="Tasks, location, noise sources observed during hour 4..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 5</div>
+          <div id="hourLabel5" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 5</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour5" rows="2" placeholder="Tasks, location, noise sources observed during hour 5..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 6</div>
+          <div id="hourLabel6" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 6</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour6" rows="2" placeholder="Tasks, location, noise sources observed during hour 6..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 7</div>
+          <div id="hourLabel7" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 7</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour7" rows="2" placeholder="Tasks, location, noise sources observed during hour 7..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 8</div>
+          <div id="hourLabel8" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 8</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour8" rows="2" placeholder="Tasks, location, noise sources observed during hour 8..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 9</div>
+          <div id="hourLabel9" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 9</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour9" rows="2" placeholder="Tasks, location, noise sources observed during hour 9..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
 
-          <div style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 10</div>
+          <div id="hourLabel10" style="background:var(--surface2); padding:10px 14px; display:flex; align-items:center; border-right:1px solid var(--border); border-top:1px solid var(--border); font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Hour 10</div>
           <div style="padding:8px 10px; border-top:1px solid var(--border);"><textarea id="resHour10" rows="2" placeholder="Tasks, location, noise sources observed during hour 10..." style="resize:vertical; width:100%; border:1.5px solid var(--border); border-radius:var(--radius); padding:7px 10px; background:var(--surface); color:var(--text); font-family:var(--sans); font-size:13px;" oninput="autosave()"></textarea></div>
         </div>
       </div>
@@ -4710,6 +4710,8 @@ function startNewSurvey() {
 function clearFormFields(keepInstruments) {
   // Reset cal entry mode to the absolute default on a fresh form.
   if (typeof setCalMode === 'function') setCalMode('abs');
+  // Reset hourly labels back to "Hour N" until a new survey start is set.
+  setTimeout(function(){ if (typeof updateHourlyLabels === 'function') updateHourlyLabels(); }, 0);
   // Instrument/IH fields preserved when keepInstruments=true (after Save & Finalize)
   const instrumentIds = [
     'dosMake','dosModel','dosSerial','dosFactoryCal',
@@ -4998,6 +5000,7 @@ function populateForm(s) {
   sv('resHour4', s.results?.hour4); sv('resHour5', s.results?.hour5); sv('resHour6', s.results?.hour6);
   sv('resHour7', s.results?.hour7); sv('resHour8', s.results?.hour8); sv('resHour9', s.results?.hour9);
   sv('resHour10', s.results?.hour10);
+  updateHourlyLabels();
   loadNoisePhotos(s.results?.hourPhotos);
   sv('ihName', s.ih?.name); sv('ihCreds', s.ih?.creds); sv('ihFirm', s.ih?.firm); sv('ihPhone', s.ih?.phone);
 
@@ -5422,6 +5425,31 @@ function resetQADisplay() {
   ['qa1val','qa2val','qa3val','qa4val','qa5val','qa6val'].forEach(id => {
     document.getElementById(id).textContent = '—';
   });
+}
+
+// Hourly Field Observations labels — replace the static "Hour 1, Hour 2…"
+// with actual time windows derived from surveyStart. Each window is 60
+// minutes; consecutive windows are separated by 1 minute so they don't
+// overlap (e.g. 0801 - 0901, 0902 - 1002, 1003 - 1103, …). Format is
+// military HHMM without a colon, matching the IH's logbook convention.
+function updateHourlyLabels() {
+  const startEl = document.getElementById('surveyStart');
+  const raw = startEl ? startEl.value : '';
+  function fmt(d) {
+    return String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+  }
+  for (let n = 1; n <= 10; n++) {
+    const label = document.getElementById('hourLabel' + n);
+    if (!label) continue;
+    if (!raw) { label.textContent = 'Hour ' + n; continue; }
+    const start = new Date(raw);
+    if (isNaN(start.getTime())) { label.textContent = 'Hour ' + n; continue; }
+    // Hour N starts (N-1) windows into the survey. Each window =
+    // 60 min note + 1 min gap → 61 min stride; window itself is 60 min long.
+    const hourStart = new Date(start.getTime() + (n - 1) * 61 * 60 * 1000);
+    const hourEnd   = new Date(hourStart.getTime() + 60 * 60 * 1000);
+    label.textContent = 'Hour ' + n + ' · ' + fmt(hourStart) + ' - ' + fmt(hourEnd);
+  }
 }
 
 // Cal entry mode: 'abs' (default, Casella/TSI absolute SPL reading near 114)
