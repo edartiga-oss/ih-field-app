@@ -3183,16 +3183,18 @@ body { padding: 20px 18px; }
                with an optional photo per hour. -->
           <label class="span2"><span class="lbl">Comments / Time Course of Events</span><textarea name="comments"></textarea></label>
           <div class="span2" id="airTimeCourseHost" style="border:1px dashed var(--ai-line);border-radius:8px;padding:10px 12px;">
-            <div class="grid c4" style="gap:8px 12px; margin-bottom:10px;">
-              <label><span class="lbl">Total Sampling Duration</span>
-                <input type="number" id="airTcDuration" min="1" max="24" step="1" value="8" oninput="Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()"></label>
-              <label><span class="lbl">Time Unit</span>
+            <div class="grid c4" style="gap:8px 12px; margin-bottom:10px; align-items:end;">
+              <label><span class="lbl">Time Slot Unit</span>
                 <select id="airTcUnit" onchange="Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()">
-                  <option value="hours">Hours</option>
                   <option value="minutes">Minutes</option>
+                  <option value="hours" selected>Hours</option>
                 </select></label>
-              <div></div>
-              <div></div>
+              <label><span class="lbl">Time Slot Duration</span>
+                <input type="number" id="airTcDuration" min="1" max="120" step="1" value="1" placeholder="e.g., 30 (min) or 2 (hr)" oninput="Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()"></label>
+              <div style="display:flex;align-items:end;font-size:11px;color:var(--ai-muted);line-height:1.4;grid-column:span 2">
+                <div>Start from <b>Sample 1 Start Time</b>; slots fill until Sample 1 Stop Time (or 8 hours if Sample 1 isn't filled in).<br>
+                <span id="airTcBaseHint" style="font-family:var(--mono)">Start: —</span></div>
+              </div>
             </div>
             <div id="airTcEntries"></div>
           </div>
