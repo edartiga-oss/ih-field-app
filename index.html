@@ -3741,6 +3741,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 // ═══════════════════════════════════════════════════════════
 let surveys = [];
 let equipment = [];
+// Cross-module accessor — sound-level.js (separate <script>) needs to
+// look up library records when the IH picks an SLM / calibrator from
+// the dropdowns it embeds. `let` doesn't add to window, so expose a
+// getter that always returns the live array reference (handles every
+// reassignment in loadEquipmentFromStorage / pulls).
+window.getEquipmentList = function() { return equipment; };
 let deviceNickname = '';
 let currentSurveyId = null;
 let autosaveTimer = null;

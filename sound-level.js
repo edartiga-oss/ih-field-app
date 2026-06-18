@@ -854,8 +854,15 @@ function initForm(){
    fields from the global `equipment` array maintained by the Equipment
    Inventory tab. */
 function findEquip(id){
-  if (!id || !Array.isArray(window.equipment)) return null;
-  return window.equipment.find(function(e){ return e && e.id === id; }) || null;
+  if (!id) return null;
+  // Pull from the noise-side getter (handles `let equipment` being
+  // unreachable as window.equipment); fall back to window.equipment in
+  // case the page was built before the getter was added.
+  var list = (typeof window.getEquipmentList === 'function')
+    ? window.getEquipmentList()
+    : window.equipment;
+  if (!Array.isArray(list)) return null;
+  return list.find(function(e){ return e && e.id === id; }) || null;
 }
 function setFld(name, value){
   const f = fld(name);
