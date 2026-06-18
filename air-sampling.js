@@ -348,10 +348,10 @@ function samplePanel(i){
 
     '<fieldset><legend>Sample Collection &amp; Single-Sample TWA <span style="font-weight:400;text-transform:none">— 8-hr TWA = Result × Duration / 480</span></legend>'+
       '<div class="grid c4">'+
-        '<label><span class="lbl">Start Date</span><input type="date" name="samp'+i+'_start_date"></label>'+
-        '<label><span class="lbl">Start Time</span><input type="time" name="samp'+i+'_start_time" oninput="Air.calcSample('+i+')"></label>'+
-        '<label><span class="lbl">Stop Date</span><input type="date" name="samp'+i+'_stop_date"></label>'+
-        '<label><span class="lbl">Stop Time</span><input type="time" name="samp'+i+'_stop_time" oninput="Air.calcSample('+i+')"></label>'+
+        '<label><span class="lbl">Start Date</span><input type="date" name="samp'+i+'_start_date" oninput="Air.calcSample('+i+');'+(i===1?'Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()':'')+'"></label>'+
+        '<label><span class="lbl">Start Time</span><input type="time" name="samp'+i+'_start_time" oninput="Air.calcSample('+i+');'+(i===1?'Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()':'')+'"></label>'+
+        '<label><span class="lbl">Stop Date</span><input type="date" name="samp'+i+'_stop_date" oninput="Air.calcSample('+i+');'+(i===1?'Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()':'')+'"></label>'+
+        '<label><span class="lbl">Stop Time</span><input type="time" name="samp'+i+'_stop_time" oninput="Air.calcSample('+i+');'+(i===1?'Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()':'')+'"></label>'+
         '<label class="air-active-only"><span class="lbl">Total Downtime (min)</span><input type="number" step="any" name="samp'+i+'_downtime" value="0" oninput="Air.calcSample('+i+')"></label>'+
         '<label><span class="lbl">Total Sampling Time (min)</span><input readonly name="samp'+i+'_duration" id="airSampDuration'+i+'"></label>'+
         '<label class="air-active-only"><span class="lbl">Flow Rate (Lpm)</span><input type="number" step="any" name="samp'+i+'_flow" oninput="Air.calcSample('+i+')"></label>'+
@@ -1529,26 +1529,77 @@ let tcPhotos = {};     /* hour idx -> data URI (local capture) */
 let tcPhotoUrls = {};  /* hour idx -> Drive URL after upload */
 
 function tcUnit(){ return (el('airTcUnit')||{}).value || 'hours'; }
-function tcLabelFor(idx){ return tcUnit() === 'minutes' ? ('Min '+idx) : ('Hour '+idx); }
-function tcEntryCount(){
-  /* Entries = duration in current units. 15 min -> 15 entries (one per min);
-     8 hours -> 8 entries (one per hour). Cap at 120 so an accidental
-     huge value doesn't tank the form. */
+function tcSlotMinutes(){
+  /* Size of one observation slot in minutes. unit × duration. */
   const d = num((el('airTcDuration')||{}).value);
-  if (d == null || d <= 0) return 8;
-  return Math.min(120, Math.max(1, Math.round(d)));
+  const dur = (d == null || d <= 0) ? 1 : Math.round(d);
+  return (tcUnit() === 'minutes') ? dur : dur * 60;
 }
-function tcEntryHTML(idx){
-  const label = tcLabelFor(idx);
+function tcSampleAnchor(field){
+  /* Combine samp1_start_date (YYYY-MM-DD) + samp1_start_time (HH:MM)
+     into a Date. Returns null if either piece is missing or unparseable.
+     `field` is 'start' or 'stop'. */
+  const d = gv('samp1_'+field+'_date');
+  const t = gv('samp1_'+field+'_time');
+  if (!t) return null;
+  const today = new Date();
+  const yyyy = today.getFullYear(), mm = String(today.getMonth()+1).padStart(2,'0'), dd = String(today.getDate()).padStart(2,'0');
+  const iso = (d || (yyyy+'-'+mm+'-'+dd)) + 'T' + t + ':00';
+  const dt = new Date(iso);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+function tcSlotWindows(){
+  /* Returns an array of {start, end} Date objects covering Sample 1's
+     start-to-stop window in tcSlotMinutes-sized slots. Falls back to 8
+     slots (one slot worth each) if Sample 1's times aren't set so the
+     IH can still pre-fill notes before the sampling run begins. */
+  const slotMin = tcSlotMinutes();
+  const start   = tcSampleAnchor('start');
+  const stop    = tcSampleAnchor('stop');
+  const out = [];
+  if (!start) {
+    // No start anchor — just emit 8 placeholder slots so the form is usable.
+    for (let i = 0; i < 8; i++) out.push({ start: null, end: null });
+    return out;
+  }
+  let totalMin;
+  if (stop && stop > start) {
+    totalMin = (stop - start) / 60000;
+  } else {
+    totalMin = 8 * 60; // default 8-hour window
+  }
+  const count = Math.min(120, Math.max(1, Math.ceil(totalMin / slotMin)));
+  for (let i = 0; i < count; i++) {
+    const s = new Date(start.getTime() + i * slotMin * 60000);
+    const e = new Date(s.getTime() + slotMin * 60000);
+    out.push({ start: s, end: e });
+  }
+  return out;
+}
+function tcFmtTime(d){
+  if (!d) return '';
+  return String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+}
+function tcLabelFor(idx, win){
+  /* "0801 - 0830" when we know the window; "Slot N" as a fallback when
+     no Sample 1 start is set. */
+  if (win && win.start) return tcFmtTime(win.start) + ' - ' + tcFmtTime(win.end);
+  return (tcUnit() === 'minutes' ? 'Slot ' : 'Slot ') + idx;
+}
+function tcEntryCount(){ return tcSlotWindows().length; }
+function tcEntryHTML(idx, win){
+  const label = tcLabelFor(idx, win);
   const txtName = 'tc_hour_'+idx;   /* field name kept generic for JSON round-trip */
   const photo = tcPhotos[idx] || tcPhotoUrls[idx] || '';
   const hasPic = photo ? ' has-pic' : '';
-  const unitWord = tcUnit() === 'minutes' ? 'minute' : 'hour';
+  const slotDesc = (win && win.start)
+    ? ('slot ' + label)
+    : ('slot ' + idx);
   return '<div class="tc-entry" data-hour="'+idx+'">'+
-    '<div class="tc-label">'+label+'</div>'+
-    '<textarea name="'+txtName+'" placeholder="Tasks, location, exposure events during '+unitWord+' '+idx+'..."></textarea>'+
+    '<div class="tc-label" style="font-family:var(--mono);white-space:nowrap">'+esc(label)+'</div>'+
+    '<textarea name="'+txtName+'" placeholder="Tasks, location, exposure events during '+esc(slotDesc)+'..."></textarea>'+
     '<div class="tc-pic'+hasPic+'">'+
-      '<img class="tc-thumb" src="'+esc(photo)+'" alt="'+label+' photo" referrerpolicy="no-referrer">'+
+      '<img class="tc-thumb" src="'+esc(photo)+'" alt="'+esc(label)+' photo" referrerpolicy="no-referrer">'+
       '<label class="tc-add">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Air.onTcPhoto('+idx+', this)"></label>'+
       '<button type="button" class="tc-rm" onclick="Air.removeTcPhoto('+idx+')">Remove</button>'+
     '</div>'+
@@ -1556,9 +1607,9 @@ function tcEntryHTML(idx){
 }
 function rebuildTimeCourse(){
   const host = el('airTcEntries'); if (!host) return;
-  const count = tcEntryCount();
+  const wins = tcSlotWindows();
   /* Snapshot current textareas so we don't lose typed notes when the IH
-     adjusts duration or switches units. */
+     adjusts unit / duration / Sample 1 times. */
   const snap = {};
   host.querySelectorAll('.tc-entry').forEach(div => {
     const idx = +div.dataset.hour;
@@ -1566,13 +1617,27 @@ function rebuildTimeCourse(){
     if (ta && ta.value) snap[idx] = ta.value;
   });
   let html = '';
-  for (let i = 1; i <= count; i++) html += tcEntryHTML(i);
+  wins.forEach((win, i) => { html += tcEntryHTML(i + 1, win); });
   host.innerHTML = html;
   /* Restore typed notes for indices that still exist after the count change. */
   Object.keys(snap).forEach(idx => {
     const ta = host.querySelector('.tc-entry[data-hour="'+idx+'"] textarea');
     if (ta) ta.value = snap[idx];
   });
+  /* Update the small hint string under the controls so the IH can see
+     where the slots are anchored. */
+  const hint = el('airTcBaseHint');
+  if (hint) {
+    const start = tcSampleAnchor('start');
+    const stop  = tcSampleAnchor('stop');
+    if (start && stop) {
+      hint.textContent = 'Sample 1: ' + tcFmtTime(start) + ' – ' + tcFmtTime(stop) + '  ·  ' + wins.length + ' slot' + (wins.length !== 1 ? 's' : '');
+    } else if (start) {
+      hint.textContent = 'Sample 1 start: ' + tcFmtTime(start) + '  ·  ' + wins.length + ' slot' + (wins.length !== 1 ? 's' : '') + ' (8 h default)';
+    } else {
+      hint.textContent = 'Start: —  ·  enter Sample 1 Start Time to anchor slots';
+    }
+  }
 }
 /* Capture a photo (or pick from gallery), downscale via canvas so the
    stored data URI stays a reasonable size for localStorage / Sheets. */
@@ -2237,25 +2302,33 @@ function ofTwaCalcsTable(){
 }
 
 function ofTimeCourseTable(){
-  /* Print the per-interval time course on the final block. Skip the whole
-     section if no entries have text or photo. Label reads "Min N" or
-     "Hour N" depending on the unit the IH picked. */
+  /* Print the per-slot time course on the final block. Skip the whole
+     section if no entries have text or photo. Labels are the actual
+     time windows (HHMM - HHMM) when Sample 1's Start Time is set;
+     otherwise fall back to "Slot N". */
   const tc = collectTimeCourse();
   const indices = Object.keys(tc.hours||{}).map(Number).sort((a,b)=>a-b);
   if (!indices.length) return '';
-  const unitWord = tc.unit === 'minutes' ? 'Min' : 'Hour';
-  const headerWord = tc.unit === 'minutes' ? 'Minute by Minute' : 'Hour by Hour';
+  const wins = tcSlotWindows();
+  const slotMinutes = tcSlotMinutes();
+  const isMin = (tc.unit === 'minutes');
+  const dur   = num(tc.duration) || 1;
+  const headerWord = (isMin)
+    ? ('Every ' + dur + ' Minute' + (dur !== 1 ? 's' : ''))
+    : ('Every ' + dur + ' Hour'   + (dur !== 1 ? 's' : ''));
   let body = '';
   indices.forEach(idx => {
     const e = tc.hours[idx];
     const src = e.photo || e.photoUrl || '';
-    // Roomier photo (was 140×90pt) — left "Min N" column was 14%, now
-    // pinned to ~36pt so the photo cell can use the freed width.
+    const win = wins[idx - 1];
+    const label = (win && win.start)
+      ? (tcFmtTime(win.start) + ' - ' + tcFmtTime(win.end))
+      : ('Slot ' + idx);
     const photo = src
       ? '<img src="'+esc(src)+'" referrerpolicy="no-referrer" style="max-width:100%;max-height:180pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
       : '';
     body += '<tr>'+
-      '<td class="of-label" style="width:36pt;padding:2pt 4pt;text-align:left;vertical-align:top;white-space:nowrap">'+unitWord+' '+idx+'</td>'+
+      '<td class="of-label" style="width:48pt;padding:2pt 4pt;text-align:left;vertical-align:top;white-space:nowrap;font-family:monospace">'+esc(label)+'</td>'+
       '<td class="of-val" style="min-height:18pt">'+ofVal(e.text)+photo+'</td>'+
     '</tr>';
   });
