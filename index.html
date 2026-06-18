@@ -8806,13 +8806,11 @@ function verifyExtractFieldsLD(text, filename) {
   var stopRaw  = firstMatch(/Stop\s*Date\s*&\s*Time\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/i);
   var runTime  = firstMatch(/Run\s*Time\s+(\d{1,3}:\d{2}:\d{2})/i);
 
-  // Overall measurement single-value fields. Day 1 prints "LA eq",
-  // "LC peak", "LAS max" with internal spaces; Day 2 prints "LAeq",
-  // "LCpk" / "LApk", "LASmax" joined, sometimes followed by " (dB)"
-  // before the value. \s* between letters + optional unit group
-  // handles both formats.
-  var laeq    = firstNum(/LA\s*eq(?:\s*\([^)]+\))?\s+(-?\d+(?:\.\d+)?)/i);
-  var lcpeak  = firstNum(/LC\s*(?:peak|pk)(?:\s*\([^)]+\))?\s+(-?\d+(?:\.\d+)?)/i);
+  // Overall-measurement LASmax (Slow A-weighted max) — used by the
+  // report header / drawer. Lavg comes from the Virtual Dosimeters
+  // block via kvRow('Lavg'), which is the value the verification
+  // compares against. LAeq and LCpk are intentionally not extracted —
+  // they don't drive any check or display in the verify drawer.
   var lasmax  = firstNum(/LAS\s*max(?:\s*\([^)]+\))?\s+(-?\d+(?:\.\d+)?)/i);
 
   // Virtual Dosimeters block: 1-4 columns; each row label is followed by
