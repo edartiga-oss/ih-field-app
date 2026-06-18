@@ -1162,9 +1162,9 @@ body { padding: 20px 18px; }
       <div class="section-label">Shared measurements</div>
       <div class="form-grid">
         <div class="field">
-          <label>Run Time (hours)</label>
-          <input type="number" id="resRunTime" placeholder="e.g., 8.0" step="0.25" oninput="onSharedRunTimeChange(); autosave()">
-          <div class="hint">Actual dosimeter run time \u2014 same across all standards</div>
+          <label>Run Time (HH:MM or hours)</label>
+          <input type="text" id="resRunTime" placeholder="e.g., 9:45 or 9.75" oninput="onSharedRunTimeChange(); autosave()" inputmode="text">
+          <div class="hint">Enter as HH:MM (9:45) or decimal hours (9.75) \u2014 same across all standards</div>
         </div>
         <div class="field">
           <label>LASmax (dBA)</label>
@@ -4522,6 +4522,28 @@ function onMeasuredValueChange(i) {
   if (typeof runMultiStandardVerification === 'function') runMultiStandardVerification();
 }
 
+// Run Time accepts either decimal hours ("9.75") or H:MM ("9:45").
+// Returns decimal hours, or NaN if the input can't be parsed. Every
+// downstream calc (TWA, DOS%, runQA, verifyCompareFields) routes
+// through this helper so the IH can type whichever format they prefer.
+function parseRunTimeHours(str) {
+  if (str == null) return NaN;
+  var s = String(str).trim();
+  if (!s) return NaN;
+  // H:MM (or HH:MM, also tolerate H:MM:SS by dropping seconds)
+  var m = s.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (m) {
+    var h  = parseInt(m[1], 10);
+    var mn = parseInt(m[2], 10);
+    var sc = m[3] ? parseInt(m[3], 10) : 0;
+    if (mn >= 60 || sc >= 60) return NaN;
+    return h + mn / 60 + sc / 3600;
+  }
+  // Decimal hours fall-through
+  var n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+
 function onSharedRunTimeChange() {
   updateAllCalcTWAs();
   mirrorMeasuredValuesToLegacy();
@@ -4563,7 +4585,7 @@ function updateCalcTWAForColumn(i) {
   if (!exEl || !crEl) return;
   var exchange  = parseFloat(exEl.value);
   var criterion = parseFloat(crEl.value);
-  var runTime = parseFloat((document.getElementById('resRunTime') || {}).value);
+  var runTime = parseRunTimeHours((document.getElementById('resRunTime') || {}).value);
   var lavg    = parseFloat((document.getElementById('mvLavg_' + i) || {}).value);
   var disp    = document.getElementById('mvCalcTwaDisplay_' + i);
   var inpOver = document.getElementById('mvCalcTwaOverride_' + i);
@@ -5919,7 +5941,7 @@ function runQA() {
 // ═══════════════════════════════════════════════════════════
 function calcResults() {
   const dose      = parseFloat(document.getElementById('resDose').value);
-  const runTime   = parseFloat(document.getElementById('resRunTime').value);
+  const runTime   = parseRunTimeHours(document.getElementById('resRunTime').value);
   // Primary setup drives the single Results-section TWA. With multi-setup
   // data model, the four config fields are per-setup; the Results section
   // is unchanged and reflects the primary setup's exchange/criterion.
@@ -5981,7 +6003,7 @@ function syncStandardResults(forceOverwrite) {
   var runTimeRaw = document.getElementById('resRunTime').value;
 
   var lavg    = parseFloat(lavgRaw);
-  var runTime = parseFloat(runTimeRaw);
+  var runTime = parseRunTimeHours(runTimeRaw);
   var dose    = parseFloat(doseRaw);
 
   // Identify which standard the dosimeter is set to
@@ -6063,7 +6085,7 @@ function calcTWAFromLavg(lavg, runTime, exchange, criterion) {
 // accessors acgih/oshaHc/oshaPel — first setup matching each standard is
 // surfaced under its named key, in addition to the full setups[] list).
 function computeMultiStandardVerification() {
-  var runTime = parseFloat((document.getElementById('resRunTime') || {}).value);
+  var runTime = parseRunTimeHours((document.getElementById('resRunTime') || {}).value);
 
   var results = {
     setups: [],                                           // one entry per active setup
@@ -6349,7 +6371,7 @@ function runMultiStandardVerification() {
 }
 function forceSyncStandardResults() {
   var runTimeRaw = document.getElementById('resRunTime').value;
-  var runTime    = parseFloat(runTimeRaw);
+  var runTime    = parseRunTimeHours(runTimeRaw);
 
   if (isNaN(runTime) || runTime <= 0) {
     showToast('Enter Run Time to calculate Dose% values', 'warn');
@@ -9793,8 +9815,9 @@ function verifyCompareFields(survey, report) {
       var st = new Date(s).getTime(), et = new Date(e).getTime();
       if (!isNaN(st) && !isNaN(et) && et > st) return Math.round((et - st) / 60000);
     }
-    // Fall back to stored run time (decimal hours)
-    var rt = parseFloat(res.runTime);
+    // Fall back to stored run time. Stored value may be decimal hours
+    // ("9.75") or H:MM ("9:45") depending on what the IH typed.
+    var rt = (typeof parseRunTimeHours === 'function') ? parseRunTimeHours(res.runTime) : parseFloat(res.runTime);
     if (!isNaN(rt)) return Math.round(rt * 60);
     return null;
   }
