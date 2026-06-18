@@ -3066,7 +3066,7 @@ body { padding: 20px 18px; }
           <label><span class="lbl">Parent Location</span><input name="parent_location"></label>
           <label class="span2"><span class="lbl">Work Location (Bldg / Area)</span><input name="work_location"></label>
           <label class="span4"><span class="lbl">Associated Processes</span>
-            <select name="associated_processes" class="procSel"><option value="">— select shop first —</option></select></label>
+            <select name="associated_processes" class="procSel" onchange="window.Air&amp;&amp;Air.syncCOCFromGeneral&amp;&amp;Air.syncCOCFromGeneral()"><option value="">— select shop first —</option></select></label>
         </div>
       </section>
 
@@ -3198,7 +3198,7 @@ body { padding: 20px 18px; }
           </div>
 
           <label class="span2"><span class="lbl">Notes</span><textarea name="notes_calcs"></textarea></label>
-          <label><span class="lbl">Template Completed By (name &amp; date)</span><input name="completed_by"></label>
+          <label><span class="lbl">Template Completed By (name &amp; date)</span><input name="completed_by" oninput="window.Air&amp;&amp;Air.syncCOCFromGeneral&amp;&amp;Air.syncCOCFromGeneral()"></label>
           <label><span class="lbl">QA Review By (name &amp; date)</span><input name="qa_review_by"></label>
         </div>
       </section>

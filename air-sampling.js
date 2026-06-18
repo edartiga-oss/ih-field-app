@@ -2522,6 +2522,30 @@ function syncCOCDefaults(overwrite){
   set('coc_turnaround', gv('lab_turnaround')?(gv('lab_turnaround')+' day'):'');
   set('coc_relinquished_date', gv('lab_date_sent'));
 }
+
+/* Live mirror — called from oninput/onchange on the General Info fields
+   so the COC reflects the latest value the IH typed. Overwrites the
+   COC field unconditionally because the General Info entry is the
+   authoritative source; if the IH wants a different COC value they can
+   edit it after the source is set. */
+function syncCOCFromGeneral(){
+  const proc=gv('associated_processes');
+  const completed=gv('completed_by');
+  const name=completed.replace(/\s*\d{4}-\d{2}-\d{2}\s*$/,'').trim();
+  const procField=fld('coc_process_desc');
+  const sampField=fld('coc_sampled_by');
+  const relField =fld('coc_relinquished_by');
+  if (procField) procField.value = proc;
+  if (sampField) sampField.value = name;
+  if (relField)  relField.value  = name;
+  // Project line uses shop + proc — keep it in sync too.
+  const shop=gv('shop_name');
+  const projField=fld('coc_project');
+  if (projField) projField.value = [shop,proc].filter(Boolean).join(' — ');
+  if (typeof updateCOCPreview === 'function') {
+    try { updateCOCPreview(); } catch(e){}
+  }
+}
 function cocRows(){
   const rows=[];
   units.filter(u=>u.kind==='sample').forEach(u=>{
@@ -2728,7 +2752,7 @@ window.Air = Object.assign(window.Air||{}, {
   saveAirSurvey, loadAirSurvey, deleteAirSurvey, newAirSurvey,
   renderAirSurveyList, flushAirSyncQueue, mergeRemoteAirSurveys,
   // COC
-  syncCOCDefaults, generateCOC, onReportToPick, onInvoiceToPick,
+  syncCOCDefaults, syncCOCFromGeneral, generateCOC, onReportToPick, onInvoiceToPick,
   // init hook (called by showView)
   init: initForm
 });
