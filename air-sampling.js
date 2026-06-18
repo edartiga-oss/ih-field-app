@@ -2601,6 +2601,11 @@ async function generateCOC(){
     alert('COC template not embedded in this build yet — coc-template.js will be added in a later step.');
     return;
   }
+  // Make sure the COC mirror fields reflect the LATEST General Info
+  // values (Associated Processes → Process Description, Template
+  // Completed By → Sampled / Relinquished By). Surveys saved before
+  // the live-mirror landed would otherwise show stale data on the PDF.
+  try { syncCOCFromGeneral(); } catch(e){}
   let PDFLib;
   try{ PDFLib=await loadPdfLib(); }
   catch(e){ alert('Could not load the PDF engine — this needs internet access the first time you generate a COC ('+e.message+').'); return; }
@@ -2622,7 +2627,12 @@ async function generateCOC(){
   set('clientAcctNumber.txt', gv('coc_acct'));
   set('sampledBy.txt', gv('coc_sampled_by'));
   set('industryDescription.txt', gv('coc_industry'));
-  set('metals_processDescription.txt', gv('coc_process_desc'));
+  // Prefer the COC Process Description field; fall back to the General
+  // Info Associated Processes if the COC field is empty. The live-mirror
+  // keeps them in sync, but this fallback covers the case where the
+  // mirror hasn't fired yet (e.g. a survey saved before the mirror
+  // landed where the COC field is blank).
+  set('metals_processDescription.txt', gv('coc_process_desc') || gv('associated_processes'));
   set('specify.txt', gv('coc_turnaround'));
   set('comments.txt', gv('coc_comments'));
   set('pageNum.txt', gv('coc_page')||'1');
