@@ -2327,16 +2327,20 @@ function ofTimeCourseTable(){
     const photo = src
       ? '<img src="'+esc(src)+'" referrerpolicy="no-referrer" style="max-width:100%;max-height:300pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
       : '';
-    body += '<tr>'+
-      // width:1% + white-space:nowrap collapses the time column to
-      // exactly the width its text needs ("1342 - 1346") — the photo
-      // cell automatically absorbs the rest of the row.
-      '<td class="of-label" style="width:1%;padding:2pt 4pt;text-align:left;vertical-align:top;white-space:nowrap;font-family:monospace">'+esc(label)+'</td>'+
+    // break-inside:avoid keeps each row (label + text + photo) together
+    // so the photo never splits across pages. table-layout:fixed on the
+    // parent .of table means the column widths come from the colgroup
+    // below, not from the td widths — so we don't need width on the td.
+    body += '<tr style="break-inside:avoid;page-break-inside:avoid">'+
+      '<td class="of-label" style="padding:2pt 4pt;text-align:left;vertical-align:top;white-space:nowrap;font-family:monospace">'+esc(label)+'</td>'+
       '<td class="of-val" style="min-height:18pt">'+ofVal(e.text)+photo+'</td>'+
     '</tr>';
   });
   return ''+
     '<table class="of of-long">'+
+      // 60pt is enough for "1342 - 1352" at the 6pt label font; the
+      // second column auto-fills the rest of the page.
+      '<colgroup><col style="width:60pt"><col></colgroup>'+
       '<tr><td class="of-section-head" colspan="2">Time Course of Events &mdash; '+headerWord+'</td></tr>'+
       body+
     '</table>';
