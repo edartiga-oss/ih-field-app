@@ -1399,12 +1399,20 @@ body { padding: 20px 18px; }
     </div>
   </div>
 
-  <div class="btn-group">
-    <button class="btn btn-outline" onclick="clearForm()">Clear Form</button>
-    <button class="btn btn-primary" onclick="saveDraft()">Save Draft</button>
-    <button class="btn btn-teal" onclick="saveSurvey()">Save &amp; Finalize</button>
+  <!-- Spacer so the last form field clears the sticky action bar below. -->
+  <div style="height:80px;"></div>
+
+  <!-- Sticky action bar — always visible while the dosimetry form view is
+       active. Lives inside #view-form so the .view display toggle
+       auto-hides it on any other tab. position:fixed pins it to the
+       viewport bottom regardless of scroll position. -->
+  <div id="formActionBar" style="position:fixed; bottom:0; left:0; right:0; z-index:50; background:var(--surface); border-top:1.5px solid var(--border); box-shadow:0 -2px 12px rgba(0,0,0,0.08); padding:10px 16px; padding-bottom:calc(10px + env(safe-area-inset-bottom));">
+    <div style="max-width:1180px; margin:0 auto; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="clearForm()">Clear Form</button>
+      <button class="btn btn-primary" onclick="saveDraft()">Save Draft</button>
+      <button class="btn btn-teal" onclick="saveSurvey()">Save &amp; Finalize</button>
+    </div>
   </div>
-  <div style="height:30px;"></div>
 
 </div>
 
