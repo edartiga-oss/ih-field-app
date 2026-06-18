@@ -121,19 +121,41 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
 
   // ── 3. Build letter list (only SEGs with calculable UTL) ──────────
   var letters = [];
+  // Per-employee skip log so we can surface which folks didn't get a
+  // letter and why — keyed by reason so the alert groups cleanly.
+  var skipped = {
+    segNoTWAs:   [],   // SEG had no surveys matching the active standard
+    segNoUTL:    [],   // SEG had TWAs but lognormalStats couldn't produce a UTL
+    surveyNoTWA: []    // Survey itself has no TWA matching the active standard
+  };
+  function skipLabel(s) {
+    var nm = (s && s.employee && s.employee.name)     || '(unnamed)';
+    var sg = (s && s.employee && s.employee.seg)      || '(no SEG)';
+    var lc = (s && s.employee && s.employee.location) || '(no location)';
+    return nm + ' — ' + sg + ' @ ' + lc;
+  }
   Object.keys(locGroups).sort().forEach(function(loc) {
     Object.keys(locGroups[loc]).sort().forEach(function(seg) {
       var group = locGroups[loc][seg];
       var twas  = group.map(letterTwaFor).filter(function(n){ return n !== null; });
-      if (!twas.length) return;
+      if (!twas.length) {
+        group.forEach(function(s){ skipped.segNoTWAs.push(skipLabel(s)); });
+        return;
+      }
       var stats = (typeof lognormalStats === 'function') ? lognormalStats(twas) : null;
       var utl   = stats ? stats.utl95_95 : (twas.length === 1 ? twas[0] : null);
-      if (utl === null) return;
+      if (utl === null) {
+        group.forEach(function(s){ skipped.segNoUTL.push(skipLabel(s)); });
+        return;
+      }
       var personnel = (typeof racPersonnelOverrides !== 'undefined' && racPersonnelOverrides[seg])
                       ? racPersonnelOverrides[seg] : group.length;
       group.forEach(function(s) {
         var twa = letterTwaFor(s);
-        if (twa === null) return;
+        if (twa === null) {
+          skipped.surveyNoTWA.push(skipLabel(s));
+          return;
+        }
         letters.push({ location: loc, seg: seg, utl: utl, personnel: personnel,
                         sampleCount: twas.length, survey: s, twa: twa });
       });
@@ -526,7 +548,39 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
                + '_' + new Date().toISOString().slice(0,10) + '.pdf';
   doc.save(filename);
 
+  // Surface skipped employees so the IH knows which letters to chase
+  // before submission. Three skip buckets: SEG had no matching surveys
+  // at all, SEG could not produce a UTL, and per-survey TWA missing
+  // for the active standard.
+  var totalSkipped = skipped.segNoTWAs.length + skipped.segNoUTL.length + skipped.surveyNoTWA.length;
+  if (totalSkipped > 0) {
+    // Always dump the full breakdown to the console so the IH can pull
+    // it via DevTools even if the on-screen alert truncates on mobile.
+    try {
+      console.warn('[HCP Letters] ' + totalSkipped + ' employees skipped for the ' + stdLabel + ' standard:', skipped);
+      window._hcpLastSkipped = skipped;
+    } catch(e){}
+    // Cap each bucket in the alert so the dialog stays usable when
+    // a batch is large. Show first 10 per bucket and a "+ N more" tail.
+    function fmtBucket(label, arr) {
+      var head = arr.slice(0, 10);
+      var lines = head.map(function(s){ return '   - ' + s; });
+      if (arr.length > 10) lines.push('   - … +' + (arr.length - 10) + ' more (see console)');
+      return ['', '• ' + label + ' (' + arr.length + '):'].concat(lines);
+    }
+    var lines = [];
+    lines.push(letters.length + ' letter' + (letters.length !== 1 ? 's' : '') + ' generated for the ' + stdLabel + ' standard.');
+    lines.push('');
+    lines.push(totalSkipped + ' employee' + (totalSkipped !== 1 ? 's' : '') + ' had NO letter generated:');
+    if (skipped.surveyNoTWA.length) lines = lines.concat(fmtBucket('Survey not classified as ' + stdLabel, skipped.surveyNoTWA));
+    if (skipped.segNoTWAs.length)   lines = lines.concat(fmtBucket('SEG has no surveys matching ' + stdLabel, skipped.segNoTWAs));
+    if (skipped.segNoUTL.length)    lines = lines.concat(fmtBucket('SEG UTL could not be calculated', skipped.segNoUTL));
+    lines.push('');
+    lines.push('Fix: open each survey, set the dosimeter setup to match the ' + stdLabel + ' standard (or switch the Standard chip on the Noise RAC tab to whichever standard their setups classify as), and re-run.');
+    alert(lines.join('\n'));
+  }
+
   if (typeof showToast === 'function') {
-    showToast('Generated ' + letters.length + ' Hearing Notification Letter' + (letters.length !== 1 ? 's' : ''), 'success');
+    showToast('Generated ' + letters.length + ' Hearing Notification Letter' + (letters.length !== 1 ? 's' : '') + (totalSkipped ? ' — ' + totalSkipped + ' skipped' : ''), totalSkipped ? 'warn' : 'success');
   }
 }
