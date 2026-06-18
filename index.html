@@ -730,6 +730,7 @@ body { padding: 20px 18px; }
   <button class="nav-tab" onclick="showView('form')">Data Entry</button>
   <button class="nav-tab" onclick="showView('verify')">Verify</button>
   <button class="nav-tab active" onclick="showView('surveys')">Surveys</button>
+  <button class="nav-tab" onclick="showView('fieldobs')">Field Obs</button>
   <button class="nav-tab" onclick="showView('stats')">Statistics</button>
   <button class="nav-tab" onclick="showView('rac')">Noise RAC</button>
   <button class="nav-tab" onclick="showView('sound')">Sound Level</button>
@@ -1921,6 +1922,38 @@ body { padding: 20px 18px; }
       </div>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════════════════════ FIELD OBSERVATIONS SUMMARY ═══════════════════════════════ -->
+<!-- Cross-survey grid: one row per Hour, one column per filtered employee.
+     Cells are editable textareas that autosave back to the source survey
+     so the IH can copy verbiage between employees who shared a task in
+     the same hour. -->
+<div id="view-fieldobs" class="view">
+  <div style="margin-bottom:14px;">
+    <div style="font-size:20px; font-weight:700; color:var(--text);">Hourly Field Observations Summary</div>
+    <div style="font-size:13px; color:var(--text2); margin-top:2px;">
+      One column per employee · edits autosave back to that employee's survey · click any cell's <b>Copy</b> button to grab its text.
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+    <div style="font-size:12px; font-weight:600; color:var(--text2); white-space:nowrap;">Filter:</div>
+    <select id="foSegFilter"      onchange="renderFieldObsSummary()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;"><option value="">All SEGs</option></select>
+    <select id="foProcessFilter"  onchange="renderFieldObsSummary()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;"><option value="">All Processes</option></select>
+    <select id="foLocationFilter" onchange="renderFieldObsSummary()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;"><option value="">All Bldgs / Locations</option></select>
+    <select id="foTitleFilter"    onchange="renderFieldObsSummary()" style="flex:1; min-width:130px; max-width:200px; padding:7px 10px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px;"><option value="">All Job Titles</option></select>
+    <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
+      <span style="font-size:11px; color:var(--text3); white-space:nowrap;">From</span>
+      <input type="date" id="foDateFromFilter" onchange="renderFieldObsSummary()" style="padding:6px 8px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px; width:140px;">
+      <span style="font-size:11px; color:var(--text3); white-space:nowrap;">To</span>
+      <input type="date" id="foDateToFilter"   onchange="renderFieldObsSummary()" style="padding:6px 8px; border:1.5px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:12px; width:140px;">
+      <button type="button" id="foClearBtn" onclick="clearFieldObsFilters()" title="Clear all filters" style="padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text2); font-size:11px; cursor:pointer;">Clear</button>
+    </div>
+    <div id="foFilterCount" style="font-size:11px; color:var(--text3); white-space:nowrap; margin-left:auto;"></div>
+  </div>
+
+  <div id="fieldObsContainer" style="overflow-x:auto; border:1.5px solid var(--border); border-radius:var(--radius-lg); background:var(--surface);"></div>
 </div>
 
 <!-- ═══════════════════════════════ STATS VIEW ═══════════════════════════════ -->
@@ -4677,6 +4710,7 @@ function showView(name) {
     }
   }
   if (name === 'surveys')   renderSurveyList();
+  if (name === 'fieldobs')  renderFieldObsSummary();
   if (name === 'export')    renderExportList();
   if (name === 'equipment') renderEquipmentLists();
   if (name === 'stats')     renderStats();
@@ -5425,6 +5459,183 @@ function resetQADisplay() {
   ['qa1val','qa2val','qa3val','qa4val','qa5val','qa6val'].forEach(id => {
     document.getElementById(id).textContent = '—';
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HOURLY FIELD OBSERVATIONS SUMMARY (cross-survey grid)
+// ═══════════════════════════════════════════════════════════
+// Pivots all saved surveys: rows = Hour 1..10, columns = one per filtered
+// employee. Each cell is an editable textarea that autosaves back to the
+// owning survey (and syncs through pushToSheets) so the IH can copy
+// verbiage between employees who shared a task in the same hour.
+
+function clearFieldObsFilters() {
+  ['foSegFilter','foProcessFilter','foLocationFilter','foTitleFilter','foDateFromFilter','foDateToFilter']
+    .forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  renderFieldObsSummary();
+}
+
+function renderFieldObsSummary() {
+  var container = document.getElementById('fieldObsContainer');
+  var countEl   = document.getElementById('foFilterCount');
+  if (!container) return;
+  if (!Array.isArray(surveys) || !surveys.length) {
+    container.innerHTML = '<div style="padding:32px; text-align:center; color:var(--text3); font-size:13px;">No surveys saved yet. Start one in the Data Entry tab.</div>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+
+  // Rebuild filter dropdowns from the current dataset; preserve selections.
+  function refillSelect(id, valuesArr, allLabel) {
+    var sel = document.getElementById(id);
+    if (!sel) return '';
+    var prev = sel.value;
+    var opts = ['<option value="">' + allLabel + '</option>']
+      .concat(valuesArr.map(function(v){ return '<option value="' + esc(v) + '"' + (v === prev ? ' selected' : '') + '>' + esc(v) + '</option>'; }));
+    sel.innerHTML = opts.join('');
+    return prev;
+  }
+  var allSegs  = [...new Set(surveys.map(function(s){ return s.employee?.seg      || ''; }).filter(Boolean))].sort();
+  var allProcs = [...new Set(surveys.map(function(s){ return s.employee?.process  || ''; }).filter(Boolean))].sort();
+  var allLocs  = [...new Set(surveys.map(function(s){ return s.employee?.location || ''; }).filter(Boolean))].sort();
+  var allTits  = [...new Set(surveys.map(function(s){ return s.employee?.title    || ''; }).filter(Boolean))].sort();
+  var selSeg  = refillSelect('foSegFilter',      allSegs,  'All SEGs');
+  var selProc = refillSelect('foProcessFilter',  allProcs, 'All Processes');
+  var selLoc  = refillSelect('foLocationFilter', allLocs,  'All Bldgs / Locations');
+  var selTit  = refillSelect('foTitleFilter',    allTits,  'All Job Titles');
+  var fromEl  = document.getElementById('foDateFromFilter');
+  var toEl    = document.getElementById('foDateToFilter');
+  var fromVal = fromEl ? fromEl.value : '';
+  var toVal   = toEl   ? toEl.value   : '';
+
+  function dateKey(s) {
+    var raw = s.calibration && s.calibration.surveyStart;
+    return raw ? String(raw).slice(0,10) : '';
+  }
+  var matched = surveys.filter(function(s){
+    if (selSeg  && (s.employee?.seg      || '') !== selSeg)  return false;
+    if (selProc && (s.employee?.process  || '') !== selProc) return false;
+    if (selLoc  && (s.employee?.location || '') !== selLoc)  return false;
+    if (selTit  && (s.employee?.title    || '') !== selTit)  return false;
+    if (fromVal || toVal) {
+      var dk = dateKey(s);
+      if (!dk) return false;
+      if (fromVal && dk < fromVal) return false;
+      if (toVal   && dk > toVal)   return false;
+    }
+    return true;
+  });
+
+  var activeFilters = [selSeg, selProc, selLoc, selTit, fromVal, toVal].filter(Boolean).length;
+  if (countEl) countEl.textContent = activeFilters
+    ? matched.length + ' of ' + surveys.length + ' surveys'
+    : matched.length + ' survey' + (matched.length !== 1 ? 's' : '');
+
+  if (!matched.length) {
+    container.innerHTML = '<div style="padding:32px; text-align:center; color:var(--text3); font-size:13px;">No surveys match these filters.</div>';
+    return;
+  }
+
+  // Sort columns: most recent surveys first within the filter set.
+  matched.sort(function(a, b){
+    var da = dateKey(a), db = dateKey(b);
+    if (da !== db) return db.localeCompare(da);
+    return (a.employee?.name || '').localeCompare(b.employee?.name || '');
+  });
+
+  // Time window for hour N of a survey, in HHMM. Mirrors updateHourlyLabels().
+  function hourWindow(survey, n) {
+    var raw = survey.calibration && survey.calibration.surveyStart;
+    if (!raw) return '';
+    var start = new Date(raw);
+    if (isNaN(start.getTime())) return '';
+    var hs = new Date(start.getTime() + (n - 1) * 61 * 60000);
+    var he = new Date(hs.getTime() + 60 * 60000);
+    function fmt(d){ return String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0'); }
+    return fmt(hs) + ' - ' + fmt(he);
+  }
+
+  // Build the header (employees) and body (10 hour rows).
+  var th = '<th style="background:var(--navy); color:rgba(255,255,255,0.7); padding:10px 12px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; text-align:left; position:sticky; left:0; z-index:2; min-width:90px; border-right:1px solid rgba(255,255,255,0.12);">Hour</th>';
+  matched.forEach(function(s){
+    var nm   = s.employee?.name  || '(unnamed)';
+    var tit  = s.employee?.title || '';
+    var dt   = dateKey(s);
+    var loc  = s.employee?.location || '';
+    th += '<th style="background:var(--navy); color:#fff; padding:10px 12px; font-size:12px; font-weight:600; text-align:left; min-width:240px; border-right:1px solid rgba(255,255,255,0.12); vertical-align:top;">' +
+            '<div>' + esc(nm) + '</div>' +
+            (tit ? '<div style="font-size:10.5px; font-weight:400; color:rgba(255,255,255,0.65); margin-top:1px;">' + esc(tit) + '</div>' : '') +
+            (loc || dt ? '<div style="font-size:10px; font-weight:400; color:rgba(255,255,255,0.55); margin-top:1px;">' + esc(loc) + (loc && dt ? ' · ' : '') + esc(dt) + '</div>' : '') +
+          '</th>';
+  });
+
+  var rows = '';
+  for (var n = 1; n <= 10; n++) {
+    var rowCells = '<td style="background:var(--surface2); padding:10px 12px; font-size:12px; font-weight:600; color:var(--text2); border-top:1px solid var(--border); position:sticky; left:0; z-index:1; border-right:1px solid var(--border); vertical-align:top; white-space:nowrap;">Hour ' + n + '</td>';
+    matched.forEach(function(s){
+      var val = (s.results && s.results['hour' + n]) || '';
+      var win = hourWindow(s, n);
+      rowCells +=
+        '<td style="padding:6px 8px; border-top:1px solid var(--border); border-right:1px solid var(--border); vertical-align:top;">' +
+          (win ? '<div style="font-size:10px; color:var(--text3); font-family:var(--mono); margin-bottom:3px;">' + esc(win) + '</div>' : '') +
+          '<div style="display:flex; gap:4px; align-items:flex-start;">' +
+            '<textarea data-survey-id="' + escJsAttr(s.id) + '" data-hour="' + n + '" rows="3" ' +
+              'oninput="onFieldObsCellInput(this)" ' +
+              'style="flex:1; resize:vertical; min-height:56px; border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-family:var(--sans); font-size:12px; background:var(--surface); color:var(--text); line-height:1.4;" ' +
+              'placeholder="—">' + esc(val) + '</textarea>' +
+            '<button type="button" onclick="copyFieldObsCell(this)" title="Copy this cell to clipboard" ' +
+              'style="padding:4px 7px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text2); font-size:10px; cursor:pointer; flex-shrink:0;">📋</button>' +
+          '</div>' +
+        '</td>';
+    });
+    rows += '<tr>' + rowCells + '</tr>';
+  }
+
+  container.innerHTML =
+    '<table style="border-collapse:collapse; width:max-content; min-width:100%;">' +
+      '<thead><tr>' + th + '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>';
+}
+
+// Debounce per-survey so rapid typing only sends one Sheets sync.
+var _foSyncTimers = {};
+function onFieldObsCellInput(textarea) {
+  var sid  = textarea.getAttribute('data-survey-id');
+  var hour = parseInt(textarea.getAttribute('data-hour'), 10);
+  if (!sid || !hour) return;
+  var s = surveys.find(function(x){ return x.id === sid; });
+  if (!s) return;
+  if (!s.results) s.results = {};
+  s.results['hour' + hour] = textarea.value;
+  s.lastModified = new Date().toISOString();
+  if (typeof saveToStorage === 'function') saveToStorage();
+  clearTimeout(_foSyncTimers[sid]);
+  _foSyncTimers[sid] = setTimeout(function(){
+    if (typeof syncToSheets === 'function') {
+      try { syncToSheets(s); } catch(e){}
+    }
+  }, 1500);
+}
+
+function copyFieldObsCell(btn) {
+  var ta = btn.parentElement.querySelector('textarea');
+  if (!ta) return;
+  var text = ta.value || '';
+  if (!text) return;
+  function flash(ok) {
+    var original = btn.textContent;
+    btn.textContent = ok ? '✓' : '✗';
+    btn.style.color = ok ? '#1d7a45' : '#b83030';
+    setTimeout(function(){ btn.textContent = original; btn.style.color = ''; }, 900);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function(){ flash(true); }).catch(function(){ flash(false); });
+  } else {
+    try {
+      ta.select(); document.execCommand('copy'); flash(true);
+    } catch(e) { flash(false); }
+  }
 }
 
 // Hourly Field Observations labels — replace the static "Hour 1, Hour 2…"
