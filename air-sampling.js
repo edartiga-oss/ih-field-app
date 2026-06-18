@@ -2249,11 +2249,13 @@ function ofTimeCourseTable(){
   indices.forEach(idx => {
     const e = tc.hours[idx];
     const src = e.photo || e.photoUrl || '';
+    // Roomier photo (was 140×90pt) — left "Min N" column was 14%, now
+    // pinned to ~36pt so the photo cell can use the freed width.
     const photo = src
-      ? '<img src="'+esc(src)+'" referrerpolicy="no-referrer" style="max-width:140pt;max-height:90pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
+      ? '<img src="'+esc(src)+'" referrerpolicy="no-referrer" style="max-width:100%;max-height:180pt;border:0.5pt solid #999;border-radius:3pt;display:block;margin-top:2pt">'
       : '';
     body += '<tr>'+
-      '<td class="of-label" style="width:14%">'+unitWord+' '+idx+'</td>'+
+      '<td class="of-label" style="width:36pt;padding:2pt 4pt;text-align:left;vertical-align:top;white-space:nowrap">'+unitWord+' '+idx+'</td>'+
       '<td class="of-val" style="min-height:18pt">'+ofVal(e.text)+photo+'</td>'+
     '</tr>';
   });
