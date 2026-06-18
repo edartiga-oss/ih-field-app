@@ -8776,7 +8776,10 @@ function verifyExtractFieldsLD(text, filename) {
     postCalTime = postMatch[2] || null;
   } else {
     // Day 2: collect the two "Meter Sensitivity" lines in document order.
-    var sensRe = /Meter Sensitivity[^\n]*?(-?\d+(?:\.\d+)?)/g;
+    // The label is followed by an optional unit group like
+    // "(dB re 1V/Pa)" — explicitly skip that group so the regex doesn't
+    // capture the "1" inside it as the value.
+    var sensRe = /Meter Sensitivity(?:\s*\([^)]*\))?\s+(-?\d+(?:\.\d+)?)/g;
     var sensHits = [];
     var sh; while ((sh = sensRe.exec(t)) !== null) sensHits.push(parseFloat(sh[1]));
     if (sensHits.length >= 1) preOffset  = sensHits[0];
@@ -9935,7 +9938,11 @@ function verifyOpenDrawer(row) {
   lines.push(detailRow('Post-Cal (dB)', c.postCal, function(k) {
     return k.delta !== undefined ? 'Δ ' + k.delta.toFixed(2) + ' dB (tolerance ±0.1)' : '';
   }));
-  if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined) {
+  if (row._report && row._report.calDrift !== null && row._report.calDrift !== undefined
+      && row._report._format !== 'ld-spartan') {
+    // Casella-only: the file only stores drift, so the post-cal we
+    // compare is preCal + drift. Larson Davis logs both pre AND post
+    // explicitly, so this note doesn't apply there.
     lines.push('<div style="font-size:10px; color:var(--text3); margin:-4px 0 8px; padding-left:2px;">Report stores Cal Drift (' + row._report.calDrift.toFixed(1) + ' dB); Post-Cal derived as Pre-Cal + Drift.</div>');
   }
   // TSI Edge5 reports carry a separate "Deviation" column on the Calibration
