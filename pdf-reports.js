@@ -907,10 +907,21 @@ function buildPDFDoc(surveysArr) {
       y += 8;
     }
 
-    // Hourly notes + per-hour field photos
+    // Hourly notes + per-hour field photos. Label mirrors the on-form
+    // header: "Hour N · HHMM - HHMM" when the survey has a Start Time
+    // (each window is 60 min with a 1-min gap so they don't overlap —
+    // same math updateHourlyLabels uses).
     const photos = s.results?.hourPhotos || {};
+    const _hStart = (function(){ const raw = s.calibration?.surveyStart; if (!raw) return null; const d = new Date(raw); return isNaN(d.getTime()) ? null : d; })();
+    function _hWinLabel(n) {
+      if (!_hStart) return 'Hour ' + n;
+      const hs = new Date(_hStart.getTime() + (n - 1) * 61 * 60000);
+      const he = new Date(hs.getTime() + 60 * 60000);
+      const fmt = d => String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0');
+      return 'Hour ' + n + ' · ' + fmt(hs) + ' - ' + fmt(he);
+    }
     const hourlyNotes = [1,2,3,4,5,6,7,8,9,10]
-      .map(n => ({ label: 'Hour ' + n, val: s.results?.['hour' + n] || '', photo: photos[n] || '' }))
+      .map(n => ({ label: _hWinLabel(n), val: s.results?.['hour' + n] || '', photo: photos[n] || '' }))
       .filter(h => h.val || h.photo);
     if (hourlyNotes.length) {
       if (y > 630) { doc.addPage(); y = 40; }
