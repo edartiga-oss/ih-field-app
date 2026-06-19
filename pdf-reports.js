@@ -1071,7 +1071,7 @@ function buildEquipmentLibraryPDF() {
   doc.text('EQUIPMENT LIBRARY', 36, 24);
   doc.setFontSize(9); doc.setFont('helvetica', 'normal');
   doc.setTextColor(...TEAL);
-  doc.text('Dosimeters & Calibrators — Current Library Summary', 36, 38);
+  doc.text('Dosimeters · Sound Level Meters · Calibrators · Air Sampling Pumps & Calibrators — Current Library Summary', 36, 38);
   doc.setTextColor(180, 200, 220);
   const totalCount = equipment.length +
     ' item' + (equipment.length !== 1 ? 's' : '') +
@@ -1185,10 +1185,12 @@ function buildEquipmentLibraryPDF() {
   }
 
   // Split equipment by type
-  const dosimeters  = equipment.filter(e => e.type === 'dosimeter')
-    .sort((a, b) => (a.make + a.model).localeCompare(b.make + b.model));
-  const calibrators = equipment.filter(e => e.type === 'calibrator')
-    .sort((a, b) => (a.make + a.model).localeCompare(b.make + b.model));
+  const byMakeModel = (a, b) => (a.make + a.model).localeCompare(b.make + b.model);
+  const dosimeters     = equipment.filter(e => e.type === 'dosimeter').sort(byMakeModel);
+  const slms           = equipment.filter(e => e.type === 'sound_level_meter').sort(byMakeModel);
+  const calibrators    = equipment.filter(e => e.type === 'calibrator').sort(byMakeModel);
+  const airPumps       = equipment.filter(e => e.type === 'air_pump').sort(byMakeModel);
+  const airCalibrators = equipment.filter(e => e.type === 'air_calibrator').sort(byMakeModel);
 
   // ───── Dosimeters table ─────
   y = sectionBar('Dosimeters (' + dosimeters.length + ')', y);
@@ -1231,6 +1233,69 @@ function buildEquipmentLibraryPDF() {
       { label: 'Condition',       width:  75, key: 'condition' },
       { label: 'Notes',           width:  75, key: 'notes' },
     ], calibrators, 'nistDue');
+    y += 14;
+  }
+
+  // ───── Sound Level Meters table ─────
+  if (y > H - 120) { drawFooter(); doc.addPage(); y = 40; }
+  y = sectionBar('Sound Level Meters (' + slms.length + ')', y);
+  if (slms.length === 0) {
+    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
+    doc.text('No sound level meters in library.', 40, y + 8);
+    y += 24;
+  } else {
+    y = drawTable(y, [
+      { label: 'Make / Model',  width: 130, key: r => (r.make || '') + ' ' + (r.model || '') },
+      { label: 'Serial',         width:  90, key: 'serial' },
+      { label: 'Asset Tag',      width:  70, key: 'asset' },
+      { label: 'Mic Make/Model', width: 110, key: r => [r.micMake, r.micModel].filter(Boolean).join(' ') },
+      { label: 'Mic Serial',     width:  80, key: 'micSerial' },
+      { label: 'Last Cal',       width:  70, key: 'lastCal' },
+      { label: 'Cal Due',        width:  70, key: 'calDue' },
+      { label: 'Type',           width:  45, key: r => r.slmClass ? 'Type ' + r.slmClass : '' },
+      { label: 'Condition',      width:  55, key: 'condition' },
+    ], slms, 'calDue');
+    y += 14;
+  }
+
+  // ───── Air Sampling Pumps table ─────
+  if (y > H - 120) { drawFooter(); doc.addPage(); y = 40; }
+  y = sectionBar('Air Sampling Pumps (' + airPumps.length + ')', y);
+  if (airPumps.length === 0) {
+    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
+    doc.text('No air sampling pumps in library.', 40, y + 8);
+    y += 24;
+  } else {
+    y = drawTable(y, [
+      { label: 'Make / Model', width: 160, key: r => (r.make || '') + ' ' + (r.model || '') },
+      { label: 'Serial',        width: 100, key: 'serial' },
+      { label: 'Asset Tag',     width:  80, key: 'asset' },
+      { label: 'Factory Cal',   width:  75, key: 'factoryCal' },
+      { label: 'Cal Due',       width:  75, key: 'calDue' },
+      { label: 'Flow Range',    width: 100, key: r => (r.flowMin || r.flowMax) ? ((r.flowMin || '?') + '–' + (r.flowMax || '?') + ' L/min') : '' },
+      { label: 'Condition',     width:  60, key: 'condition' },
+      { label: 'Notes',         width:  70, key: 'notes' },
+    ], airPumps, 'calDue');
+    y += 14;
+  }
+
+  // ───── Air Sampling Calibrators table ─────
+  if (y > H - 120) { drawFooter(); doc.addPage(); y = 40; }
+  y = sectionBar('Air Sampling Calibrators (' + airCalibrators.length + ')', y);
+  if (airCalibrators.length === 0) {
+    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(...GRAY);
+    doc.text('No air sampling calibrators in library.', 40, y + 8);
+    y += 24;
+  } else {
+    y = drawTable(y, [
+      { label: 'Make / Model', width: 180, key: r => (r.make || '') + ' ' + (r.model || '') },
+      { label: 'Serial',        width: 110, key: 'serial' },
+      { label: 'Asset Tag',     width:  90, key: 'asset' },
+      { label: 'Factory Cal',   width:  85, key: 'factoryCal' },
+      { label: 'Cal Due',       width:  85, key: 'calDue' },
+      { label: 'Condition',     width:  75, key: 'condition' },
+      { label: 'Notes',         width:  95, key: 'notes' },
+    ], airCalibrators, 'calDue');
     y += 14;
   }
 
