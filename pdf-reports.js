@@ -1590,7 +1590,12 @@ function renderRAC() {
       + '<div class="card-header" style="font-size:14px;display:flex;justify-content:space-between;align-items:center;">'
       + '<span>' + esc(seg) + '<span style="margin-left:8px;font-size:11px;font-weight:400;color:rgba(255,255,255,0.55);">' + personnel + ' personnel</span></span>'
       + '<div style="display:flex;align-items:center;gap:8px;">'
-      + (utl !== null && !utlNA ? racLettersBtnHtml(group[0]?.employee?.location || '', seg) : '')
+      // Letter batch filters by SEG only — the RAC card aggregates
+      // surveys for this SEG across every location, so the letter
+      // should follow suit. Passing group[0]'s location would silently
+      // drop every employee whose survey was logged at a different
+      // building from the first-in-sort survey.
+      + (utl !== null && !utlNA ? racLettersBtnHtml('', seg) : '')
       + racBadge(rac) + '</div></div>'
       + '<div class="card-body" style="padding:14px 16px;">'
       + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:12px;">'
