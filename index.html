@@ -3218,8 +3218,10 @@ body { padding: 20px 18px; }
                 </select></label>
               <label><span class="lbl">Time Slot Duration</span>
                 <input type="number" id="airTcDuration" min="1" max="120" step="1" value="1" placeholder="e.g., 30 (min) or 2 (hr)" oninput="Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()"></label>
-              <div style="display:flex;align-items:end;font-size:11px;color:var(--ai-muted);line-height:1.4;grid-column:span 2">
-                <div>Start from <b>Sample 1 Start Time</b>; slots fill until Sample 1 Stop Time (or 8 hours if Sample 1 isn't filled in).<br>
+              <label><span class="lbl">Start Time <span style="font-weight:400;color:var(--ai-muted);font-size:10.5px;">(override)</span></span>
+                <input type="time" id="airTcStartOverride" oninput="Air.rebuildTimeCourse&amp;&amp;Air.rebuildTimeCourse()"></label>
+              <div style="display:flex;align-items:end;font-size:11px;color:var(--ai-muted);line-height:1.4;">
+                <div>Uses the override above when set; otherwise pulls from <b>Sample 1 Start Time</b>. Slots fill until Sample 1 Stop Time (or 8 hours if no stop is set).<br>
                 <span id="airTcBaseHint" style="font-family:var(--mono)">Start: —</span></div>
               </div>
             </div>
