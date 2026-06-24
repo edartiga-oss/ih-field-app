@@ -3139,9 +3139,36 @@ body { padding: 20px 18px; }
             <label><span class="lbl">Sampled By</span><input name="coc_sampled_by"></label>
             <label class="span2"><span class="lbl">Industry Description</span><input name="coc_industry"></label>
             <label class="span2"><span class="lbl">Process Description (metals)</span><input name="coc_process_desc"></label>
-            <label><span class="lbl">Turn-around / Need Results By</span><input name="coc_turnaround"></label>
+            <label><span class="lbl">Turn-around / Need Results By</span>
+              <select name="coc_turnaround">
+                <option value="">— select —</option>
+                <option value="Standard">Standard (0%)</option>
+                <option value="4">4 Business Days (35%)</option>
+                <option value="3">3 Business Days (50%)</option>
+                <option value="2">2 Business Days (75%)</option>
+                <option value="NextDay6pm">Next Day by 6pm (100%)</option>
+                <option value="NextDayNoon">Next Day by Noon (150%)</option>
+                <option value="SameDay">Same Day (200%)</option>
+              </select></label>
             <label><span class="lbl">Page</span><input name="coc_page" value="1"></label>
             <label><span class="lbl">Of</span><input name="coc_of" value="1"></label>
+            <!-- OEL selection — which standard this data will be used to
+                 evaluate against. Maps to the "Please indicate which OEL
+                 this data will be used for:" checkbox group on the SGS
+                 Galson COC. Multiple selections allowed. -->
+            <fieldset class="span4" style="border:1px dashed var(--ai-line);border-radius:6px;padding:8px 12px;margin:0;">
+              <legend style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;color:var(--ai-muted);padding:0 6px;">OEL this data will be used for</legend>
+              <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+                <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;"><input type="checkbox" name="coc_oel_oshapel" style="margin:0"> OSHA PEL</label>
+                <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;"><input type="checkbox" name="coc_oel_acgihtlv" style="margin:0"> ACGIH TLV</label>
+                <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;"><input type="checkbox" name="coc_oel_calosha" style="margin:0"> Cal OSHA</label>
+                <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;"><input type="checkbox" name="coc_oel_msha" style="margin:0"> MSHA</label>
+                <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;flex:1;min-width:180px;">
+                  <input type="checkbox" name="coc_oel_other" style="margin:0"> Other (specify)
+                  <input type="text" name="coc_oel_other_text" placeholder="..." style="flex:1;min-width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--ai-line);border-radius:4px;">
+                </label>
+              </div>
+            </fieldset>
             <label class="span4"><span class="lbl">COC Comments</span><input name="coc_comments"></label>
             <label class="span2"><span class="lbl">Relinquished By</span><input name="coc_relinquished_by"></label>
             <label><span class="lbl">Relinquished Date</span><input type="date" name="coc_relinquished_date"></label>

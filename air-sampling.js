@@ -2601,7 +2601,17 @@ function syncCOCDefaults(overwrite){
   set('coc_site', loc);
   set('coc_process_desc', proc);
   set('coc_industry', 'Military / Army National Guard Industrial Hygiene');
-  set('coc_turnaround', gv('lab_turnaround')?(gv('lab_turnaround')+' day'):'');
+  // The turnaround dropdown stores raw codes (Standard / 4 / 3 / 2 /
+  // NextDay6pm / NextDayNoon / SameDay) that map to PDF checkboxes.
+  // If the IH typed a number in lab_turnaround (Lab Information panel),
+  // map "1"-"4" days straight to the corresponding code; anything else
+  // doesn't auto-fill the dropdown so we don't smear a guess across the
+  // checkbox group.
+  (function(){
+    const lt = (gv('lab_turnaround') || '').trim();
+    const code = ({ '4':'4', '3':'3', '2':'2', '1':'NextDay6pm' })[lt];
+    if (code) set('coc_turnaround', code);
+  })();
   set('coc_relinquished_date', gv('lab_date_sent'));
 }
 
@@ -2715,8 +2725,68 @@ async function generateCOC(){
   // mirror hasn't fired yet (e.g. a survey saved before the mirror
   // landed where the COC field is blank).
   set('metals_processDescription.txt', gv('coc_process_desc') || gv('associated_processes'));
-  set('specify.txt', gv('coc_turnaround'));
+  // Bug fix: specify.txt is the OEL "Other (specify)" text box, NOT the
+  // turnaround field. Previously this put values like "4 day" into the
+  // OEL section. Use the dedicated OEL Other field instead.
+  set('specify.txt', gv('coc_oel_other_text'));
   set('comments.txt', gv('coc_comments'));
+
+  // Checkbox helper — tries several PDF field-name conventions because
+  // the SGS Galson template uses an inconsistent mix. Silently ignores
+  // names that don't exist.
+  const checkOne = (names) => {
+    for (const n of names) {
+      try { form.getCheckBox(n).check(); return n; } catch(e){}
+    }
+    return null;
+  };
+
+  // Field-name discovery — dumps every form field on the COC template
+  // to the console so we can verify the checkbox names match what the
+  // PDF actually uses. Stash on window._cocPdfFields for easy paste.
+  try {
+    const fields = form.getFields();
+    const dump = fields.map(f => ({ name: f.getName(), type: f.constructor.name }));
+    console.warn('[COC] PDF template form fields (' + dump.length + '):', dump);
+    window._cocPdfFields = dump;
+  } catch(e) { console.warn('[COC] field-name dump failed', e); }
+
+  // "Need Results By" checkbox — turnaround value chooses the column.
+  // Try several naming conventions; the field-name dump above tells us
+  // which one actually exists so we can narrow this down next iteration.
+  const ta = gv('coc_turnaround');
+  const taMap = {
+    'Standard':    ['standard', 'standardTAT', 'Standard'],
+    '4':           ['fourBusinessDays', '4businessDays', '4BusinessDays', 'fourBusiness', 'tat4day'],
+    '3':           ['threeBusinessDays', '3businessDays', '3BusinessDays', 'threeBusiness', 'tat3day'],
+    '2':           ['twoBusinessDays', '2businessDays', '2BusinessDays', 'twoBusiness', 'tat2day'],
+    'NextDay6pm':  ['nextDay6pm', 'nextDayBy6pm', 'NextDay6pm', 'tatNextDay6pm'],
+    'NextDayNoon': ['nextDayNoon', 'nextDayByNoon', 'NextDayNoon', 'tatNextDayNoon'],
+    'SameDay':     ['sameDay', 'SameDay', 'tatSameDay']
+  };
+  if (ta && taMap[ta]) {
+    const hit = checkOne(taMap[ta]);
+    if (!hit) console.warn('[COC] "Need Results By" — no matching checkbox field for', ta, 'tried:', taMap[ta]);
+  }
+
+  // "Please indicate which OEL this data will be used for" checkboxes —
+  // OSHA PEL / ACGIH TLV / Cal OSHA / MSHA / Other. Same field-name
+  // ambiguity, so try multiple conventions per checkbox.
+  const oelCb = { oshapel:'OSHA PEL', acgihtlv:'ACGIH TLV', calosha:'Cal OSHA', msha:'MSHA', other:'Other' };
+  const oelMap = {
+    oshapel:  ['oshaPEL', 'oshaPel', 'osha_pel', 'OSHAPEL', 'oshapel'],
+    acgihtlv: ['acgihTLV', 'acgihTlv', 'acgih_tlv', 'ACGIHTLV', 'acgihtlv'],
+    calosha:  ['calOSHA', 'calOsha', 'cal_osha', 'CalOSHA', 'calosha'],
+    msha:     ['mSHA', 'MSHA', 'msha'],
+    other:    ['other', 'Other', 'otherSpecify', 'oel_other']
+  };
+  Object.keys(oelMap).forEach(k => {
+    if (fld('coc_oel_' + k) && fld('coc_oel_' + k).checked) {
+      const hit = checkOne(oelMap[k]);
+      if (!hit) console.warn('[COC] OEL "' + oelCb[k] + '" — no matching checkbox field; tried:', oelMap[k]);
+    }
+  });
+
   set('pageNum.txt', gv('coc_page')||'1');
   set('ofNum.txt', gv('coc_of')||'1');
   set('relinquishedByName1.txt', gv('coc_relinquished_by'));
