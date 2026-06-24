@@ -1536,9 +1536,23 @@ function tcSlotMinutes(){
   return (tcUnit() === 'minutes') ? dur : dur * 60;
 }
 function tcSampleAnchor(field){
-  /* Combine samp1_start_date (YYYY-MM-DD) + samp1_start_time (HH:MM)
-     into a Date. Returns null if either piece is missing or unparseable.
-     `field` is 'start' or 'stop'. */
+  /* Time Course anchor resolver.
+     For 'start': prefer the IH's Time Course Start Time override
+     (#airTcStartOverride) so the slot list can show real time periods
+     before Sample 1 is configured; fall back to samp1_start_*.
+     For 'stop': only samp1_stop_* is considered — the override only
+     pins the start, the stop still derives from Sample 1 (or defaults
+     to 8 hours later in tcSlotWindows).
+     Returns a Date, or null when nothing usable is set. */
+  if (field === 'start') {
+    const override = (el('airTcStartOverride')||{}).value;
+    if (override) {
+      const today = new Date();
+      const yyyy = today.getFullYear(), mm = String(today.getMonth()+1).padStart(2,'0'), dd = String(today.getDate()).padStart(2,'0');
+      const dt = new Date(yyyy+'-'+mm+'-'+dd+'T'+override+':00');
+      if (!isNaN(dt.getTime())) return dt;
+    }
+  }
   const d = gv('samp1_'+field+'_date');
   const t = gv('samp1_'+field+'_time');
   if (!t) return null;
@@ -1628,14 +1642,16 @@ function rebuildTimeCourse(){
      where the slots are anchored. */
   const hint = el('airTcBaseHint');
   if (hint) {
-    const start = tcSampleAnchor('start');
-    const stop  = tcSampleAnchor('stop');
+    const start  = tcSampleAnchor('start');
+    const stop   = tcSampleAnchor('stop');
+    const isOver = !!((el('airTcStartOverride')||{}).value);
+    const src    = isOver ? 'Override' : 'Sample 1';
     if (start && stop) {
-      hint.textContent = 'Sample 1: ' + tcFmtTime(start) + ' – ' + tcFmtTime(stop) + '  ·  ' + wins.length + ' slot' + (wins.length !== 1 ? 's' : '');
+      hint.textContent = src + ': ' + tcFmtTime(start) + ' – ' + tcFmtTime(stop) + '  ·  ' + wins.length + ' slot' + (wins.length !== 1 ? 's' : '');
     } else if (start) {
-      hint.textContent = 'Sample 1 start: ' + tcFmtTime(start) + '  ·  ' + wins.length + ' slot' + (wins.length !== 1 ? 's' : '') + ' (8 h default)';
+      hint.textContent = src + ' start: ' + tcFmtTime(start) + '  ·  ' + wins.length + ' slot' + (wins.length !== 1 ? 's' : '') + ' (8 h default)';
     } else {
-      hint.textContent = 'Start: —  ·  enter Sample 1 Start Time to anchor slots';
+      hint.textContent = 'Start: —  ·  enter Sample 1 Start Time or set the Start Time override to anchor slots';
     }
   }
 }
@@ -2689,6 +2705,7 @@ function loadPdfLib(){
 }
 function b64ToBytes(b64){ const bin=atob(b64); const a=new Uint8Array(bin.length); for(let k=0;k<bin.length;k++) a[k]=bin.charCodeAt(k); return a; }
 async function generateCOC(){
+  console.log('[COC] generateCOC called');
   if(!window.COC_TEMPLATE_B64 || String(window.COC_TEMPLATE_B64).indexOf('__COC')===0){
     alert('COC template not embedded in this build yet — coc-template.js will be added in a later step.');
     return;
@@ -2705,6 +2722,15 @@ async function generateCOC(){
   try{ doc=await PDFLib.PDFDocument.load(b64ToBytes(window.COC_TEMPLATE_B64)); }
   catch(e){ alert('Could not open the COC template: '+e.message); return; }
   const form=doc.getForm();
+  // Field-name discovery — dump every form field on the COC template
+  // BEFORE any setText calls so we always get the list even if a later
+  // setter throws. Stash on window._cocPdfFields for easy paste.
+  try {
+    const fields = form.getFields();
+    const dump = fields.map(f => ({ name: f.getName(), type: f.constructor.name }));
+    console.warn('%c[COC] PDF template form fields (' + dump.length + ')', 'background:#3a6cf0;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold', dump);
+    window._cocPdfFields = dump;
+  } catch(e) { console.warn('[COC] field-name dump failed', e); }
   const set=(n,v)=>{ if(v==null||v==='') return; try{ form.getTextField(n).setText(String(v)); }catch(e){} };
   set('ReportToNameAddress.txt', gv('coc_report_to'));
   set('ReportToPhoneNumber.txt', gv('coc_report_phone'));
@@ -2740,16 +2766,6 @@ async function generateCOC(){
     }
     return null;
   };
-
-  // Field-name discovery — dumps every form field on the COC template
-  // to the console so we can verify the checkbox names match what the
-  // PDF actually uses. Stash on window._cocPdfFields for easy paste.
-  try {
-    const fields = form.getFields();
-    const dump = fields.map(f => ({ name: f.getName(), type: f.constructor.name }));
-    console.warn('[COC] PDF template form fields (' + dump.length + '):', dump);
-    window._cocPdfFields = dump;
-  } catch(e) { console.warn('[COC] field-name dump failed', e); }
 
   // "Need Results By" checkbox — turnaround value chooses the column.
   // Try several naming conventions; the field-name dump above tells us
