@@ -451,7 +451,7 @@ body { padding: 20px 18px; }
      pages with the `size` descriptor have spotty browser support). */
   body.print-air { font-size: 8px; }
 
-  #view-air .air-toolbar, #view-air .tabbar { display: none !important; }
+  #view-air .air-toolbar, #view-air .tabbar, #view-air .air-action-bar { display: none !important; }
   /* COC prints as its own SGS Galson AcroForm PDF — don't waste pages here. */
   #view-air .air-coc-card { display: none !important; }
   #view-air .air-head { margin-bottom: 2px; }
@@ -3235,6 +3235,26 @@ body { padding: 20px 18px; }
       </section>
 
       </form>
+
+      <!-- Spacer so the last section clears the sticky action bar below. -->
+      <div style="height:80px;"></div>
+
+      <!-- Sticky action bar — always visible while the Air Sampling view
+           is active. Lives inside #view-air so the existing .view display
+           toggle auto-hides it on any other tab; the print CSS above
+           also hides .air-action-bar so it doesn't show in the official
+           printout. -->
+      <div id="airActionBar" class="air-action-bar"
+           style="position:fixed; bottom:0; left:0; right:0; z-index:50; background:var(--surface); border-top:1.5px solid var(--border); box-shadow:0 -2px 12px rgba(0,0,0,0.08); padding:10px 16px; padding-bottom:calc(10px + env(safe-area-inset-bottom));">
+        <div style="max-width:1180px; margin:0 auto; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+          <button type="button" onclick="Air.newAirSurvey&amp;&amp;Air.newAirSurvey()"
+                  style="font:inherit;cursor:pointer;border:1px solid var(--ai-line);padding:7px 14px;border-radius:7px;background:#fff;color:var(--ai-ink);">+ New Survey</button>
+          <button type="button" onclick="Air.resetForm&amp;&amp;Air.resetForm()"
+                  style="font:inherit;cursor:pointer;border:1px solid var(--ai-line);padding:7px 14px;border-radius:7px;background:#fff;color:var(--ai-ink);">Clear Form</button>
+          <button type="button" onclick="Air.saveAirSurvey&amp;&amp;Air.saveAirSurvey()"
+                  style="font:inherit;cursor:pointer;border:1px solid var(--ai-accent);padding:7px 16px;border-radius:7px;background:var(--ai-accent);color:#fff;font-weight:600;">Save Survey</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
