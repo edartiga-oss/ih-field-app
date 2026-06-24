@@ -1703,6 +1703,7 @@ function collectTimeCourse(){
      a survey pulled from Sheets only has `photoUrl`). */
   const out = { duration: (el('airTcDuration')||{}).value || '',
                 unit: (el('airTcUnit')||{}).value || 'hours',
+                startOverride: (el('airTcStartOverride')||{}).value || '',
                 hours: {} };
   document.querySelectorAll('#airTcEntries .tc-entry').forEach(div => {
     const h = +div.dataset.hour;
@@ -1718,6 +1719,7 @@ function applyTimeCourse(tc){
   tcPhotos = {}; tcPhotoUrls = {};
   if (tc.duration) { const i = el('airTcDuration'); if (i) i.value = tc.duration; }
   if (tc.unit) { const s = el('airTcUnit'); if (s) s.value = tc.unit; }
+  if (tc.startOverride !== undefined) { const o = el('airTcStartOverride'); if (o) o.value = tc.startOverride; }
   Object.keys(tc.hours||{}).forEach(h => {
     if (tc.hours[h].photo)    tcPhotos[h]    = tc.hours[h].photo;
     if (tc.hours[h].photoUrl) tcPhotoUrls[h] = tc.hours[h].photoUrl;
@@ -2901,6 +2903,18 @@ function initForm(){
   applyPrefill();
   syncCOCDefaults(false);
   updateCOCPreview();
+  /* Seed the Time Course Start Time override with the current local
+     time when nothing else anchors the slot list, so the IH sees real
+     time windows ("0800 - 0805") in every slot the moment the form
+     loads. Skip if the override was restored from a saved session
+     (applyPrefill above) or if Sample 1 Start Time is already set. */
+  (function(){
+    const overrideEl = el('airTcStartOverride');
+    if (!overrideEl || overrideEl.value) return;
+    if (gv('samp1_start_time')) return;
+    const now = new Date();
+    overrideEl.value = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  })();
   rebuildTimeCourse();
   initCollapsible();
   /* Re-populate equipment pickers — the addSample() call above ran before the
