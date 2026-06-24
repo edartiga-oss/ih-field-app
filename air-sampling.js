@@ -2724,11 +2724,25 @@ async function generateCOC(){
   const form=doc.getForm();
   // Field-name discovery — dump every form field on the COC template
   // BEFORE any setText calls so we always get the list even if a later
-  // setter throws. Stash on window._cocPdfFields for easy paste.
+  // setter throws. Probe each name with the real getXxx() methods,
+  // because pdf-lib is minified — f.constructor.name returns "r" or "t"
+  // and is useless. Stash on window._cocPdfFields for easy paste.
   try {
     const fields = form.getFields();
-    const dump = fields.map(f => ({ name: f.getName(), type: f.constructor.name }));
+    const dump = fields.map(f => {
+      const name = f.getName();
+      let kind = 'Unknown', extra = null;
+      try { form.getCheckBox(name);    kind = 'CheckBox';   } catch(e){}
+      if (kind === 'Unknown') { try { const rg = form.getRadioGroup(name); kind = 'RadioGroup'; try { extra = rg.getOptions(); } catch(e){} } catch(e){} }
+      if (kind === 'Unknown') { try { form.getTextField(name);  kind = 'TextField';  } catch(e){} }
+      if (kind === 'Unknown') { try { form.getDropdown(name);   kind = 'Dropdown';   } catch(e){} }
+      if (kind === 'Unknown') { try { form.getButton(name);     kind = 'Button';     } catch(e){} }
+      return extra ? { name, kind, options: extra } : { name, kind };
+    });
     console.warn('%c[COC] PDF template form fields (' + dump.length + ')', 'background:#3a6cf0;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold', dump);
+    // Convenience filters for the IH to paste back to me:
+    console.log('[COC] CheckBoxes:',  dump.filter(d => d.kind === 'CheckBox').map(d => d.name));
+    console.log('[COC] RadioGroups:', dump.filter(d => d.kind === 'RadioGroup'));
     window._cocPdfFields = dump;
   } catch(e) { console.warn('[COC] field-name dump failed', e); }
   const set=(n,v)=>{ if(v==null||v==='') return; try{ form.getTextField(n).setText(String(v)); }catch(e){} };
