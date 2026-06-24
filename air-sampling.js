@@ -2771,49 +2771,40 @@ async function generateCOC(){
   set('specify.txt', gv('coc_oel_other_text'));
   set('comments.txt', gv('coc_comments'));
 
-  // Checkbox helper — tries several PDF field-name conventions because
-  // the SGS Galson template uses an inconsistent mix. Silently ignores
-  // names that don't exist.
-  const checkOne = (names) => {
-    for (const n of names) {
-      try { form.getCheckBox(n).check(); return n; } catch(e){}
-    }
-    return null;
+  // "Need Results By" is a single radio group named needResultsBy.btn
+  // with seven options. "Standard" on the form corresponds to "5 business
+  // days" on the PDF (5 days is the SGS default turnaround).
+  const taRadioMap = {
+    'Standard':    '5 business days',
+    '4':           '4 business days',
+    '3':           '3 business days',
+    '2':           '2 business days',
+    'NextDay6pm':  'next day 6pm',
+    'NextDayNoon': 'next day noon',
+    'SameDay':     'same day'
   };
-
-  // "Need Results By" checkbox — turnaround value chooses the column.
-  // Try several naming conventions; the field-name dump above tells us
-  // which one actually exists so we can narrow this down next iteration.
   const ta = gv('coc_turnaround');
-  const taMap = {
-    'Standard':    ['standard', 'standardTAT', 'Standard'],
-    '4':           ['fourBusinessDays', '4businessDays', '4BusinessDays', 'fourBusiness', 'tat4day'],
-    '3':           ['threeBusinessDays', '3businessDays', '3BusinessDays', 'threeBusiness', 'tat3day'],
-    '2':           ['twoBusinessDays', '2businessDays', '2BusinessDays', 'twoBusiness', 'tat2day'],
-    'NextDay6pm':  ['nextDay6pm', 'nextDayBy6pm', 'NextDay6pm', 'tatNextDay6pm'],
-    'NextDayNoon': ['nextDayNoon', 'nextDayByNoon', 'NextDayNoon', 'tatNextDayNoon'],
-    'SameDay':     ['sameDay', 'SameDay', 'tatSameDay']
-  };
-  if (ta && taMap[ta]) {
-    const hit = checkOne(taMap[ta]);
-    if (!hit) console.warn('[COC] "Need Results By" — no matching checkbox field for', ta, 'tried:', taMap[ta]);
+  if (ta && taRadioMap[ta]) {
+    try { form.getRadioGroup('needResultsBy.btn').select(taRadioMap[ta]); }
+    catch(e) { console.warn('[COC] needResultsBy radio select failed for', ta, '->', taRadioMap[ta], e); }
   }
 
-  // "Please indicate which OEL this data will be used for" checkboxes —
-  // OSHA PEL / ACGIH TLV / Cal OSHA / MSHA / Other. Same field-name
-  // ambiguity, so try multiple conventions per checkbox.
-  const oelCb = { oshapel:'OSHA PEL', acgihtlv:'ACGIH TLV', calosha:'Cal OSHA', msha:'MSHA', other:'Other' };
-  const oelMap = {
-    oshapel:  ['oshaPEL', 'oshaPel', 'osha_pel', 'OSHAPEL', 'oshapel'],
-    acgihtlv: ['acgihTLV', 'acgihTlv', 'acgih_tlv', 'ACGIHTLV', 'acgihtlv'],
-    calosha:  ['calOSHA', 'calOsha', 'cal_osha', 'CalOSHA', 'calosha'],
-    msha:     ['mSHA', 'MSHA', 'msha'],
-    other:    ['other', 'Other', 'otherSpecify', 'oel_other']
+  // OEL row: five sibling checkboxes oel1.txt … oel5.txt mapped
+  // left-to-right, top-to-bottom on the form layout. The "Other"
+  // checkbox is oel5.txt; the text next to it still goes into
+  // specify.txt (set above).
+  const oelCheckMap = {
+    oshapel:  'oel1.txt',  // OSHA PEL
+    acgihtlv: 'oel2.txt',  // ACGIH TLV
+    calosha:  'oel3.txt',  // Cal OSHA
+    msha:     'oel4.txt',  // MSHA
+    other:    'oel5.txt'   // Other (specify)
   };
-  Object.keys(oelMap).forEach(k => {
-    if (fld('coc_oel_' + k) && fld('coc_oel_' + k).checked) {
-      const hit = checkOne(oelMap[k]);
-      if (!hit) console.warn('[COC] OEL "' + oelCb[k] + '" — no matching checkbox field; tried:', oelMap[k]);
+  Object.keys(oelCheckMap).forEach(k => {
+    const inp = fld('coc_oel_' + k);
+    if (inp && inp.checked) {
+      try { form.getCheckBox(oelCheckMap[k]).check(); }
+      catch(e) { console.warn('[COC] OEL checkbox', oelCheckMap[k], 'failed', e); }
     }
   });
 
