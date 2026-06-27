@@ -95,6 +95,37 @@ header {
 .nav-tab:hover { color: rgba(255,255,255,0.85); }
 .nav-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
 
+/* ── NOISE SUB-NAV ── */
+/* Sub-nav row for the Noise group. Only shown when one of the noise
+   children (Surveys, Dosimetry Entry, Verify, Field Obs, Statistics,
+   Noise RAC) is the active view. */
+.noise-subnav {
+  display: none;
+  background: rgba(15,34,53,0.7);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 0 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.noise-subnav.active { display: flex; }
+.noise-subnav::-webkit-scrollbar { display: none; }
+.sub-tab {
+  padding: 7px 14px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  border: none;
+  background: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.sub-tab:hover { color: rgba(255,255,255,0.8); }
+.sub-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
 /* ── MAIN CONTENT ── */
 main { flex: 1; padding: 20px; max-width: 960px; margin: 0 auto; width: 100%; }
 .view { display: none; }
@@ -825,16 +856,22 @@ body { padding: 20px 18px; }
 
 <div class="nav-tabs">
   <button class="nav-tab" onclick="showView('equipment')">Equipment</button>
-  <button class="nav-tab" onclick="showView('form')">Noise Dosimetry</button>
-  <button class="nav-tab" onclick="showView('verify')">Verify</button>
-  <button class="nav-tab active" onclick="showView('surveys')">Noise Dosimetry Surveys</button>
-  <button class="nav-tab" onclick="showView('fieldobs')">Field Obs</button>
-  <button class="nav-tab" onclick="showView('stats')">Statistics</button>
-  <button class="nav-tab" onclick="showView('rac')">Noise RAC</button>
+  <button class="nav-tab active" onclick="showNoiseGroup()" id="navTab-noise">Noise</button>
   <button class="nav-tab" onclick="showView('sound')">Sound Level</button>
   <button class="nav-tab" onclick="showView('air')">Air Sampling</button>
   <button class="nav-tab" onclick="showView('vent')">Ventilation</button>
   <button class="nav-tab" onclick="showView('export')">Export</button>
+</div>
+
+<!-- Sub-nav for the Noise group. Only visible when one of the noise
+     views is active (managed by showView via #noiseSubnav.active). -->
+<div class="noise-subnav" id="noiseSubnav">
+  <button class="sub-tab" onclick="showView('surveys')">Surveys</button>
+  <button class="sub-tab" onclick="showView('form')">Dosimetry Entry</button>
+  <button class="sub-tab" onclick="showView('verify')">Verify Reports</button>
+  <button class="sub-tab" onclick="showView('fieldobs')">Field Obs</button>
+  <button class="sub-tab" onclick="showView('stats')">Statistics</button>
+  <button class="sub-tab" onclick="showView('rac')">Noise RAC</button>
 </div>
 
 <main>
@@ -5223,6 +5260,31 @@ function migrateLegacyMeasuredValuesToColumns() {
 // ═══════════════════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════════════════
+// Views that live under the "Noise" parent tab in the navbar. When any
+// of these is active, the Noise top-level tab is highlighted and the
+// sub-nav row underneath the main nav is shown with the active sub-tab
+// marked. Keeps the top nav from getting noisy on small screens.
+const NOISE_VIEWS = ['form','surveys','verify','fieldobs','stats','rac'];
+
+function showNoiseGroup(){
+  // Default landing under Noise is the Surveys list — that's where the
+  // IH usually starts (review existing data, then drill in).
+  showView('surveys');
+}
+
+// Initial Surveys view ships with class="active" so the page renders
+// the right content immediately, but the sub-nav isn't initialized
+// until showView() runs. Sync it on first paint so the IH sees the
+// Noise sub-nav highlighted right away.
+document.addEventListener('DOMContentLoaded', function(){
+  const sub = document.getElementById('noiseSubnav');
+  if (sub) {
+    sub.classList.add('active');
+    const surveysBtn = sub.querySelector('.sub-tab[onclick*="showView(\'surveys\')"]');
+    if (surveysBtn) surveysBtn.classList.add('active');
+  }
+});
+
 function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -5231,12 +5293,33 @@ function showView(name) {
   // rather than using a hardcoded position array — self-healing if
   // tabs ever get reordered again.
   const tabs = document.querySelectorAll('.nav-tab');
+  let directHit = false;
   for (let i = 0; i < tabs.length; i++) {
     const onclick = tabs[i].getAttribute('onclick') || '';
     if (onclick.indexOf("showView('" + name + "')") !== -1) {
       tabs[i].classList.add('active');
+      directHit = true;
       break;
     }
+  }
+  // Noise group handling: when the view is one of the noise children,
+  // mark the Noise parent active and show the sub-nav with the right
+  // sub-tab highlighted.
+  const noiseSub = document.getElementById('noiseSubnav');
+  if (NOISE_VIEWS.indexOf(name) !== -1) {
+    if (!directHit) {
+      const np = document.getElementById('navTab-noise');
+      if (np) np.classList.add('active');
+    }
+    if (noiseSub) {
+      noiseSub.classList.add('active');
+      noiseSub.querySelectorAll('.sub-tab').forEach(b => {
+        const oc = b.getAttribute('onclick') || '';
+        b.classList.toggle('active', oc.indexOf("showView('" + name + "')") !== -1);
+      });
+    }
+  } else if (noiseSub) {
+    noiseSub.classList.remove('active');
   }
   if (name === 'surveys')   renderSurveyList();
   if (name === 'fieldobs')  renderFieldObsSummary();
