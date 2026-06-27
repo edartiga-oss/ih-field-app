@@ -585,6 +585,25 @@ function flushSyncQueue(){
   if (q.length) setTimeout(flushSyncQueue, 600);
 }
 
+/* ── Collapsible sections — same pattern Air Sampling uses on h2
+   headers. Click anywhere in the h3 (away from buttons / inputs)
+   toggles a .collapsed class on the parent <section.v-card>; the CSS
+   hides the .body when collapsed and rotates the chevron. */
+function initCollapsible(){
+  document.querySelectorAll('#ventAppHost section.v-card > h3').forEach(h => {
+    if (h.dataset.collapInit) return;
+    h.dataset.collapInit = '1';
+    h.insertAdjacentHTML('afterbegin', '<span class="chev" aria-hidden="true">▾</span> ');
+    h.addEventListener('click', function(e){
+      if (e.target.closest('button,select,input,a,textarea')) return;
+      h.parentElement.classList.toggle('collapsed');
+    });
+  });
+}
+function setAllCollapsed(c){
+  document.querySelectorAll('#ventAppHost section.v-card').forEach(s => s.classList.toggle('collapsed', !!c));
+}
+
 /* ── Init ─────────────────────────────────────────────────────── */
 let initialized = false;
 function initForm(){
@@ -596,6 +615,7 @@ function initForm(){
       addSystem(); addSystem();
     }
     renderSurveyList();
+    initCollapsible();
     recomputeAll();
     if (navigator.onLine) setTimeout(flushSyncQueue, 2500);
     initialized = true;
@@ -625,6 +645,7 @@ window.Vent = Object.assign(window.Vent || {}, {
   onEngineChange, recomputeSystem, recomputeRoom, recomputeAll,
   loadMeterFromLibrary, loadExample,
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
+  setAllCollapsed,
   flushSyncQueue,
   init: initForm
 });
