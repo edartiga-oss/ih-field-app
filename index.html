@@ -613,9 +613,109 @@ body { padding: 20px 18px; }
 /* On screen the official-print root is hidden — only renders during print. */
 #airOfficialPrintRoot { display: none; }
 #soundOfficialPrintRoot { display: none; }
+#ventPrintRoot { display: none; }
 
 /* On screen the print-analyte-mirror is hidden (only renders during print). */
 #airAppHost .print-analyte-mirror { display: none; }
+
+/* ── Ventilation Survey official print layout ──────────────────
+   Letter landscape, tight margins. Mirrors the Texas ARNG / PIKA
+   worksheet but driven entirely from the form state. */
+@media print {
+  body.print-vent-official { font-size: 8.5pt; color: #000; background: #fff; }
+  body.print-vent-official > *:not(#ventPrintRoot) { display: none !important; }
+  body.print-vent-official #ventPrintRoot {
+    display: block; padding: 0; margin: 0; width: 100%;
+  }
+  body.print-vent-official #ventPrintRoot .vp-doc { width: 100%; }
+  body.print-vent-official #ventPrintRoot h1.vp-title {
+    text-align: center; font-size: 13pt; margin: 0 0 5pt; letter-spacing: 0.5pt;
+  }
+  body.print-vent-official #ventPrintRoot table.vp,
+  body.print-vent-official #ventPrintRoot table.vp-sys {
+    width: 100%; border-collapse: collapse; margin: 0 0 4pt;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  body.print-vent-official #ventPrintRoot table.vp td,
+  body.print-vent-official #ventPrintRoot table.vp th,
+  body.print-vent-official #ventPrintRoot table.vp-sys td,
+  body.print-vent-official #ventPrintRoot table.vp-sys th {
+    border: 0.5pt solid #000; padding: 2pt 4pt; vertical-align: top;
+    font-size: 7.5pt; line-height: 1.2; word-wrap: break-word;
+  }
+  body.print-vent-official #ventPrintRoot .vp-lbl {
+    background: #ececec !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-weight: 700; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.2pt;
+    white-space: nowrap;
+  }
+  body.print-vent-official #ventPrintRoot .vp-val {
+    min-height: 11pt; font-size: 8pt;
+  }
+  body.print-vent-official #ventPrintRoot .vp-section {
+    background: #b0b0b0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    color: #000; font-weight: 700; text-align: center; font-size: 8pt;
+    text-transform: uppercase; letter-spacing: 0.4pt;
+    padding: 2.5pt 4pt; margin: 4pt 0 0; border: 0.5pt solid #000;
+  }
+  body.print-vent-official #ventPrintRoot table.vp-sys {
+    table-layout: auto; break-inside: auto; page-break-inside: auto;
+  }
+  body.print-vent-official #ventPrintRoot table.vp-sys th.vp-rowlabel {
+    background: #ececec !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    text-align: left; min-width: 1.2in;
+  }
+  body.print-vent-official #ventPrintRoot table.vp-sys th.vp-syshead {
+    background: #4a5d6a !important; color: #fff !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    text-align: center; font-size: 8pt;
+  }
+  body.print-vent-official #ventPrintRoot table.vp-sys td {
+    text-align: center;
+  }
+  body.print-vent-official #ventPrintRoot .vp-calc {
+    background: #e8f1ec !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-family: 'Courier New', monospace; font-weight: 700; color: #0e6a47;
+  }
+  body.print-vent-official #ventPrintRoot .vp-status { font-weight: 700; }
+  body.print-vent-official #ventPrintRoot .vp-status.vp-pass {
+    background: #d6efdf !important; color: #0a5c3e !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  body.print-vent-official #ventPrintRoot .vp-status.vp-fail {
+    background: #f6d8d8 !important; color: #8e1c1c !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  body.print-vent-official #ventPrintRoot .vp-text {
+    border: 0.5pt solid #000; padding: 3pt 5pt; min-height: 22pt;
+    font-size: 8pt; line-height: 1.35; margin: 0 0 4pt;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  body.print-vent-official #ventPrintRoot .vp-photos {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6pt;
+    margin: 0 0 6pt;
+  }
+  body.print-vent-official #ventPrintRoot .vp-photo {
+    border: 0.5pt solid #000; padding: 3pt; break-inside: avoid; page-break-inside: avoid;
+  }
+  body.print-vent-official #ventPrintRoot .vp-photo img {
+    width: 100%; max-height: 2.4in; object-fit: contain; display: block;
+  }
+  body.print-vent-official #ventPrintRoot .vp-photo-cap {
+    font-size: 7.5pt; padding: 2pt 0 0; text-align: center; color: #333;
+  }
+  body.print-vent-official #ventPrintRoot table.vp-calc-desc td.vp-val {
+    font-family: 'Courier New', monospace; font-weight: 400;
+  }
+  body.print-vent-official #ventPrintRoot table.vp-signoff {
+    margin-top: 8pt;
+  }
+  body.print-vent-official #ventPrintRoot table.vp-signoff .vp-val {
+    min-height: 30pt;
+  }
+  body.print-vent-official #ventPrintRoot .vp-date {
+    font-size: 7pt; color: #555; margin-top: 4pt;
+  }
+}
 </style>
 
 
@@ -3440,6 +3540,7 @@ body { padding: 20px 18px; }
           <div class="sub">Velocity measurements (FPM) &middot; auto duct-area + CFM &middot; vehicle-engine design criteria</div>
         </div>
         <div class="v-toolbar">
+          <button type="button" onclick="window.Vent&amp;&amp;Vent.printSurvey&amp;&amp;Vent.printSurvey()" title="Generate the printable survey deliverable">🖨 Print Survey</button>
           <button type="button" onclick="window.Vent&amp;&amp;Vent.setAllCollapsed&amp;&amp;Vent.setAllCollapsed(true)">Collapse all</button>
           <button type="button" onclick="window.Vent&amp;&amp;Vent.setAllCollapsed&amp;&amp;Vent.setAllCollapsed(false)">Expand all</button>
           <select id="ventExamplePick" title="Pick a worked example then click Load" style="padding:6px 10px;border-radius:6px;border:1px solid var(--v-line);background:#fff;cursor:pointer;font-size:12px;color:var(--v-ink);max-width:240px;">

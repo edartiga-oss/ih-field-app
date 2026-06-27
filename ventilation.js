@@ -712,6 +712,190 @@ function initCollapsible(){ /* delegation handles it now — kept for API back-c
   }, false);
 })();
 
+/* ── Print: build the official Ventilation Survey deliverable in
+   a hidden DOM root, then toggle a body class that swaps print CSS
+   to show only that root and triggers window.print(). Mirrors the
+   PIKA / Texas ARNG worksheet:
+     - Header: Org / Location / Shop / Date
+     - Transposed Systems table (rows = field labels, cols = systems)
+     - Room volume + ACH if present
+     - Diagrams grid (every photo with its caption)
+     - Notes / Design Criteria narrative / Recommendations
+     - Velocity meter + Calculations descriptions
+     - Surveyed By / Reviewed By signature line */
+function buildPrintDOM(){
+  const existing = document.getElementById('ventPrintRoot');
+  if (existing) existing.remove();
+
+  function v(name){ const f = fld(name); return f && f.value ? esc(f.value) : '&nbsp;'; }
+
+  // --- header
+  let html = '<div class="vp-doc">';
+  html += '<h1 class="vp-title">VENTILATION SURVEY</h1>';
+  html += '<table class="vp"><tr>'+
+    '<td class="vp-lbl">Organization</td><td class="vp-val">'+v('organization')+'</td>'+
+    '<td class="vp-lbl">Location</td><td class="vp-val">'+v('location')+'</td>'+
+    '<td class="vp-lbl">Shop</td><td class="vp-val">'+v('shop')+'</td>'+
+    '<td class="vp-lbl">Date Surveyed</td><td class="vp-val">'+v('date')+'</td>'+
+  '</tr></table>';
+
+  // --- systems table (transposed, like the source spreadsheet)
+  const PRINT_ROWS = [
+    { key:'system',     label:'System #' },
+    { key:'component',  label:'Component #' },
+    { key:'shape',      label:'Duct Shape',     fmt:s => s==='rect'?'Rectangular':'Round' },
+    { key:'dia',        label:'Diameter (in)' },
+    { key:'width',      label:'L — Length (in)' },
+    { key:'height',     label:'W — Width (in)' },
+    { key:'m1',         label:'Measurement 1 (FPM)' },
+    { key:'m2',         label:'Measurement 2 (FPM)' },
+    { key:'m3',         label:'Measurement 3 (FPM)' },
+    { key:'m4',         label:'Measurement 4 (FPM)' },
+    { key:'m5',         label:'Measurement 5 (FPM)' },
+    { key:'avg_fpm',    label:'AVG FPM',         calc:true },
+    { key:'area_ft2',   label:'Duct Area (ft²)', calc:true },
+    { key:'cfm',        label:'CFM (Q)',         calc:true },
+    { key:'engine',     label:'Engine' },
+    { key:'vehicle',    label:'Vehicle' },
+    { key:'design_cfm', label:'Design CFM' },
+    { key:'min_fpm',    label:'Min FPM',         calc:true },
+    { key:'status',     label:'Status',          calc:true, status:true }
+  ];
+  html += '<div class="vp-section">SURVEY DATA</div>';
+  html += '<table class="vp-sys"><thead><tr><th class="vp-rowlabel">Field</th>';
+  systems.forEach(s => { html += '<th class="vp-syshead">System '+s.sid+'</th>'; });
+  html += '</tr></thead><tbody>';
+  PRINT_ROWS.forEach(row => {
+    html += '<tr>';
+    html += '<th class="vp-rowlabel">'+esc(row.label)+'</th>';
+    systems.forEach(s => {
+      let value;
+      if (row.calc) {
+        value = (el('sys'+s.sid+'_'+row.key) || {}).textContent || '—';
+      } else {
+        value = (fld('sys'+s.sid+'_'+row.key) || {}).value || '';
+      }
+      if (row.fmt) value = row.fmt(value);
+      let cls = '';
+      if (row.calc) cls = 'vp-calc';
+      if (row.status) {
+        cls += ' vp-status';
+        if (value === 'PASS')      cls += ' vp-pass';
+        else if (value === 'FAIL') cls += ' vp-fail';
+        else if (value === 'INOP') cls += ' vp-fail';
+      }
+      html += '<td class="'+cls.trim()+'">'+esc(value || '—')+'</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+
+  // --- room / ACH (if any input filled)
+  const rL = (fld('room_length')||{}).value;
+  const rW = (fld('room_width')||{}).value;
+  const rH = (fld('room_height')||{}).value;
+  const rD = (fld('room_design_ach')||{}).value;
+  if (rL || rW || rH || rD) {
+    html += '<div class="vp-section">ROOM VOLUME &amp; AIR CHANGES / HOUR</div>';
+    html += '<table class="vp"><tr>'+
+      '<td class="vp-lbl">Room L × W × H (ft)</td>'+
+      '<td class="vp-val">'+esc(rL||'—')+' × '+esc(rW||'—')+' × '+esc(rH||'—')+'</td>'+
+      '<td class="vp-lbl">Room Volume (ft³)</td>'+
+      '<td class="vp-val vp-calc">'+esc((el('room_volume')||{}).textContent || '—')+'</td>'+
+      '<td class="vp-lbl">Σ CFM</td>'+
+      '<td class="vp-val vp-calc">'+esc((el('room_total_cfm')||{}).textContent || '—')+'</td>'+
+      '<td class="vp-lbl">Actual ACH</td>'+
+      '<td class="vp-val vp-calc">'+esc((el('room_ach')||{}).textContent || '—')+'</td>'+
+      '<td class="vp-lbl">Design ACH</td>'+
+      '<td class="vp-val">'+esc(rD||'—')+'</td>'+
+    '</tr></table>';
+  }
+
+  // --- diagrams
+  if (photos.length) {
+    html += '<div class="vp-section">DIAGRAMS &amp; PHOTOS</div>';
+    html += '<div class="vp-photos">';
+    photos.forEach(p => {
+      html += '<div class="vp-photo">'+
+        '<img src="'+esc(p.dataUri)+'" alt="vent photo">'+
+        (p.label ? '<div class="vp-photo-cap">'+esc(p.label)+'</div>' : '')+
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  // --- notes / design criteria / recommendations
+  html += '<div class="vp-section">NOTES</div>';
+  html += '<div class="vp-text">'+esc((fld('notes')||{}).value || '—').replace(/\n/g,'<br>')+'</div>';
+  html += '<div class="vp-section">DESIGN CRITERIA</div>';
+  html += '<div class="vp-text">'+esc((fld('design_criteria_text')||{}).value || '—').replace(/\n/g,'<br>')+'</div>';
+  html += '<div class="vp-section">RECOMMENDATIONS</div>';
+  html += '<div class="vp-text">'+esc((fld('recommendations')||{}).value || '—').replace(/\n/g,'<br>')+'</div>';
+
+  // --- equipment + calc descriptions
+  html += '<div class="vp-section">VELOCITY METER</div>';
+  html += '<table class="vp"><tr>'+
+    '<td class="vp-lbl">Make</td><td class="vp-val">'+v('meter_make')+'</td>'+
+    '<td class="vp-lbl">Model</td><td class="vp-val">'+v('meter_model')+'</td>'+
+    '<td class="vp-lbl">Serial #</td><td class="vp-val">'+v('meter_serial')+'</td>'+
+    '<td class="vp-lbl">Cal Date</td><td class="vp-val">'+v('meter_cal_date')+'</td>'+
+  '</tr></table>';
+
+  html += '<div class="vp-section">CALCULATIONS</div>';
+  html += '<table class="vp vp-calc-desc">'+
+    '<tr><td class="vp-lbl">AVG FPM</td><td class="vp-val">Sum of Measured Duct Velocities / Number of Measured Locations</td></tr>'+
+    '<tr><td class="vp-lbl">Duct Area (round)</td><td class="vp-val">A = π · r² (with r and area converted to ft)</td></tr>'+
+    '<tr><td class="vp-lbl">Duct Area (rect)</td><td class="vp-val">A = L × W (converted to ft²)</td></tr>'+
+    '<tr><td class="vp-lbl">CFM (Q)</td><td class="vp-val">AVG FPM × Duct Area (ft²)</td></tr>'+
+    '<tr><td class="vp-lbl">Min FPM</td><td class="vp-val">Design CFM / Duct Area (ft²)</td></tr>'+
+    '<tr><td class="vp-lbl">Status</td><td class="vp-val">PASS when CFM ≥ Design CFM · INOP when measurements all zero · FAIL otherwise</td></tr>'+
+  '</table>';
+
+  // --- sign-off
+  html += '<table class="vp vp-signoff">'+
+    '<tr>'+
+      '<td class="vp-lbl" style="width:50%">Surveyed by</td>'+
+      '<td class="vp-lbl">Reviewed by</td>'+
+    '</tr>'+
+    '<tr>'+
+      '<td class="vp-val">'+v('surveyed_by')+'<div class="vp-date">Date: '+v('surveyed_date')+'</div></td>'+
+      '<td class="vp-val">'+v('reviewed_by')+'<div class="vp-date">Date: '+v('reviewed_date')+'</div></td>'+
+    '</tr>'+
+  '</table>';
+
+  html += '</div>';
+
+  const root = document.createElement('div');
+  root.id = 'ventPrintRoot';
+  root.innerHTML = html;
+  document.body.appendChild(root);
+}
+
+function printSurvey(){
+  try {
+    buildPrintDOM();
+    document.body.classList.add('print-vent-official');
+    let styleEl = document.getElementById('ventPageRule');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'ventPageRule';
+      styleEl.textContent = '@page { size: letter landscape; margin: 0.35in; }';
+      document.head.appendChild(styleEl);
+    }
+    const cleanup = () => {
+      document.body.classList.remove('print-vent-official');
+      const s = document.getElementById('ventPageRule'); if (s) s.remove();
+      const d = document.getElementById('ventPrintRoot'); if (d) d.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  } catch(e) {
+    console.error('[Vent.printSurvey] failed', e);
+    alert('Print failed: ' + e.message);
+  }
+}
+
 /* ── Init ─────────────────────────────────────────────────────── */
 let initialized = false;
 function initForm(){
@@ -756,6 +940,7 @@ window.Vent = Object.assign(window.Vent || {}, {
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
   setAllCollapsed,
   onPhotoInput, addPhotos, deletePhoto, onPhotoLabelInput,
+  printSurvey,
   flushSyncQueue,
   init: initForm
 });
