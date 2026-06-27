@@ -3424,6 +3424,16 @@ body { padding: 20px 18px; }
           <h2>Ventilation Survey</h2>
           <div class="sub">Velocity measurements (FPM) &middot; auto duct-area + CFM &middot; vehicle-engine design criteria</div>
         </div>
+        <div class="v-toolbar">
+          <select onchange="if(this.value &amp;&amp; window.Vent &amp;&amp; Vent.loadExample){Vent.loadExample(this.value);this.selectedIndex=0;}" title="Load a worked example survey" style="padding:6px 10px;border-radius:6px;border:1px solid var(--v-line);background:#fff;cursor:pointer;font-size:12px;color:var(--v-ink);">
+            <option value="">Load Example…</option>
+            <option value="fms11_overhead">FMS 11 — Overhead Exhaust (2 systems, 6" duct)</option>
+            <option value="fms30_overhead_baffles_open">FMS 30 — Overhead Exhaust (6 systems, baffles open)</option>
+            <option value="fms36_all_inop">FMS 36 — Overhead Exhaust (ALL 7 INOPERABLE)</option>
+            <option value="aasf4_soldering">TX AASF 4 — Portable Soldering (rectangular)</option>
+            <option value="utes3_battery_room">TX UTES 3 — Battery Exhaust (ACH-based)</option>
+          </select>
+        </div>
       </div>
 
       <form id="ventForm" autocomplete="off">

@@ -109,6 +109,162 @@ function avgFpm(measurements){
   return vs.reduce((a,b) => a+b, 0) / vs.length;
 }
 
+/* ── Example surveys — five real Texas ARNG / ANG datasets from the
+   PIKA International ventilation worksheets. Loadable via the
+   "Load Example…" dropdown so the IH can preview the form populated
+   the way the printed deliverable looks, or seed a new survey at a
+   familiar facility. Keys map to a friendly label shown in the
+   dropdown. ─────────────────────────────────────────────────── */
+const VENT_EXAMPLES = {
+
+  aasf4_soldering: {
+    _label: 'TX AASF 4 — Portable Soldering Ventilation (rectangular)',
+    general: {
+      organization: 'Texas ANG',
+      location: 'Houston, TX',
+      shop: 'AASF 4 — Aircraft Soldering',
+      date: '2025-12-03',
+      room_length: '', room_width: '', room_height: '', room_design_ach: '',
+      notes: 'SodrTek FX50 Fume Exhauster at the soldering workstation. 115V bench-top unit with activated carbon-impregnated foam filter capturing solder and flux fumes.',
+      design_criteria_text: '35 CFM — manufacturer rating for SodrTek FX50.',
+      recommendations: 'Turn the SodrTek FX50 on before each soldering job starts. Replace filters per manufacturer schedule to keep capture efficiency in spec.',
+      meter_make: 'TSI', meter_model: 'VelociCalc AVM430-A', meter_serial: '9535A2138010', meter_cal_date: '2025-01-23',
+      surveyed_by: 'John Alvarado — Industrial Hygienist, PIKA International',
+      surveyed_date: '2025-12-03',
+      reviewed_by: 'Eduardo Artiga, CIH — PIKA International Inc.',
+      reviewed_date: '2025-12-11'
+    },
+    systems: [
+      { system:'1', component:'1', shape:'rect', dia:'', width:'5.1', height:'5.1',
+        m1:'130', m2:'144', m3:'112', m4:'108', m5:'155',
+        engine:'', vehicle:'', design_cfm:'35' }
+    ]
+  },
+
+  fms30_overhead_baffles_open: {
+    _label: 'FMS 30 — Overhead Exhaust (all baffles open, 6 systems)',
+    general: {
+      organization: 'Texas ARNG',
+      location: 'Temple, TX',
+      shop: 'FMS 30',
+      date: '2026-02-12',
+      room_length: '', room_width: '', room_height: '', room_design_ach: '',
+      notes: 'Maintenance bay overhead exhaust ventilation system with adjustable baffles. Survey performed with all baffles open to verify worst-case capture velocity.',
+      design_criteria_text: '501 CFM, 1435 Minimum FPM — Caterpillar C15 15.2L engine, 8" duct diameter.',
+      recommendations: 'All six systems met minimum design criteria with baffles open. Re-survey if downstream filters are changed or fan VFD setpoint moves.',
+      meter_make: 'TSI', meter_model: 'VelociCalc AVM430-A', meter_serial: 'AVM431234005', meter_cal_date: '2025-03-03',
+      surveyed_by: 'Diane Moore — Industrial Hygiene Tech, PIKA International',
+      surveyed_date: '2026-02-12',
+      reviewed_by: 'Eduardo Artiga, CIH — PIKA International Inc.',
+      reviewed_date: '2026-03-19'
+    },
+    systems: [
+      { system:'1', component:'1', shape:'round', dia:'8', width:'', height:'',
+        m1:'1559', m2:'1523', m3:'1502', m4:'1572', m5:'1522',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' },
+      { system:'1', component:'2', shape:'round', dia:'8', width:'', height:'',
+        m1:'1786', m2:'1569', m3:'1699', m4:'1586', m5:'1712',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' },
+      { system:'1', component:'3', shape:'round', dia:'8', width:'', height:'',
+        m1:'1422', m2:'1462', m3:'1559', m4:'1486', m5:'1474',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' },
+      { system:'1', component:'4', shape:'round', dia:'8', width:'', height:'',
+        m1:'1422', m2:'1426', m3:'1489', m4:'1490', m5:'1487',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' },
+      { system:'1', component:'5', shape:'round', dia:'8', width:'', height:'',
+        m1:'1419', m2:'1519', m3:'1413', m4:'1483', m5:'1476',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' },
+      { system:'1', component:'6', shape:'round', dia:'8', width:'', height:'',
+        m1:'1435', m2:'1407', m3:'1505', m4:'1445', m5:'1504',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' }
+    ]
+  },
+
+  utes3_battery_room: {
+    _label: 'TX UTES 3 — Battery Exhaust (ACH-based, rectangular)',
+    general: {
+      organization: 'Texas ANG',
+      location: 'Bastrop, TX',
+      shop: 'UTES 3 — Battery Room',
+      date: '2025-10-29',
+      room_length: '26.1', room_width: '10.2', room_height: '11.0', room_design_ach: '6',
+      notes: 'Battery room accessed via exterior door. Wall-mounted exhaust fan with 8" × 8" intake grille on the opposite wall.',
+      design_criteria_text: '6 ACH minimum for hydrogen control in indoor battery charging spaces.',
+      recommendations: 'Run the exhaust fan continuously while charging is in progress and for at least 15 minutes after disconnect. Verify the fan starts when room door opens.',
+      meter_make: 'TSI', meter_model: 'VelociCalc AVM430-A', meter_serial: '9535A2138010', meter_cal_date: '2025-01-23',
+      surveyed_by: 'Melissa Simpson — Industrial Hygienist, PIKA International',
+      surveyed_date: '2025-10-29',
+      reviewed_by: 'Eduardo Artiga, CIH — PIKA International Inc.',
+      reviewed_date: '2025-11-14'
+    },
+    systems: [
+      { system:'1', component:'1', shape:'rect', dia:'', width:'8', height:'8',
+        m1:'733', m2:'794', m3:'647', m4:'690', m5:'712',
+        engine:'', vehicle:'', design_cfm:'' }
+    ]
+  },
+
+  fms36_all_inop: {
+    _label: 'FMS 36 — Overhead Exhaust (ALL 7 INOPERABLE)',
+    general: {
+      organization: 'Texas ARNG',
+      location: 'Houston, TX',
+      shop: 'FMS 36',
+      date: '2026-03-05',
+      room_length: '', room_width: '', room_height: '', room_design_ach: '',
+      notes: 'All seven vehicle exhaust vents were inoperable at the time of this assessment. Work orders had been submitted but not closed.',
+      design_criteria_text: '501 CFM is based on the Caterpillar C15 15.2L engine.',
+      recommendations: 'Repair work orders open with the shop supervisor for all 7 components. Re-survey after repairs are complete before returning the bay to indoor running operations.',
+      meter_make: 'TSI', meter_model: 'AVM430', meter_serial: 'AVM431234008', meter_cal_date: '2025-12-11',
+      surveyed_by: 'Jason Scott — Industrial Hygienist, PIKA International',
+      surveyed_date: '2026-03-05',
+      reviewed_by: 'Cory Treloar — Certified Industrial Hygienist',
+      reviewed_date: '2026-04-10'
+    },
+    systems: [1,2,3,4,5,6,7].map(c => ({
+      system:'1', component:String(c), shape:'round', dia:'',
+      width:'', height:'',
+      m1:'0', m2:'0', m3:'0', m4:'0', m5:'0',
+      engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501'
+    }))
+  },
+
+  fms11_overhead: {
+    _label: 'FMS 11 — Overhead Exhaust (2 systems, 6" duct)',
+    general: {
+      organization: 'TXANG',
+      location: 'Bryan, TX',
+      shop: 'FMS 11',
+      date: '2026-02-24',
+      room_length: '', room_width: '', room_height: '', room_design_ach: '',
+      notes: 'Maintenance bay overhead exhaust system with adjustable baffle to control airflow. Each drop-down accommodates a Caterpillar C15 six-cylinder diesel.',
+      design_criteria_text: '501 CFM, 2552 Minimum FPM — Caterpillar C15 15.2L engine, 6" duct diameter.',
+      recommendations: 'Both systems with one component each did not meet the minimum design criteria. Either re-balance to raise capture velocity or restrict to smaller-engine vehicles whose CFM requirement matches the measured capacity.',
+      meter_make: 'TSI', meter_model: 'VelociCalc AVM430-A', meter_serial: '9565X2417011', meter_cal_date: '2025-05-22',
+      surveyed_by: 'Diane Moore — Industrial Hygiene Tech, PIKA International',
+      surveyed_date: '2026-02-24',
+      reviewed_by: 'Eduardo Artiga, CIH — PIKA International Inc.',
+      reviewed_date: '2026-03-23'
+    },
+    systems: [
+      { system:'1', component:'1', shape:'round', dia:'6', width:'', height:'',
+        m1:'2177', m2:'2245', m3:'2235', m4:'2057', m5:'2029',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' },
+      { system:'2', component:'1', shape:'round', dia:'6', width:'', height:'',
+        m1:'2209', m2:'2249', m3:'2108', m4:'2265', m5:'2114',
+        engine:'Caterpillar C15', vehicle:'M1075A1 PLS, HEMTT A4 Variants', design_cfm:'501' }
+    ]
+  }
+};
+
+function loadExample(key){
+  const ex = VENT_EXAMPLES[key]; if (!ex) return;
+  if (!confirm('Load the "' + ex._label + '" example? Any unsaved changes on the current form will be replaced.')) return;
+  currentSurveyId = generateVentId();
+  applyPrefill(ex);
+  if (window.showToast) showToast('Loaded example: ' + ex._label, 'success');
+}
+
 /* ── Storage ─────────────────────────────────────────────────── */
 function loadFromStorage(){
   try {
@@ -467,7 +623,7 @@ function loadMeterFromLibrary(id){
 window.Vent = Object.assign(window.Vent || {}, {
   addSystem, duplicateLastSystem, deleteSystem,
   onEngineChange, recomputeSystem, recomputeRoom, recomputeAll,
-  loadMeterFromLibrary,
+  loadMeterFromLibrary, loadExample,
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
   flushSyncQueue,
   init: initForm
