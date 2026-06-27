@@ -1,4 +1,4 @@
-/* IH Field App — Sound Level survey module.
+/* IH FieldLink — Sound Level survey module.
    Maps to the official DD Form 2214 (JAN 2000) — "Noise Survey
    (Sound Level Meter Survey)" prescribed by DODI 6055.12. The on-screen
    form fields are numbered to match the DD 2214 boxes; the official

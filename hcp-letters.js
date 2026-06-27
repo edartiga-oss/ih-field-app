@@ -175,7 +175,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
   var MR   = 54;   // right margin
   var CW   = W - ML - MR;  // content width = 504 pt
 
-  // Colour palette (matches IH Field app)
+  // Colour palette (matches IH FieldLink app)
   var NAVY  = [15,  34,  53];
   var TEAL  = [0,  184, 160];
   var DARK  = [30,  50,  70];
@@ -531,7 +531,7 @@ function generateHearingLettersPDF(locationFilter, segFilter) {
     // ── FOOTER ─────────────────────────────────────────────────────
     fillRect(0, H - 34, W, 34, NAVY);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); setC([145, 178, 200]);
-    doc.text('IH Field -- Noise Dosimetry  |  Hearing Notification Letter', ML, H - 18);
+    doc.text('IH FieldLink  |  Hearing Notification Letter', ML, H - 18);
     doc.text(
       'Generated: ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}),
       ML, H - 8

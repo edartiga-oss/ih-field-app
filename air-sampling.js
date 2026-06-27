@@ -1,4 +1,4 @@
-/* IH Field App — Air Sampling module.
+/* IH FieldLink — Air Sampling module.
    Ported from the standalone airsamplingform.html. All functions live
    under window.Air so the rest of the app doesn't see them. IDs inside
    #airForm follow the air* prefix to avoid colliding with other tabs;

@@ -62,7 +62,7 @@ var PDF_BRAND = {
   margin: { top: 15, right: 15, bottom: 20, left: 15 },
 
   // String shown in footer. Free to customize per deployment.
-  footerLabel: 'IH Field App',
+  footerLabel: 'IH FieldLink',
 };
 
 
@@ -1730,7 +1730,7 @@ function printRAC() {
       doc.line(L, H - 28, R, H - 28);
       doc.setFontSize(8); doc.setFont('helvetica','normal');
       doc.setTextColor(...GRAY);
-      doc.text('IH Field \u2014 Noise RAC Report', L, H - 16);
+      doc.text('IH FieldLink \u2014 Noise RAC Report', L, H - 16);
       doc.text('Page ' + doc.internal.getNumberOfPages(), R, H - 16, { align: 'right' });
     }
 
