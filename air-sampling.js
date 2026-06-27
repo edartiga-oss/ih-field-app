@@ -397,7 +397,8 @@ function blankPanel(i){
       '<div class="grid c4">'+
         '<label><span class="lbl">Blank Category</span>'+
           '<select name="blank'+i+'_category"><option value=""></option><option>Field Blank</option><option>Lab / Media Blank</option></select></label>'+
-        '<label><span class="lbl">Field / Lab Sample ID</span><input name="blank'+i+'_id"></label>'+
+        '<label><span class="lbl">Field Sample ID</span><input name="blank'+i+'_field_id"></label>'+
+        '<label><span class="lbl">Lab Sample ID</span><input name="blank'+i+'_lab_id"></label>'+
         '<label class="span2"><span class="lbl">Chemical / Hazard</span>'+
           '<select name="blank'+i+'_chem" onchange="Air.onBlankChem('+i+')">'+chemOptions()+'</select></label>'+
         '<label class="span2"><span class="lbl">Analytical Method</span>'+
@@ -1844,7 +1845,12 @@ function ofBlankPanel(idx){
   return {
     kind: 'blank',
     category,
-    field_id: get('id'),
+    // The Blank panel now stores Field Sample ID and Lab Sample ID
+    // separately (matching the Sample panel). Fall back to the legacy
+    // single blank{i}_id field for surveys saved before the split so
+    // their print layout still shows the value in the Field column.
+    field_id: get('field_id') || get('id'),
+    lab_id:   get('lab_id'),
     chem: get('chem'),
     method: get('method'),
     media: get('media'),
@@ -2678,7 +2684,9 @@ function cocRows(){
   units.filter(u=>u.kind==='blank').forEach(u=>{
     const i=u.idx;
     rows.push({
-      id: gv('blank'+i+'_id') || ('Blank '+i),
+      // Prefer the new split fields; fall back to the legacy combined
+      // blank{i}_id for surveys saved before the split.
+      id: gv('blank'+i+'_field_id') || gv('blank'+i+'_lab_id') || gv('blank'+i+'_id') || ('Blank '+i),
       date:'', medium: gv('blank'+i+'_media'), airVol:'', passive:'',
       analysis: (gv('blank'+i+'_category')||'Blank')+(gv('blank'+i+'_chem')?(' — '+gv('blank'+i+'_chem')):''),
       method: gv('blank'+i+'_method'), dl:''
