@@ -872,8 +872,11 @@ function buildPrintDOM(){
 }
 
 function printSurvey(){
+  console.log('[Vent.printSurvey] called');
   try {
+    if (window.showToast) showToast('Building print preview…', 'success');
     buildPrintDOM();
+    console.log('[Vent.printSurvey] DOM built, photos:', photos.length, 'systems:', systems.length);
     document.body.classList.add('print-vent-official');
     let styleEl = document.getElementById('ventPageRule');
     if (!styleEl) {
@@ -887,9 +890,23 @@ function printSurvey(){
       const s = document.getElementById('ventPageRule'); if (s) s.remove();
       const d = document.getElementById('ventPrintRoot'); if (d) d.remove();
       window.removeEventListener('afterprint', cleanup);
+      console.log('[Vent.printSurvey] cleanup done');
     };
     window.addEventListener('afterprint', cleanup);
-    window.print();
+    // Give the browser one paint cycle to render the print DOM before
+    // window.print() captures it; iOS Safari sometimes prints a blank
+    // page without this. Also gives photo <img>s a tick to decode.
+    setTimeout(() => {
+      console.log('[Vent.printSurvey] calling window.print()');
+      try {
+        window.print();
+        console.log('[Vent.printSurvey] window.print() returned');
+      } catch(printErr) {
+        console.error('[Vent.printSurvey] window.print() threw', printErr);
+        alert('Could not open the print dialog: ' + printErr.message + '\n\nOn iOS PWA mode, try opening the app in Safari instead and use Share → Print.');
+        cleanup();
+      }
+    }, 150);
   } catch(e) {
     console.error('[Vent.printSurvey] failed', e);
     alert('Print failed: ' + e.message);

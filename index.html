@@ -3540,7 +3540,7 @@ body { padding: 20px 18px; }
           <div class="sub">Velocity measurements (FPM) &middot; auto duct-area + CFM &middot; vehicle-engine design criteria</div>
         </div>
         <div class="v-toolbar">
-          <button type="button" onclick="window.Vent&amp;&amp;Vent.printSurvey&amp;&amp;Vent.printSurvey()" title="Generate the printable survey deliverable">🖨 Print Survey</button>
+          <button type="button" onclick="(function(){if(!window.Vent||!Vent.printSurvey){alert('Print not loaded yet — close the PWA fully (swipe up) and reopen, then try again.');return;}Vent.printSurvey();})()" title="Generate the printable survey deliverable">🖨 Print Survey</button>
           <button type="button" onclick="window.Vent&amp;&amp;Vent.setAllCollapsed&amp;&amp;Vent.setAllCollapsed(true)">Collapse all</button>
           <button type="button" onclick="window.Vent&amp;&amp;Vent.setAllCollapsed&amp;&amp;Vent.setAllCollapsed(false)">Expand all</button>
           <select id="ventExamplePick" title="Pick a worked example then click Load" style="padding:6px 10px;border-radius:6px;border:1px solid var(--v-line);background:#fff;cursor:pointer;font-size:12px;color:var(--v-ink);max-width:240px;">
