@@ -450,37 +450,60 @@ function recomputeRoom(){
    through save / Sheets sync without depending on Drive uploads. */
 function addPhotos(fileList){
   const files = Array.from(fileList || []);
-  if (!files.length) return;
+  console.log('[Vent.addPhotos] received', files.length, 'file(s)');
+  if (!files.length) {
+    if (window.showToast) showToast('No file received from picker — try again', 'warn');
+    return;
+  }
   let queued = 0;
-  files.forEach(f => {
-    if (!f.type || f.type.indexOf('image/') !== 0) return;
+  files.forEach((f, idx) => {
+    console.log('[Vent.addPhotos] file ' + idx, { name: f.name, type: f.type, size: f.size });
+    if (!f.type || f.type.indexOf('image/') !== 0) {
+      console.warn('[Vent.addPhotos] skipping non-image file', f.type);
+      if (window.showToast) showToast('Skipped "' + (f.name || 'file') + '" — not an image', 'warn');
+      return;
+    }
     const rd = new FileReader();
+    rd.onerror = (e) => {
+      console.error('[Vent.addPhotos] FileReader error', e);
+      if (window.showToast) showToast('Could not read photo file', 'error');
+    };
     rd.onload = () => {
       const img = new Image();
+      img.onerror = (e) => {
+        console.error('[Vent.addPhotos] image decode error', e);
+        if (window.showToast) showToast('Could not decode photo — file may be corrupt', 'error');
+      };
       img.onload = () => {
-        const MAX = 1024;
-        let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-          else       { w = Math.round(w * MAX / h); h = MAX; }
+        try {
+          const MAX = 1024;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else       { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          photoCount++;
+          photos.push({
+            pid: photoCount,
+            label: '',
+            dataUri: c.toDataURL('image/jpeg', 0.78)
+          });
+          console.log('[Vent.addPhotos] photo ' + photoCount + ' added (' + w + 'x' + h + ')');
+          renderPhotos();
+          if (window.showToast) showToast('Photo added', 'success');
+        } catch(err) {
+          console.error('[Vent.addPhotos] canvas error', err);
+          if (window.showToast) showToast('Could not process photo: ' + err.message, 'error');
         }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        photoCount++;
-        photos.push({
-          pid: photoCount,
-          label: '',
-          dataUri: c.toDataURL('image/jpeg', 0.78)
-        });
-        renderPhotos();
       };
       img.src = rd.result;
     };
     rd.readAsDataURL(f);
     queued++;
   });
-  if (window.showToast && queued) showToast(queued + ' photo' + (queued !== 1 ? 's' : '') + ' added', 'success');
 }
 function deletePhoto(pid){
   photos = photos.filter(p => p.pid !== pid);
