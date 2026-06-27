@@ -678,6 +678,7 @@ body { padding: 20px 18px; }
 <script src="pdf-reports.js"></script>
 <script src="air-sampling.js"></script>
 <script src="sound-level.js"></script>
+<script src="ventilation.js"></script>
 <script src="example-data.js"></script>
 <script src="coc-template.js"></script>
 </head>
@@ -732,6 +733,7 @@ body { padding: 20px 18px; }
   <button class="nav-tab" onclick="showView('rac')">Noise RAC</button>
   <button class="nav-tab" onclick="showView('sound')">Sound Level</button>
   <button class="nav-tab" onclick="showView('air')">Air Sampling</button>
+  <button class="nav-tab" onclick="showView('vent')">Ventilation</button>
   <button class="nav-tab" onclick="showView('export')">Export</button>
 </div>
 
@@ -3256,6 +3258,228 @@ body { padding: 20px 18px; }
   </div>
 </div>
 
+<!-- ═══════════════════════════ VENTILATION SURVEY VIEW ═══════════════════════════ -->
+<style>
+/* Scoped to #ventAppHost so nothing leaks into the rest of the app.
+   Distinct teal-green theme so the IH can spot the tab at a glance. */
+#ventAppHost{
+  --v-ink:#102b22;
+  --v-muted:#5b7468;
+  --v-line:#cfe1d8;
+  --v-line2:#e8f1ec;
+  --v-panel:#fbfcfb;
+  --v-accent:#0f7c5a;
+  --v-accent-soft:#e2f4eb;
+  --v-warn:#a3252b;
+  --v-warn-soft:#fdecee;
+  --v-pass:#0e6a47;
+  --v-pass-soft:#dff5e9;
+  --v-fail:#a52b2b;
+  --v-fail-soft:#fde8e8;
+  --v-readonly:#f4f7f5;
+  color:var(--v-ink);
+}
+#ventAppHost *{box-sizing:border-box;}
+#ventAppHost .v-head{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0 10px;border-bottom:1px solid var(--v-line);margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+#ventAppHost .v-head h2{font-size:18px;margin:0;letter-spacing:.2px;color:var(--v-ink);}
+#ventAppHost .v-head .sub{color:var(--v-muted);font-size:12.5px;margin-top:2px;}
+#ventAppHost .v-toolbar{display:flex;gap:8px;flex-wrap:wrap;}
+#ventAppHost button{font:inherit;cursor:pointer;border:1px solid var(--v-line);
+  background:#fff;color:var(--v-ink);padding:6px 12px;border-radius:6px;font-size:12px;}
+#ventAppHost button:hover{background:#f0f7f3;}
+#ventAppHost button.primary{background:var(--v-accent);border-color:var(--v-accent);color:#fff;}
+#ventAppHost button.primary:hover{background:#0a5d44;}
+#ventAppHost button.add{background:var(--v-accent-soft);border-color:#bcdccc;color:var(--v-accent);font-weight:600;}
+#ventAppHost section.v-card{background:var(--v-panel);border:1px solid var(--v-line);border-radius:10px;margin-bottom:14px;overflow:hidden;}
+#ventAppHost section.v-card>h3{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.6px;
+  background:var(--v-accent-soft);color:var(--v-accent);padding:9px 14px;border-bottom:1px solid var(--v-line);}
+#ventAppHost .v-card .body{padding:14px 16px;}
+#ventAppHost .v-card .body.compact{padding:10px 12px;}
+#ventAppHost .grid{display:grid;gap:10px 14px;}
+#ventAppHost .grid.c2{grid-template-columns:repeat(2,1fr);}
+#ventAppHost .grid.c3{grid-template-columns:repeat(3,1fr);}
+#ventAppHost .grid.c4{grid-template-columns:repeat(4,1fr);}
+@media (max-width:700px){#ventAppHost .grid.c2,#ventAppHost .grid.c3,#ventAppHost .grid.c4{grid-template-columns:1fr;}}
+#ventAppHost label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;
+  color:var(--v-muted);text-transform:uppercase;letter-spacing:.3px;}
+#ventAppHost label .lbl{display:flex;align-items:center;gap:6px;}
+#ventAppHost input,#ventAppHost select,#ventAppHost textarea{font:inherit;color:var(--v-ink);
+  background:#fff;border:1px solid var(--v-line);border-radius:5px;padding:5px 8px;width:100%;
+  font-weight:400;text-transform:none;letter-spacing:0;font-size:12.5px;}
+#ventAppHost input:focus,#ventAppHost select:focus,#ventAppHost textarea:focus{
+  outline:none;border-color:var(--v-accent);box-shadow:0 0 0 2px rgba(15,124,90,0.15);}
+#ventAppHost textarea{min-height:60px;resize:vertical;}
+#ventAppHost .v-syswrap{overflow-x:auto;border:1px solid var(--v-line);border-radius:8px;background:#fff;}
+#ventAppHost table.v-sys{width:100%;border-collapse:collapse;font-size:11.5px;min-width:1200px;}
+#ventAppHost table.v-sys th{background:var(--v-accent);color:#fff;padding:6px 8px;font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.4px;font-weight:600;text-align:left;white-space:nowrap;
+  position:sticky;top:0;z-index:1;}
+#ventAppHost table.v-sys td{padding:4px 6px;border-bottom:1px solid var(--v-line2);vertical-align:top;}
+#ventAppHost table.v-sys td.v-sid{font-family:var(--mono);color:var(--v-muted);font-weight:700;white-space:nowrap;}
+#ventAppHost table.v-sys td.v-calc{background:var(--v-accent-soft);color:var(--v-accent);font-weight:700;
+  font-family:var(--mono);text-align:right;white-space:nowrap;min-width:60px;}
+#ventAppHost table.v-sys td.v-status{font-weight:700;text-align:center;padding:4px 6px;white-space:nowrap;}
+#ventAppHost table.v-sys td.v-status.v-pass{background:var(--v-pass-soft);color:var(--v-pass);}
+#ventAppHost table.v-sys td.v-status.v-fail{background:var(--v-fail-soft);color:var(--v-fail);}
+#ventAppHost table.v-sys input,#ventAppHost table.v-sys select{padding:3px 5px;font-size:11.5px;border-radius:4px;}
+#ventAppHost button.v-rm{border:none;background:transparent;color:var(--v-muted);font-size:16px;line-height:1;
+  padding:2px 6px;cursor:pointer;}
+#ventAppHost button.v-rm:hover{color:var(--v-warn);background:var(--v-warn-soft);border-radius:4px;}
+#ventAppHost .v-surv-row{display:flex;justify-content:space-between;align-items:center;
+  padding:10px 14px;border-top:1px solid var(--v-line2);gap:10px;}
+#ventAppHost .v-surv-row:first-child{border-top:none;}
+#ventAppHost .v-surv-title{font-size:13px;font-weight:600;color:var(--v-ink);}
+#ventAppHost .v-surv-sub{font-size:11px;color:var(--v-muted);margin-top:2px;}
+#ventAppHost button.v-del{background:var(--v-warn-soft);color:var(--v-warn);border-color:#f1c3c5;}
+#ventAppHost .v-action-bar{position:fixed;bottom:0;left:0;right:0;z-index:50;
+  background:var(--surface,#fff);border-top:1.5px solid var(--border,#dcdcdc);
+  box-shadow:0 -2px 12px rgba(0,0,0,0.08);padding:10px 16px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+#ventAppHost .v-action-bar .inner{max-width:1180px;margin:0 auto;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
+</style>
+<div id="view-vent" class="view">
+  <div style="max-width:1180px; margin:0 auto; padding:14px 16px 100px;">
+    <div id="ventAppHost">
+      <div class="v-head">
+        <div>
+          <h2>Ventilation Survey</h2>
+          <div class="sub">Velocity measurements (FPM) &middot; auto duct-area + CFM &middot; vehicle-engine design criteria</div>
+        </div>
+      </div>
+
+      <form id="ventForm" autocomplete="off">
+
+        <!-- Saved surveys list -->
+        <section class="v-card">
+          <h3>Saved Ventilation Surveys
+            <span class="hint" id="ventSurveysCount" style="float:right;font-weight:400;text-transform:none;letter-spacing:0;color:var(--v-muted);font-size:11.5px;">0 surveys</span>
+          </h3>
+          <div class="body compact" style="padding:0">
+            <div id="ventSurveysList"></div>
+          </div>
+        </section>
+
+        <!-- General Info -->
+        <section class="v-card">
+          <h3>General Information</h3>
+          <div class="body">
+            <div class="grid c4">
+              <label><span class="lbl">Organization</span><input name="organization" placeholder="e.g., Texas ARNG"></label>
+              <label><span class="lbl">Location</span><input name="location" placeholder="e.g., Houston, TX"></label>
+              <label><span class="lbl">Shop</span><input name="shop" placeholder="e.g., FMS 36"></label>
+              <label><span class="lbl">Date Surveyed</span><input type="date" name="date"></label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Survey Data table -->
+        <section class="v-card">
+          <h3>Systems &amp; Components — Velocity Measurements</h3>
+          <div class="body compact">
+            <div style="margin-bottom:8px;font-size:11.5px;color:var(--v-muted);line-height:1.5;">
+              AVG FPM = mean of measurements &middot;
+              Duct Area = round: π·(d/2)² &middot; rect: L × W (converted to ft²) &middot;
+              CFM (Q) = AVG FPM × Duct Area &middot;
+              Min FPM = Design CFM / Duct Area &middot;
+              PASS when CFM ≥ Design CFM.
+            </div>
+            <div class="v-syswrap">
+              <table class="v-sys">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Sys</th>
+                    <th>Comp</th>
+                    <th>Shape</th>
+                    <th>Dia (in)</th>
+                    <th>L (in)</th>
+                    <th>W (in)</th>
+                    <th>M1</th><th>M2</th><th>M3</th><th>M4</th><th>M5</th>
+                    <th>AVG FPM</th>
+                    <th>Area (ft²)</th>
+                    <th>CFM (Q)</th>
+                    <th style="min-width:280px">Engine / Vehicle</th>
+                    <th>Design CFM</th>
+                    <th>Min FPM</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="ventSysBody"></tbody>
+              </table>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="add" onclick="Vent.addSystem&amp;&amp;Vent.addSystem()">+ Add System / Component</button>
+              <button type="button" class="add" onclick="Vent.duplicateLastSystem&amp;&amp;Vent.duplicateLastSystem()">+ Duplicate Last</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Room volume / ACH (optional) -->
+        <section class="v-card">
+          <h3>Room Volume &amp; Air Changes / Hour (optional — battery rooms, shops)</h3>
+          <div class="body">
+            <div class="grid c4">
+              <label><span class="lbl">Room Length (ft)</span><input type="number" step="any" name="room_length" oninput="Vent.recomputeRoom&amp;&amp;Vent.recomputeRoom()"></label>
+              <label><span class="lbl">Room Width (ft)</span><input type="number" step="any" name="room_width" oninput="Vent.recomputeRoom&amp;&amp;Vent.recomputeRoom()"></label>
+              <label><span class="lbl">Room Height (ft)</span><input type="number" step="any" name="room_height" oninput="Vent.recomputeRoom&amp;&amp;Vent.recomputeRoom()"></label>
+              <label><span class="lbl">Design ACH</span><input type="number" step="any" name="room_design_ach" placeholder="e.g., 6" oninput="Vent.recomputeRoom&amp;&amp;Vent.recomputeRoom()"></label>
+            </div>
+            <div class="grid c4" style="margin-top:10px">
+              <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--v-muted);margin-bottom:2px;">Room Volume (ft³)</div><div id="room_volume" style="font-family:var(--mono);font-weight:700;color:var(--v-accent);font-size:15px;">—</div></div>
+              <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--v-muted);margin-bottom:2px;">Σ CFM (all systems)</div><div id="room_total_cfm" style="font-family:var(--mono);font-weight:700;color:var(--v-accent);font-size:15px;">—</div></div>
+              <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--v-muted);margin-bottom:2px;">Actual ACH</div><div id="room_ach" style="font-family:var(--mono);font-weight:700;color:var(--v-accent);font-size:15px;">—</div></div>
+              <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--v-muted);margin-bottom:2px;">ACH Status</div><div id="room_ach_status" class="v-status" style="font-weight:700;padding:3px 8px;border-radius:4px;display:inline-block;font-size:13px;">—</div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Notes / Recommendations -->
+        <section class="v-card">
+          <h3>Notes &amp; Recommendations</h3>
+          <div class="body">
+            <div class="grid c1" style="grid-template-columns:1fr">
+              <label><span class="lbl">Survey Notes</span><textarea name="notes" rows="3" placeholder="System description, baffles, room layout, anomalies..."></textarea></label>
+              <label><span class="lbl">Design Criteria Narrative</span><textarea name="design_criteria_text" rows="2" placeholder="e.g., 501 CFM 1435 Minimum FPM based on Caterpillar C15 15.2L engine and 8&quot; duct diameter."></textarea></label>
+              <label><span class="lbl">Recommendations</span><textarea name="recommendations" rows="3" placeholder="Re-balance, repair work order, baffle adjustments..."></textarea></label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Equipment + signoff -->
+        <section class="v-card">
+          <h3>Velocity Meter &amp; Sign-Off</h3>
+          <div class="body">
+            <div class="grid c4">
+              <label><span class="lbl">Make</span><input name="meter_make" placeholder="e.g., TSI"></label>
+              <label><span class="lbl">Model</span><input name="meter_model" placeholder="e.g., VelociCalc"></label>
+              <label><span class="lbl">Serial #</span><input name="meter_serial"></label>
+              <label><span class="lbl">Cal Date</span><input type="date" name="meter_cal_date"></label>
+            </div>
+            <div class="grid c2" style="margin-top:14px">
+              <label><span class="lbl">Surveyed By (Name &amp; Role)</span><input name="surveyed_by" placeholder="e.g., Diane Moore — Industrial Hygiene Tech"></label>
+              <label><span class="lbl">Surveyed Date</span><input type="date" name="surveyed_date"></label>
+              <label><span class="lbl">Reviewed By</span><input name="reviewed_by" placeholder="e.g., Eduardo Artiga, CIH"></label>
+              <label><span class="lbl">Reviewed Date</span><input type="date" name="reviewed_date"></label>
+            </div>
+          </div>
+        </section>
+
+      </form>
+
+      <!-- Sticky bottom action bar -->
+      <div class="v-action-bar">
+        <div class="inner">
+          <button type="button" onclick="Vent.newSurvey&amp;&amp;Vent.newSurvey()">+ New Survey</button>
+          <button type="button" onclick="Vent.resetForm&amp;&amp;Vent.resetForm()">Clear Form</button>
+          <button type="button" class="primary" onclick="Vent.saveSurvey&amp;&amp;Vent.saveSurvey()">Save Survey</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -4799,6 +5023,7 @@ function showView(name) {
   if (name === 'equipment') renderEquipmentLists();
   if (name === 'stats')     renderStats();
   if (name === 'rac')       renderRAC();
+  if (name === 'vent' && window.Vent && Vent.init) Vent.init();
 }
 
 // ═══════════════════════════════════════════════════════════

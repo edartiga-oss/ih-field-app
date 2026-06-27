@@ -1,5 +1,5 @@
-/* IH FieldLink — Service Worker v143 */
-const CACHE_NAME = 'ih-field-v143';
+/* IH FieldLink — Service Worker v144 */
+const CACHE_NAME = 'ih-field-v144';
 
 self.addEventListener('install', e => {
   // Don't pre-cache index.html — always fetch fresh from network
