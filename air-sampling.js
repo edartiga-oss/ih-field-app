@@ -322,6 +322,7 @@ function samplePanel(i){
           '<th>Analyte</th>'+
           '<th>LOD (µg)</th>'+
           '<th>OEL</th>'+
+          '<th>OEL Source</th>'+
           '<th>Desired Fraction</th>'+
           '<th>Rec. Flow (L/min)</th>'+
           '<th>Rec. Vol (L)</th>'+
@@ -681,6 +682,7 @@ function mvRow(i,r,name){
     '<td><input name="samp'+i+'_m'+r+'_name" value="'+esc(name||'')+'" oninput="Air.onMvNameInput('+i+','+r+')" style="min-width:120px"></td>'+
     '<td><input type="number" step="any" name="samp'+i+'_m'+r+'_lod" oninput="Air.calcMvRow('+i+','+r+')" placeholder="µg"></td>'+
     '<td><input type="number" step="any" name="samp'+i+'_m'+r+'_oel" data-auto="" oninput="Air.onMvOelInput('+i+','+r+')" style="width:56px"><span class="ounit" id="airSampMvOunit'+i+'_'+r+'"></span></td>'+
+    '<td class="reccell" id="airSampMvOelRef'+i+'_'+r+'" style="font-size:11px;white-space:nowrap;">—</td>'+
     '<td><input type="number" step="any" name="samp'+i+'_m'+r+'_frac" value="0.25" oninput="Air.calcMvRow('+i+','+r+')" style="width:62px"></td>'+
     '<td class="reccell" id="airSampMvRecflow'+i+'_'+r+'">—</td>'+
     '<td class="reccell" id="airSampMvRecvol'+i+'_'+r+'">—</td>'+
@@ -704,13 +706,31 @@ function setMvRecommended(i,r){
 function refreshMvRecommended(i){ document.querySelectorAll('#airMvBody'+i+' tr').forEach(tr=>setMvRecommended(i,tr.dataset.row)); }
 function autofillMvOel(i,r){
   const oelF=fld('samp'+i+'_m'+r+'_oel'); if(!oelF) return;
+  const refEl = el('airSampMvOelRef'+i+'_'+r);
+  // Skip if the IH typed their own OEL value; their OEL Source label
+  // ("manual") is already in place from onMvOelInput.
   if(oelF.value!=='' && oelF.dataset.auto!=='1') return;
   const nm=((fld('samp'+i+'_m'+r+'_name')||{}).value||'').trim();
   const sel=selectedOel(nm); const us=el('airSampMvOunit'+i+'_'+r);
-  if(sel.val!=null){ oelF.value=sel.val; oelF.dataset.auto='1'; if(us) us.textContent=(OEL_DATA[nm]||{}).unit||''; }
-  else if(oelF.dataset.auto==='1'){ oelF.value=''; if(us) us.textContent=''; }
+  if(sel.val!=null){
+    oelF.value=sel.val; oelF.dataset.auto='1';
+    if(us) us.textContent=(OEL_DATA[nm]||{}).unit||'';
+    // sel.key is the "src|type" pair (e.g. "OSHA|PEL TWA"); pretty-print
+    // with a space so the IH sees the regulatory reference at a glance.
+    if(refEl) refEl.textContent = sel.key ? sel.key.replace('|',' ') : '—';
+  } else if(oelF.dataset.auto==='1'){
+    oelF.value=''; if(us) us.textContent='';
+    if(refEl) refEl.textContent = '—';
+  }
 }
-function onMvOelInput(i,r){ const f=fld('samp'+i+'_m'+r+'_oel'); if(f) f.dataset.auto=''; calcMvRow(i,r); }
+function onMvOelInput(i,r){
+  const f=fld('samp'+i+'_m'+r+'_oel'); if(f) f.dataset.auto='';
+  // User typed their own OEL — the auto-picked regulatory reference no
+  // longer applies; flag the source as manual entry.
+  const refEl = el('airSampMvOelRef'+i+'_'+r);
+  if(refEl) refEl.textContent = (f && f.value !== '') ? 'manual entry' : '—';
+  calcMvRow(i,r);
+}
 function onMvNameInput(i,r){ autofillMvOel(i,r); calcMvRow(i,r); }
 function prefillMvFlow(i,r){
   const f=fld('samp'+i+'_m'+r+'_flow'); if(!f||f.value!=='') return;
