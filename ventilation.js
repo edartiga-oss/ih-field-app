@@ -16,6 +16,8 @@ let ventSurveys = [];
 let currentSurveyId = null;
 let systems = [];     // [{sid}, ...] — one entry per active system column
 let sysCount = 0;     // monotonic sid generator (don't reuse on delete)
+let photos = [];      // [{pid, label, dataUri}] — system diagrams & site pictures
+let photoCount = 0;   // monotonic pid generator
 
 /* ── helpers ── */
 const num = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
@@ -441,6 +443,73 @@ function recomputeRoom(){
   }
 }
 
+/* ── System Diagrams & Photos ─────────────────────────────────
+   Pictures of the ventilation system, room layout, exhaust hood,
+   etc. Each photo is downscaled to a max 1024-px edge and stored
+   as a JPEG data URI inside the survey record so it round-trips
+   through save / Sheets sync without depending on Drive uploads. */
+function addPhotos(fileList){
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  let queued = 0;
+  files.forEach(f => {
+    if (!f.type || f.type.indexOf('image/') !== 0) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1024;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else       { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        photoCount++;
+        photos.push({
+          pid: photoCount,
+          label: '',
+          dataUri: c.toDataURL('image/jpeg', 0.78)
+        });
+        renderPhotos();
+      };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+    queued++;
+  });
+  if (window.showToast && queued) showToast(queued + ' photo' + (queued !== 1 ? 's' : '') + ' added', 'success');
+}
+function deletePhoto(pid){
+  photos = photos.filter(p => p.pid !== pid);
+  renderPhotos();
+}
+function onPhotoLabelInput(pid, value){
+  const p = photos.find(x => x.pid === pid);
+  if (p) p.label = value;
+}
+function onPhotoInput(input){
+  addPhotos(input.files);
+  input.value = ''; // allow re-picking the same file later
+}
+function renderPhotos(){
+  const host = el('ventPhotoGrid'); if (!host) return;
+  el('ventPhotoCount').textContent = photos.length + ' photo' + (photos.length !== 1 ? 's' : '');
+  if (!photos.length) {
+    host.innerHTML = '<div style="padding:20px;text-align:center;color:var(--v-muted);font-size:12px;">No photos yet — tap the button above to add system diagrams, exhaust hood close-ups, room overviews, etc.</div>';
+    return;
+  }
+  host.innerHTML = photos.map(p =>
+    '<div class="v-photo" data-pid="'+p.pid+'">'+
+      '<img src="'+esc(p.dataUri)+'" alt="ventilation photo">'+
+      '<input type="text" placeholder="Caption (e.g. \'System 1 overhead, baffles open\')" value="'+esc(p.label||'')+'" oninput="Vent.onPhotoLabelInput('+p.pid+', this.value)">'+
+      '<button type="button" class="v-photo-rm" onclick="Vent.deletePhoto('+p.pid+')" title="Remove">×</button>'+
+    '</div>'
+  ).join('');
+}
+
 /* ── Form collection & persistence ───────────────────────────── */
 function collectForm(){
   const g = {};
@@ -462,7 +531,7 @@ function collectForm(){
     row.status   = (el('sys'+s.sid+'_status')||{}).textContent || '';
     return row;
   });
-  return { id: currentSurveyId, general: g, systems: sys };
+  return { id: currentSurveyId, general: g, systems: sys, photos: photos.slice() };
 }
 function applyPrefill(data){
   if (!data) return;
@@ -471,6 +540,14 @@ function applyPrefill(data){
   buildSkeleton(); systems = []; sysCount = 0;
   (data.systems || []).forEach(row => addSystem(row));
   if (!systems.length) { addSystem(); addSystem(); }
+  // Restore photos (the dataUri is large but round-trips fine in JSON)
+  photos = (data.photos || []).map((p, i) => ({
+    pid: (p && p.pid) || (i + 1),
+    label: (p && p.label) || '',
+    dataUri: (p && p.dataUri) || ''
+  })).filter(p => p.dataUri);
+  photoCount = photos.reduce((m, p) => Math.max(m, p.pid), 0);
+  renderPhotos();
   recomputeAll();
 }
 function resetForm(){
@@ -478,6 +555,7 @@ function resetForm(){
   document.getElementById('ventForm').reset();
   buildSkeleton(); systems = []; sysCount = 0;
   addSystem(); addSystem();
+  photos = []; photoCount = 0; renderPhotos();
   currentSurveyId = null;
   recomputeAll();
 }
@@ -486,6 +564,7 @@ function newSurvey(){
   document.getElementById('ventForm').reset();
   buildSkeleton(); systems = []; sysCount = 0;
   addSystem(); addSystem();
+  photos = []; photoCount = 0; renderPhotos();
   recomputeAll();
   if (window.showToast) showToast('New ventilation survey started', 'success');
 }
@@ -553,7 +632,12 @@ function sheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || '
 function pushToSheets(record){
   const url = sheetsUrl();
   if (!url || !navigator.onLine) { queueSync(record); return; }
-  const payload = Object.assign({ _type: 'ventilation' }, record, {
+  // Strip photo dataUri bytes from the Sheets payload to keep the
+  // POST under the Apps Script ~50 KB practical limit. Local storage
+  // still has the full images so the form round-trips on the device.
+  const slim = JSON.parse(JSON.stringify(record));
+  if (Array.isArray(slim.photos)) slim.photos.forEach(p => { delete p.dataUri; });
+  const payload = Object.assign({ _type: 'ventilation' }, slim, {
     deviceInfo: navigator.userAgent.substring(0, 80)
   });
   fetch(url, {
@@ -616,6 +700,7 @@ function initForm(){
       addSystem(); addSystem();
     }
     renderSurveyList();
+    renderPhotos();
     initCollapsible();
     recomputeAll();
     if (navigator.onLine) setTimeout(flushSyncQueue, 2500);
@@ -647,6 +732,7 @@ window.Vent = Object.assign(window.Vent || {}, {
   loadMeterFromLibrary, loadExample,
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
   setAllCollapsed,
+  onPhotoInput, addPhotos, deletePhoto, onPhotoLabelInput,
   flushSyncQueue,
   init: initForm
 });
