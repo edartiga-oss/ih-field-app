@@ -860,7 +860,6 @@ body { padding: 20px 18px; }
   <button class="nav-tab" onclick="showView('sound')">Sound Level</button>
   <button class="nav-tab" onclick="showView('air')">Air Sampling</button>
   <button class="nav-tab" onclick="showView('vent')">Ventilation</button>
-  <button class="nav-tab" onclick="showView('export')">Export</button>
 </div>
 
 <!-- Sub-nav for the Noise group. Only visible when one of the noise
@@ -872,6 +871,7 @@ body { padding: 20px 18px; }
   <button class="sub-tab" onclick="showView('fieldobs')">Field Obs</button>
   <button class="sub-tab" onclick="showView('stats')">Statistics</button>
   <button class="sub-tab" onclick="showView('rac')">Noise RAC</button>
+  <button class="sub-tab" onclick="showView('export')">Export</button>
 </div>
 
 <main>
@@ -5264,7 +5264,7 @@ function migrateLegacyMeasuredValuesToColumns() {
 // of these is active, the Noise top-level tab is highlighted and the
 // sub-nav row underneath the main nav is shown with the active sub-tab
 // marked. Keeps the top nav from getting noisy on small screens.
-const NOISE_VIEWS = ['form','surveys','verify','fieldobs','stats','rac'];
+const NOISE_VIEWS = ['form','surveys','verify','fieldobs','stats','rac','export'];
 
 function showNoiseGroup(){
   // Default landing under Noise is the Surveys list — that's where the
