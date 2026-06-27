@@ -1456,6 +1456,7 @@ body { padding: 20px 18px; }
           <button class="toggle-chip" id="invTypeBtn-calibrator" onclick="setInvType('calibrator')">Acoustic Calibrator</button>
           <button class="toggle-chip" id="invTypeBtn-air_pump" onclick="setInvType('air_pump')">Air Sampling Pump</button>
           <button class="toggle-chip" id="invTypeBtn-air_calibrator" onclick="setInvType('air_calibrator')">Air Sampling Calibrator</button>
+          <button class="toggle-chip" id="invTypeBtn-velocity_meter" onclick="setInvType('velocity_meter')">Velocity Meter</button>
         </div>
 
         <!-- Dosimeter check-in fields -->
@@ -1594,6 +1595,28 @@ body { padding: 20px 18px; }
           </div>
         </div>
 
+        <!-- Velocity Meter check-in fields -->
+        <div id="invVelMeterFields" style="display:none;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:10px;">
+            <div class="field"><label>Make <span class="req">*</span></label><input type="text" id="inv_vmMake" placeholder="e.g., TSI"></div>
+            <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="inv_vmModel" placeholder="e.g., VelociCalc AVM430"></div>
+            <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="inv_vmSerial" placeholder="e.g., 9535A2138010"></div>
+            <div class="field"><label>Asset / Tag #</label><input type="text" id="inv_vmAsset" placeholder="Internal tag"></div>
+            <div class="field"><label>Last Cal Date</label><input type="date" id="inv_vmLastCal"></div>
+            <div class="field"><label>Cal. Due Date</label><input type="date" id="inv_vmCalDue"></div>
+            <div class="field"><label>Probe / Sensor Type</label><input type="text" id="inv_vmProbe" placeholder="e.g., Hot-wire anemometer, Pitot"></div>
+            <div class="field"><label>Condition</label>
+              <select id="inv_vmCondition">
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Needs service">Needs service</option>
+                <option value="Out of service">Out of service</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="inv_vmNotes" placeholder="e.g., Ventilation kit primary"></div>
+          </div>
+        </div>
+
         <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <button class="btn btn-teal" onclick="checkInItem()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
@@ -1692,6 +1715,20 @@ body { padding: 20px 18px; }
     </div>
   </div>
 
+  <!-- VELOCITY METERS -->
+  <div class="card">
+    <div class="card-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22V8M5 12l7-7 7 7"/></svg>
+      Velocity Meters
+      <span class="badge" id="vmBadgeLib">0</span>
+    </div>
+    <div id="equipVelMeterList" style="min-height:60px;">
+      <div class="empty-state" style="padding:28px 16px;">
+        <div class="empty-sub">No velocity meters saved yet.</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- EQUIPMENT MODAL -->
@@ -1708,6 +1745,7 @@ body { padding: 20px 18px; }
         <button class="toggle-chip" id="equipTypeBtn-calibrator" onclick="setEquipType('calibrator')">Acoustic Calibrator</button>
         <button class="toggle-chip" id="equipTypeBtn-air_pump" onclick="setEquipType('air_pump')">Air Sampling Pump</button>
         <button class="toggle-chip" id="equipTypeBtn-air_calibrator" onclick="setEquipType('air_calibrator')">Air Sampling Calibrator</button>
+        <button class="toggle-chip" id="equipTypeBtn-velocity_meter" onclick="setEquipType('velocity_meter')">Velocity Meter</button>
       </div>
       <input type="hidden" id="equipEditId">
 
@@ -1849,6 +1887,29 @@ body { padding: 20px 18px; }
           </div>
           <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_acCondNote" placeholder="Optional note for this update"></div>
           <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_acNotes" placeholder="Optional notes"></div>
+        </div>
+      </div>
+
+      <!-- VELOCITY METER FIELDS -->
+      <div id="equipVelMeterFields" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field"><label>Make / Manufacturer <span class="req">*</span></label><input type="text" id="eq_vmMake" placeholder="e.g., TSI"></div>
+          <div class="field"><label>Model <span class="req">*</span></label><input type="text" id="eq_vmModel" placeholder="e.g., VelociCalc AVM430"></div>
+          <div class="field"><label>Serial Number <span class="req">*</span></label><input type="text" id="eq_vmSerial" placeholder="e.g., 9535A2138010"></div>
+          <div class="field"><label>Asset / Tag #</label><input type="text" id="eq_vmAsset" placeholder="Internal asset tag"></div>
+          <div class="field"><label>Last Cal Date</label><input type="date" id="eq_vmLastCal"></div>
+          <div class="field"><label>Cal. Due Date</label><input type="date" id="eq_vmCalDue"></div>
+          <div class="field"><label>Probe / Sensor Type</label><input type="text" id="eq_vmProbe" placeholder="e.g., Hot-wire, Pitot"></div>
+          <div class="field"><label>Condition</label>
+            <select id="eq_vmCondition">
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Needs service">Needs service</option>
+              <option value="Out of service">Out of service</option>
+            </select>
+          </div>
+          <div class="field"><label>Condition Note (logged to history)</label><input type="text" id="eq_vmCondNote" placeholder="Optional note for this update"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="eq_vmNotes" placeholder="Optional notes"></div>
         </div>
       </div>
     </div>
@@ -3449,6 +3510,13 @@ body { padding: 20px 18px; }
         <section class="v-card">
           <h3>Velocity Meter &amp; Sign-Off</h3>
           <div class="body">
+            <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--v-muted);">From Library:</span>
+              <select id="ventMeterPicker" onchange="Vent.loadMeterFromLibrary&amp;&amp;Vent.loadMeterFromLibrary(this.value)" style="flex:1;min-width:200px;padding:6px 8px;border-radius:6px;border:1px solid var(--v-line);background:#fff;cursor:pointer">
+                <option value="">Select from library…</option>
+              </select>
+              <span style="font-size:11px;color:var(--v-muted);">Or check in a new meter in Equipment &gt; Velocity Meter.</span>
+            </div>
             <div class="grid c4">
               <label><span class="lbl">Make</span><input name="meter_make" placeholder="e.g., TSI"></label>
               <label><span class="lbl">Model</span><input name="meter_model" placeholder="e.g., VelociCalc"></label>
@@ -7162,13 +7230,14 @@ let currentEquipType = 'dosimeter';
 
 function setEquipType(type) {
   currentEquipType = type;
-  const types = ['dosimeter','sound_level_meter','calibrator','air_pump','air_calibrator'];
+  const types = ['dosimeter','sound_level_meter','calibrator','air_pump','air_calibrator','velocity_meter'];
   const fieldIds = {
     dosimeter: 'equipDosFields',
     sound_level_meter: 'equipSLMFields',
     calibrator: 'equipCalFields',
     air_pump: 'equipAirPumpFields',
     air_calibrator: 'equipAirCalFields',
+    velocity_meter: 'equipVelMeterFields',
   };
   types.forEach(t => {
     const f = document.getElementById(fieldIds[t]); if (f) f.style.display = t === type ? '' : 'none';
@@ -7183,7 +7252,8 @@ function openEquipModal(editId) {
    'eq_slmMake','eq_slmModel','eq_slmSerial','eq_slmAsset','eq_slmMicMake','eq_slmMicModel','eq_slmMicSerial','eq_slmLastCal','eq_slmCalDue','eq_slmNotes','eq_slmCondNote',
    'eq_calMake','eq_calModel','eq_calSerial','eq_calAsset','eq_calLastNistCal','eq_calNistDue','eq_calRefLevel','eq_calNotes','eq_calCondNote',
    'eq_apMake','eq_apModel','eq_apSerial','eq_apAsset','eq_apFactoryCal','eq_apCalDue','eq_apFlowMin','eq_apFlowMax','eq_apNotes','eq_apCondNote',
-   'eq_acMake','eq_acModel','eq_acSerial','eq_acAsset','eq_acFactoryCal','eq_acCalDue','eq_acNotes','eq_acCondNote']
+   'eq_acMake','eq_acModel','eq_acSerial','eq_acAsset','eq_acFactoryCal','eq_acCalDue','eq_acNotes','eq_acCondNote',
+   'eq_vmMake','eq_vmModel','eq_vmSerial','eq_vmAsset','eq_vmLastCal','eq_vmCalDue','eq_vmProbe','eq_vmNotes','eq_vmCondNote']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('eq_dosExchange').value = '5';
   document.getElementById('eq_dosCriterion').value = '90';
@@ -7194,6 +7264,7 @@ function openEquipModal(editId) {
   document.getElementById('eq_calCondition').value = 'Good';
   document.getElementById('eq_apCondition').value = 'Good';
   document.getElementById('eq_acCondition').value = 'Good';
+  document.getElementById('eq_vmCondition').value = 'Good';
 
   if (editId) {
     const eq = equipment.find(e => e.id === editId);
@@ -7255,6 +7326,16 @@ function openEquipModal(editId) {
       document.getElementById('eq_acCalDue').value     = eq.calDue     || '';
       document.getElementById('eq_acCondition').value  = eq.condition  || 'Good';
       document.getElementById('eq_acNotes').value      = eq.notes      || '';
+    } else if (eq.type === 'velocity_meter') {
+      document.getElementById('eq_vmMake').value       = eq.make       || '';
+      document.getElementById('eq_vmModel').value      = eq.model      || '';
+      document.getElementById('eq_vmSerial').value     = eq.serial     || '';
+      document.getElementById('eq_vmAsset').value      = eq.asset      || '';
+      document.getElementById('eq_vmLastCal').value    = eq.lastCal    || '';
+      document.getElementById('eq_vmCalDue').value     = eq.calDue     || '';
+      document.getElementById('eq_vmProbe').value      = eq.probe      || '';
+      document.getElementById('eq_vmCondition').value  = eq.condition  || 'Good';
+      document.getElementById('eq_vmNotes').value      = eq.notes      || '';
     }
   } else {
     document.getElementById('equipModalTitle').textContent = 'Add Equipment';
@@ -7377,8 +7458,7 @@ function saveEquipment() {
       checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
       notes:            document.getElementById('eq_apNotes').value.trim(),
     };
-  } else {
-    /* air_calibrator */
+  } else if (type === 'air_calibrator') {
     const make   = document.getElementById('eq_acMake').value.trim();
     const model  = document.getElementById('eq_acModel').value.trim();
     const serial = document.getElementById('eq_acSerial').value.trim();
@@ -7401,6 +7481,32 @@ function saveEquipment() {
       checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
       checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
       notes:            document.getElementById('eq_acNotes').value.trim(),
+    };
+  } else {
+    /* velocity_meter */
+    const make   = document.getElementById('eq_vmMake').value.trim();
+    const model  = document.getElementById('eq_vmModel').value.trim();
+    const serial = document.getElementById('eq_vmSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model, and serial are required', 'error'); return; }
+    const newCondition = document.getElementById('eq_vmCondition').value;
+    const condNote     = document.getElementById('eq_vmCondNote').value.trim();
+    const condHistory  = (existing && existing.conditionHistory) ? [...existing.conditionHistory] : [];
+    if (!isEdit || newCondition !== (existing && existing.condition) || condNote) {
+      condHistory.push({ date: new Date().toISOString(), condition: newCondition, notes: condNote, by: deviceNickname || '' });
+    }
+    rec = {
+      id:               editId || ('EQ-' + Date.now().toString(36).toUpperCase()),
+      type:             'velocity_meter',
+      make, model, serial,
+      asset:            document.getElementById('eq_vmAsset').value.trim(),
+      lastCal:          document.getElementById('eq_vmLastCal').value,
+      calDue:           document.getElementById('eq_vmCalDue').value,
+      probe:            document.getElementById('eq_vmProbe').value.trim(),
+      condition:        newCondition,
+      conditionHistory: condHistory,
+      checkedInBy:      (existing && existing.checkedInBy) || deviceNickname || '',
+      checkedInAt:      (existing && existing.checkedInAt) || new Date().toISOString(),
+      notes:            document.getElementById('eq_vmNotes').value.trim(),
     };
   }
 
@@ -7459,12 +7565,14 @@ function renderEquipmentLists() {
   var calibrators      = filtered.filter(function(e) { return e.type === 'calibrator'; });
   var airPumps         = filtered.filter(function(e) { return e.type === 'air_pump'; });
   var airCalibrators   = filtered.filter(function(e) { return e.type === 'air_calibrator'; });
+  var velocityMeters   = filtered.filter(function(e) { return e.type === 'velocity_meter'; });
 
   document.getElementById('dosBadge').textContent = dosimeters.length;
   var slmBadge = document.getElementById('slmBadgeLib'); if (slmBadge) slmBadge.textContent = slms.length;
   document.getElementById('calBadgeLib').textContent = calibrators.length;
   var apBadge = document.getElementById('apBadgeLib'); if (apBadge) apBadge.textContent = airPumps.length;
   var acBadge = document.getElementById('acBadgeLib'); if (acBadge) acBadge.textContent = airCalibrators.length;
+  var vmBadge = document.getElementById('vmBadgeLib'); if (vmBadge) vmBadge.textContent = velocityMeters.length;
 
   // ── QA: Cal due date alerts (overdue or within 30 days) ──
   var today  = new Date();
@@ -7502,7 +7610,7 @@ function renderEquipmentLists() {
     var condBg     = condBgs[eq.condition]    || 'var(--surface)';
     var calDateStr = eq.type === 'calibrator'
       ? (eq.nistDue || '')
-      : eq.type === 'sound_level_meter'
+      : (eq.type === 'sound_level_meter' || eq.type === 'velocity_meter')
         ? (eq.calDue || eq.lastCal || '')
         : (eq.calDue || eq.factoryCal || '');
     var calSt      = getCalStatus(calDateStr);
@@ -7578,6 +7686,10 @@ function renderEquipmentLists() {
         + (eq.calDue ? ' · Cal due: ' + eq.calDue : '')
         + (eq.slmClass ? ' · Type ' + eq.slmClass : '')
         + micDetail;
+    } else if (eq.type === 'velocity_meter') {
+      detailLine = (eq.lastCal ? ' · Last cal: ' + eq.lastCal : '')
+        + (eq.calDue ? ' · Cal due: ' + eq.calDue : '')
+        + (eq.probe   ? ' · Probe: ' + eq.probe   : '');
     }
 
     return '<div style="padding:13px 18px; border-bottom:1px solid var(--surface2);">'
@@ -7624,6 +7736,11 @@ function renderEquipmentLists() {
     ? airCalibrators.map(renderEqCard).join('')
     : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No air sampling calibrators' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
 
+  var vmCont = document.getElementById('equipVelMeterList');
+  if (vmCont) vmCont.innerHTML = velocityMeters.length
+    ? velocityMeters.map(renderEqCard).join('')
+    : '<div class="empty-state" style="padding:28px 16px;"><div class="empty-sub">No velocity meters' + (selectedIH ? ' for ' + selectedIH : '') + '.</div></div>';
+
   /* Let the Air Sampling tab repopulate its per-sample equipment dropdowns. */
   if (window.Air && Air.refreshEquipPickers) Air.refreshEquipPickers();
 }
@@ -7632,6 +7749,7 @@ function refreshEquipmentPickers() {
   const dosimeters = equipment.filter(e => e.type === 'dosimeter');
   const slms       = equipment.filter(e => e.type === 'sound_level_meter');
   const calibrators = equipment.filter(e => e.type === 'calibrator');
+  const velocityMeters = equipment.filter(e => e.type === 'velocity_meter');
 
   const optStyle = 'background:#1a2940; color:#e0e8f0;';
 
@@ -7658,6 +7776,15 @@ function refreshEquipmentPickers() {
     slCalPicker.innerHTML = '<option value="">Select from library…</option>' +
       calibrators.map(eq => `<option value="${eq.id}">${esc(eq.make)} ${esc(eq.model)} — S/N ${esc(eq.serial)}</option>`).join('');
     if (prev) slCalPicker.value = prev;
+  }
+
+  // Ventilation tab — velocity meter picker.
+  const vmPicker = document.getElementById('ventMeterPicker');
+  if (vmPicker) {
+    const prev = vmPicker.value;
+    vmPicker.innerHTML = '<option value="">Select from library…</option>' +
+      velocityMeters.map(eq => `<option value="${eq.id}">${esc(eq.make)} ${esc(eq.model)} — S/N ${esc(eq.serial)}</option>`).join('');
+    if (prev) vmPicker.value = prev;
   }
 }
 
@@ -7719,13 +7846,14 @@ let currentInvType = 'dosimeter';
 
 function setInvType(type) {
   currentInvType = type;
-  const types = ['dosimeter','sound_level_meter','calibrator','air_pump','air_calibrator'];
+  const types = ['dosimeter','sound_level_meter','calibrator','air_pump','air_calibrator','velocity_meter'];
   const fieldIds = {
     dosimeter: 'invDosFields',
     sound_level_meter: 'invSLMFields',
     calibrator: 'invCalFields',
     air_pump: 'invAirPumpFields',
     air_calibrator: 'invAirCalFields',
+    velocity_meter: 'invVelMeterFields',
   };
   types.forEach(t => {
     const f = document.getElementById(fieldIds[t]); if (f) f.style.display = t === type ? '' : 'none';
@@ -7807,8 +7935,7 @@ function checkInItem() {
       checkedInBy: deviceNickname || '',
       checkedInAt: new Date().toISOString(),
     };
-  } else {
-    /* air_calibrator */
+  } else if (type === 'air_calibrator') {
     const make   = document.getElementById('inv_acMake').value.trim();
     const model  = document.getElementById('inv_acModel').value.trim();
     const serial = document.getElementById('inv_acSerial').value.trim();
@@ -7820,6 +7947,23 @@ function checkInItem() {
       calDue:      document.getElementById('inv_acCalDue').value,
       condition:   document.getElementById('inv_acCondition').value,
       notes:       document.getElementById('inv_acNotes').value.trim(),
+      checkedInBy: deviceNickname || '',
+      checkedInAt: new Date().toISOString(),
+    };
+  } else {
+    /* velocity_meter */
+    const make   = document.getElementById('inv_vmMake').value.trim();
+    const model  = document.getElementById('inv_vmModel').value.trim();
+    const serial = document.getElementById('inv_vmSerial').value.trim();
+    if (!make || !model || !serial) { showToast('Make, model and serial are required', 'error'); return; }
+    rec = {
+      type, make, model, serial,
+      asset:       document.getElementById('inv_vmAsset').value.trim(),
+      lastCal:     document.getElementById('inv_vmLastCal').value,
+      calDue:      document.getElementById('inv_vmCalDue').value,
+      probe:       document.getElementById('inv_vmProbe').value.trim(),
+      condition:   document.getElementById('inv_vmCondition').value,
+      notes:       document.getElementById('inv_vmNotes').value.trim(),
       checkedInBy: deviceNickname || '',
       checkedInAt: new Date().toISOString(),
     };
@@ -7867,6 +8011,10 @@ function checkInItem() {
     } else if (type === 'air_calibrator') {
       if (rec.factoryCal) existing.factoryCal = rec.factoryCal;
       if (rec.calDue)     existing.calDue     = rec.calDue;
+    } else if (type === 'velocity_meter') {
+      if (rec.lastCal) existing.lastCal = rec.lastCal;
+      if (rec.calDue)  existing.calDue  = rec.calDue;
+      if (rec.probe)   existing.probe   = rec.probe;
     }
     if (rec.notes) existing.notes = rec.notes;
     existing.checkedInBy = rec.checkedInBy || existing.checkedInBy || '';
@@ -7906,9 +8054,13 @@ function checkInItem() {
         calDue:     rec.calDue,
         flowMin:    rec.flowMin,
         flowMax:    rec.flowMax,
-      } : /* air_calibrator */ {
+      } : type === 'air_calibrator' ? {
         factoryCal: rec.factoryCal,
         calDue:     rec.calDue,
+      } : /* velocity_meter */ {
+        lastCal: rec.lastCal,
+        calDue:  rec.calDue,
+        probe:   rec.probe,
       }),
     };
     equipment.push(newRec);
@@ -7949,7 +8101,9 @@ function clearInvForm() {
    'inv_apMake','inv_apModel','inv_apSerial','inv_apAsset',
    'inv_apFactoryCal','inv_apCalDue','inv_apFlowMin','inv_apFlowMax','inv_apNotes',
    'inv_acMake','inv_acModel','inv_acSerial','inv_acAsset',
-   'inv_acFactoryCal','inv_acCalDue','inv_acNotes']
+   'inv_acFactoryCal','inv_acCalDue','inv_acNotes',
+   'inv_vmMake','inv_vmModel','inv_vmSerial','inv_vmAsset',
+   'inv_vmLastCal','inv_vmCalDue','inv_vmProbe','inv_vmNotes']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const ex = document.getElementById('inv_dosExchange');   if (ex) ex.value = '5';
   const cr = document.getElementById('inv_dosCriterion');  if (cr) cr.value = '90';
@@ -7960,6 +8114,7 @@ function clearInvForm() {
   const cc = document.getElementById('inv_calCondition');  if (cc) cc.value = 'Good';
   const apC = document.getElementById('inv_apCondition');  if (apC) apC.value = 'Good';
   const acC = document.getElementById('inv_acCondition');  if (acC) acC.value = 'Good';
+  const vmC = document.getElementById('inv_vmCondition');  if (vmC) vmC.value = 'Good';
 }
 
 function renderInventoryLog() {

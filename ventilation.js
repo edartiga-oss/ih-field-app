@@ -446,9 +446,28 @@ function initForm(){
   } catch(e) { console.error('[Vent] init failed', e); }
 }
 
+/* ── Velocity meter picker — pull from the shared Equipment Library
+   maintained by the noise-side equipment tab. Same pattern Sound Level
+   uses to populate make/model/serial/cal date in box 3. ──────────── */
+function loadMeterFromLibrary(id){
+  if (!id) return;
+  const list = (typeof window.getEquipmentList === 'function')
+    ? window.getEquipmentList()
+    : (window.equipment || []);
+  const eq = Array.isArray(list) ? list.find(e => e && e.id === id) : null;
+  if (!eq) return;
+  const set = (name, value) => { const f = fld(name); if (f) f.value = value == null ? '' : value; };
+  set('meter_make',     eq.make);
+  set('meter_model',    eq.model);
+  set('meter_serial',   eq.serial);
+  set('meter_cal_date', eq.lastCal || eq.calDue);
+  if (window.showToast) showToast('Velocity meter loaded: ' + (eq.make || '') + ' ' + (eq.model || ''), 'success');
+}
+
 window.Vent = Object.assign(window.Vent || {}, {
   addSystem, duplicateLastSystem, deleteSystem,
   onEngineChange, recomputeSystem, recomputeRoom, recomputeAll,
+  loadMeterFromLibrary,
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
   flushSyncQueue,
   init: initForm
