@@ -1,6 +1,6 @@
-# IH Field — Noise Dosimetry App
+# IH Field — Industrial Hygiene Surveys
 
-A Progressive Web App (PWA) for industrial hygiene field data collection, built for noise dosimetry surveys. Hosted at [edartiga-oss.github.io/ih-field-app](https://edartiga-oss.github.io/ih-field-app/).
+A Progressive Web App (PWA) for industrial hygiene field data collection — noise dosimetry, sound level, air sampling, equipment management, and HCP letters. Hosted at [edartiga-oss.github.io/ih-field-app](https://edartiga-oss.github.io/ih-field-app/).
 
 ---
 
