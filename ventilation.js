@@ -586,23 +586,24 @@ function flushSyncQueue(){
 }
 
 /* ── Collapsible sections — same pattern Air Sampling uses on h2
-   headers. Click anywhere in the h3 (away from buttons / inputs)
-   toggles a .collapsed class on the parent <section.v-card>; the CSS
-   hides the .body when collapsed and rotates the chevron. */
-function initCollapsible(){
-  document.querySelectorAll('#ventAppHost section.v-card > h3').forEach(h => {
-    if (h.dataset.collapInit) return;
-    h.dataset.collapInit = '1';
-    h.insertAdjacentHTML('afterbegin', '<span class="chev" aria-hidden="true">▾</span> ');
-    h.addEventListener('click', function(e){
-      if (e.target.closest('button,select,input,a,textarea')) return;
-      h.parentElement.classList.toggle('collapsed');
-    });
-  });
-}
+   headers. We use document-level event delegation so the click
+   binding works even if initForm() never runs (or runs before the
+   form is in the DOM). The chevron is rendered with a CSS ::before
+   pseudo-element so no HTML injection is needed. */
 function setAllCollapsed(c){
   document.querySelectorAll('#ventAppHost section.v-card').forEach(s => s.classList.toggle('collapsed', !!c));
 }
+function initCollapsible(){ /* delegation handles it now — kept for API back-compat. */ }
+(function bindCollapseDelegation(){
+  if (typeof document === 'undefined' || document._ventCollapBound) return;
+  document._ventCollapBound = true;
+  document.addEventListener('click', function(e){
+    const h3 = e.target.closest && e.target.closest('#ventAppHost section.v-card > h3');
+    if (!h3) return;
+    if (e.target.closest('button,select,input,a,textarea')) return;
+    h3.parentElement.classList.toggle('collapsed');
+  }, false);
+})();
 
 /* ── Init ─────────────────────────────────────────────────────── */
 let initialized = false;

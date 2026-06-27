@@ -3356,8 +3356,9 @@ body { padding: 20px 18px; }
 #ventAppHost section.v-card>h3{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.6px;
   background:var(--v-accent-soft);color:var(--v-accent);padding:9px 14px;border-bottom:1px solid var(--v-line);
   cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;}
-#ventAppHost section.v-card>h3 .chev{font-size:11px;display:inline-block;transition:transform .15s ease;}
-#ventAppHost section.v-card.collapsed>h3 .chev{transform:rotate(-90deg);}
+#ventAppHost section.v-card>h3::before{content:'\25BE';font-size:12px;display:inline-block;
+  transition:transform .15s ease;line-height:1;letter-spacing:0;}
+#ventAppHost section.v-card.collapsed>h3::before{transform:rotate(-90deg);}
 #ventAppHost section.v-card.collapsed>h3{border-bottom-color:transparent;}
 #ventAppHost section.v-card.collapsed>.body{display:none;}
 #ventAppHost .v-card .body{padding:14px 16px;}
@@ -3380,7 +3381,7 @@ body { padding: 20px 18px; }
    The first column ("v-rowlabel") sticks to the left edge as the user
    scrolls horizontally through many systems. The header row sticks to
    the top so labels stay visible while scrolling within the wrap. */
-#ventAppHost .v-syswrap{overflow-x:auto;border:1px solid var(--v-line);border-radius:8px;background:#fff;max-height:70vh;}
+#ventAppHost .v-syswrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--v-line);border-radius:8px;background:#fff;max-height:70vh;}
 #ventAppHost table.v-sys{border-collapse:separate;border-spacing:0;font-size:11.5px;}
 #ventAppHost table.v-sys th.v-rowlabel{
   background:var(--v-accent-soft);color:var(--v-accent);
