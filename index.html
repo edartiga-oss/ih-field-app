@@ -3416,6 +3416,15 @@ body { padding: 20px 18px; }
 #ventAppHost .v-surv-title{font-size:13px;font-weight:600;color:var(--v-ink);}
 #ventAppHost .v-surv-sub{font-size:11px;color:var(--v-muted);margin-top:2px;}
 #ventAppHost button.v-del{background:var(--v-warn-soft);color:var(--v-warn);border-color:#f1c3c5;}
+#ventAppHost .v-photo{position:relative;border:1px solid var(--v-line);border-radius:8px;overflow:hidden;background:#fff;display:flex;flex-direction:column;}
+#ventAppHost .v-photo img{display:block;width:100%;height:160px;object-fit:cover;background:#f0f4f2;}
+#ventAppHost .v-photo input[type="text"]{border:none;border-top:1px solid var(--v-line);padding:6px 10px;font-size:11.5px;border-radius:0;text-transform:none;letter-spacing:0;}
+#ventAppHost .v-photo input[type="text"]:focus{outline:1px solid var(--v-accent);outline-offset:-1px;box-shadow:none;}
+#ventAppHost .v-photo-rm{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;
+  border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:16px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;padding:0;}
+#ventAppHost .v-photo-rm:hover{background:rgba(163,37,43,0.92);}
+#ventAppHost label.v-photo-btn:hover{background:#0a5d44;}
 #ventAppHost .v-action-bar{position:fixed;bottom:0;left:0;right:0;z-index:50;
   background:var(--surface,#fff);border-top:1.5px solid var(--border,#dcdcdc);
   box-shadow:0 -2px 12px rgba(0,0,0,0.08);padding:10px 16px;
@@ -3510,6 +3519,23 @@ body { padding: 20px 18px; }
               <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--v-muted);margin-bottom:2px;">Actual ACH</div><div id="room_ach" style="font-family:var(--mono);font-weight:700;color:var(--v-accent);font-size:15px;">—</div></div>
               <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--v-muted);margin-bottom:2px;">ACH Status</div><div id="room_ach_status" class="v-status" style="font-weight:700;padding:3px 8px;border-radius:4px;display:inline-block;font-size:13px;">—</div></div>
             </div>
+          </div>
+        </section>
+
+        <!-- System Diagrams & Photos -->
+        <section class="v-card">
+          <h3>System Diagrams &amp; Photos
+            <span id="ventPhotoCount" style="margin-left:auto;font-weight:400;text-transform:none;letter-spacing:0;color:var(--v-muted);font-size:11.5px;">0 photos</span>
+          </h3>
+          <div class="body">
+            <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <label class="v-photo-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;background:var(--v-accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">
+                + Add Photo / Diagram
+                <input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="window.Vent&amp;&amp;Vent.onPhotoInput&amp;&amp;Vent.onPhotoInput(this)">
+              </label>
+              <span style="font-size:11px;color:var(--v-muted);">Phone camera, photo library, or scanned sketches. Captions are optional but recommended.</span>
+            </div>
+            <div id="ventPhotoGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;"></div>
           </div>
         </section>
 
