@@ -3354,7 +3354,12 @@ body { padding: 20px 18px; }
 #ventAppHost button.add{background:var(--v-accent-soft);border-color:#bcdccc;color:var(--v-accent);font-weight:600;}
 #ventAppHost section.v-card{background:var(--v-panel);border:1px solid var(--v-line);border-radius:10px;margin-bottom:14px;overflow:hidden;}
 #ventAppHost section.v-card>h3{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.6px;
-  background:var(--v-accent-soft);color:var(--v-accent);padding:9px 14px;border-bottom:1px solid var(--v-line);}
+  background:var(--v-accent-soft);color:var(--v-accent);padding:9px 14px;border-bottom:1px solid var(--v-line);
+  cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;}
+#ventAppHost section.v-card>h3 .chev{font-size:11px;display:inline-block;transition:transform .15s ease;}
+#ventAppHost section.v-card.collapsed>h3 .chev{transform:rotate(-90deg);}
+#ventAppHost section.v-card.collapsed>h3{border-bottom-color:transparent;}
+#ventAppHost section.v-card.collapsed>.body{display:none;}
 #ventAppHost .v-card .body{padding:14px 16px;}
 #ventAppHost .v-card .body.compact{padding:10px 12px;}
 #ventAppHost .grid{display:grid;gap:10px 14px;}
@@ -3425,6 +3430,8 @@ body { padding: 20px 18px; }
           <div class="sub">Velocity measurements (FPM) &middot; auto duct-area + CFM &middot; vehicle-engine design criteria</div>
         </div>
         <div class="v-toolbar">
+          <button type="button" onclick="window.Vent&amp;&amp;Vent.setAllCollapsed&amp;&amp;Vent.setAllCollapsed(true)">Collapse all</button>
+          <button type="button" onclick="window.Vent&amp;&amp;Vent.setAllCollapsed&amp;&amp;Vent.setAllCollapsed(false)">Expand all</button>
           <select id="ventExamplePick" title="Pick a worked example then click Load" style="padding:6px 10px;border-radius:6px;border:1px solid var(--v-line);background:#fff;cursor:pointer;font-size:12px;color:var(--v-ink);max-width:240px;">
             <option value="">— Pick an example —</option>
             <option value="fms11_overhead">FMS 11 — Overhead Exhaust (2 systems, 6" duct)</option>
