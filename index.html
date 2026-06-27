@@ -3310,22 +3310,39 @@ body { padding: 20px 18px; }
 #ventAppHost input:focus,#ventAppHost select:focus,#ventAppHost textarea:focus{
   outline:none;border-color:var(--v-accent);box-shadow:0 0 0 2px rgba(15,124,90,0.15);}
 #ventAppHost textarea{min-height:60px;resize:vertical;}
-#ventAppHost .v-syswrap{overflow-x:auto;border:1px solid var(--v-line);border-radius:8px;background:#fff;}
-#ventAppHost table.v-sys{width:100%;border-collapse:collapse;font-size:11.5px;min-width:1200px;}
-#ventAppHost table.v-sys th{background:var(--v-accent);color:#fff;padding:6px 8px;font-size:10.5px;
-  text-transform:uppercase;letter-spacing:.4px;font-weight:600;text-align:left;white-space:nowrap;
-  position:sticky;top:0;z-index:1;}
-#ventAppHost table.v-sys td{padding:4px 6px;border-bottom:1px solid var(--v-line2);vertical-align:top;}
-#ventAppHost table.v-sys td.v-sid{font-family:var(--mono);color:var(--v-muted);font-weight:700;white-space:nowrap;}
+/* Transposed Systems table — rows = fields, columns = systems.
+   The first column ("v-rowlabel") sticks to the left edge as the user
+   scrolls horizontally through many systems. The header row sticks to
+   the top so labels stay visible while scrolling within the wrap. */
+#ventAppHost .v-syswrap{overflow-x:auto;border:1px solid var(--v-line);border-radius:8px;background:#fff;max-height:70vh;}
+#ventAppHost table.v-sys{border-collapse:separate;border-spacing:0;font-size:11.5px;}
+#ventAppHost table.v-sys th.v-rowlabel{
+  background:var(--v-accent-soft);color:var(--v-accent);
+  padding:6px 10px;font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.3px;text-align:left;white-space:nowrap;
+  position:sticky;left:0;z-index:3;border-right:1px solid var(--v-line);
+  min-width:160px;
+}
+#ventAppHost table.v-sys thead th{position:sticky;top:0;z-index:2;}
+#ventAppHost table.v-sys thead th.v-rowlabel{z-index:4;}
+#ventAppHost table.v-sys th.v-syshead{
+  background:var(--v-accent);color:#fff;padding:6px 10px;font-size:11.5px;
+  font-weight:700;text-align:center;white-space:nowrap;min-width:120px;
+  border-right:1px solid rgba(255,255,255,0.18);
+}
+#ventAppHost table.v-sys th.v-syshead .v-syshead-row{display:flex;align-items:center;justify-content:center;gap:6px;}
+#ventAppHost table.v-sys td{padding:4px 6px;border-bottom:1px solid var(--v-line2);vertical-align:top;text-align:center;}
+#ventAppHost table.v-sys tbody tr:last-child td,
+#ventAppHost table.v-sys tbody tr:last-child th{border-bottom:none;}
 #ventAppHost table.v-sys td.v-calc{background:var(--v-accent-soft);color:var(--v-accent);font-weight:700;
-  font-family:var(--mono);text-align:right;white-space:nowrap;min-width:60px;}
-#ventAppHost table.v-sys td.v-status{font-weight:700;text-align:center;padding:4px 6px;white-space:nowrap;}
+  font-family:var(--mono);text-align:center;white-space:nowrap;}
+#ventAppHost table.v-sys td.v-status{font-weight:700;text-align:center;padding:4px 8px;white-space:nowrap;}
 #ventAppHost table.v-sys td.v-status.v-pass{background:var(--v-pass-soft);color:var(--v-pass);}
 #ventAppHost table.v-sys td.v-status.v-fail{background:var(--v-fail-soft);color:var(--v-fail);}
 #ventAppHost table.v-sys input,#ventAppHost table.v-sys select{padding:3px 5px;font-size:11.5px;border-radius:4px;}
-#ventAppHost button.v-rm{border:none;background:transparent;color:var(--v-muted);font-size:16px;line-height:1;
-  padding:2px 6px;cursor:pointer;}
-#ventAppHost button.v-rm:hover{color:var(--v-warn);background:var(--v-warn-soft);border-radius:4px;}
+#ventAppHost button.v-rm{border:none;background:rgba(255,255,255,0.18);color:#fff;font-size:14px;
+  line-height:1;padding:2px 7px;cursor:pointer;border-radius:4px;}
+#ventAppHost button.v-rm:hover{background:var(--v-warn);}
 #ventAppHost .v-surv-row{display:flex;justify-content:space-between;align-items:center;
   padding:10px 14px;border-top:1px solid var(--v-line2);gap:10px;}
 #ventAppHost .v-surv-row:first-child{border-top:none;}
@@ -3386,26 +3403,7 @@ body { padding: 20px 18px; }
             </div>
             <div class="v-syswrap">
               <table class="v-sys">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Sys</th>
-                    <th>Comp</th>
-                    <th>Shape</th>
-                    <th>Dia (in)</th>
-                    <th>L (in)</th>
-                    <th>W (in)</th>
-                    <th>M1</th><th>M2</th><th>M3</th><th>M4</th><th>M5</th>
-                    <th>AVG FPM</th>
-                    <th>Area (ft²)</th>
-                    <th>CFM (Q)</th>
-                    <th style="min-width:280px">Engine / Vehicle</th>
-                    <th>Design CFM</th>
-                    <th>Min FPM</th>
-                    <th>Status</th>
-                    <th></th>
-                  </tr>
-                </thead>
+                <thead id="ventSysHead"></thead>
                 <tbody id="ventSysBody"></tbody>
               </table>
             </div>

@@ -3,7 +3,7 @@
      * Per-system / per-component velocity measurements (5 readings)
      * Auto-calculated AVG FPM, Duct Area, CFM (Q), and Air Change/Hr
      * Engine reference library for vehicle exhaust design criteria
-     * Round duct vs rectangular vent vs ACH-based room exhaust modes
+     * Transposed layout: rows = field labels, columns = systems
      * Saved to localStorage and synced to the SoundLevel/AirSampling-
        style Sheets back-end when the IH has a Sheets URL configured. */
 (function(){
@@ -14,8 +14,8 @@ const QUEUE_KEY   = 'ih_vent_sync_queue_v1';
 
 let ventSurveys = [];
 let currentSurveyId = null;
-let systems = [];   // {sid, system, component, ...measurements / calcs}
-let sysCount = 0;
+let systems = [];     // [{sid}, ...] — one entry per active system column
+let sysCount = 0;     // monotonic sid generator (don't reuse on delete)
 
 /* ── helpers ── */
 const num = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
@@ -32,8 +32,8 @@ function generateVentId(){ return 'VENT-' + Date.now().toString(36).toUpperCase(
 /* ── Engine reference library — pulled from the Texas ARNG vehicle
    exhaust design-criteria sheet. Each row gives an engine, its
    displacement, low-idle and (optional) high-idle CFM, and the
-   vehicles that engine powers. Selecting an engine in a system row
-   auto-fills the Design Criteria CFM field. ──────────────────── */
+   vehicles that engine powers. Selecting an engine in a system column
+   auto-fills the Design Criteria CFM field. ─────────────────────── */
 const ENGINE_LIBRARY = [
   { engine:'Continental AVDS-1790-8CR', size:'29.3L', lowCfm:968, highCfm:null, vehicles:'M88A2 Hercules' },
   { engine:'Caterpillar C18',           size:'18.1L', lowCfm:597, highCfm:null, vehicles:'M1070A1 HET' },
@@ -54,13 +54,42 @@ function engineOptions(){
   return '<option value="">— select engine —</option>' +
     ENGINE_LIBRARY.map(e => (
       '<option value="'+esc(e.engine)+'">'+esc(e.engine)+' &middot; '+esc(e.size)+
-      ' &middot; '+e.lowCfm+' CFM'+(e.highCfm?(' / '+e.highCfm+' CFM hi-idle'):'')+
-      (e.vehicles?(' &middot; '+esc(e.vehicles)):'')+'</option>'
-    )).join('') + '<option value="__custom__">Other / Custom (enter manually)</option>';
+      ' &middot; '+e.lowCfm+' CFM'+(e.highCfm?(' / '+e.highCfm+' CFM hi'):'')+'</option>'
+    )).join('') + '<option value="__custom__">Other / Custom</option>';
 }
 function findEngine(name){ return ENGINE_LIBRARY.find(e => e.engine === name) || null; }
 
-/* ── Duct / vent / room math ─────────────────────────────────── */
+/* ── Field schema — single source of truth for the transposed table.
+   Each entry produces one <tr>; addSystem() appends one <td> per
+   entry. Type tag drives the cell template:
+     'input'   → text-style input (numeric for most)
+     'select'  → static <select>
+     'select-engine' → engine dropdown (auto-fills Design CFM)
+     'calc'    → read-only display fed by recomputeSystem()
+     'status'  → PASS/FAIL/INOP coloured pill, also fed by recompute. */
+const FIELDS = [
+  { key:'system',     label:'System #',           type:'input',  iattr:'type="number" step="1" placeholder="1" style="width:60px"' },
+  { key:'component',  label:'Component #',        type:'input',  iattr:'type="number" step="1" placeholder="1" style="width:60px"' },
+  { key:'shape',      label:'Duct Shape',         type:'select', options:[{v:'round',t:'Round (Ø)'},{v:'rect',t:'Rectangular (L × W)'}], onchange:'Vent.recomputeSystem' },
+  { key:'dia',        label:'Diameter (in)',      type:'input',  iattr:'type="number" step="any" placeholder="—" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'width',      label:'L — Length (in)',    type:'input',  iattr:'type="number" step="any" placeholder="—" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'height',     label:'W — Width (in)',     type:'input',  iattr:'type="number" step="any" placeholder="—" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'m1',         label:'Measurement 1 (FPM)', type:'input', iattr:'type="number" step="any" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'m2',         label:'Measurement 2 (FPM)', type:'input', iattr:'type="number" step="any" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'m3',         label:'Measurement 3 (FPM)', type:'input', iattr:'type="number" step="any" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'m4',         label:'Measurement 4 (FPM)', type:'input', iattr:'type="number" step="any" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'m5',         label:'Measurement 5 (FPM)', type:'input', iattr:'type="number" step="any" style="width:80px"', oninput:'Vent.recomputeSystem' },
+  { key:'avg_fpm',    label:'AVG FPM',            type:'calc' },
+  { key:'area_ft2',   label:'Duct Area (ft²)',    type:'calc' },
+  { key:'cfm',        label:'CFM (Q)',            type:'calc' },
+  { key:'engine',     label:'Engine',             type:'select-engine' },
+  { key:'vehicle',    label:'Vehicle',            type:'input', iattr:'placeholder="optional" style="width:160px"' },
+  { key:'design_cfm', label:'Design CFM',         type:'input', iattr:'type="number" step="any" style="width:90px"', oninput:'Vent.recomputeSystem' },
+  { key:'min_fpm',    label:'Min FPM',            type:'calc' },
+  { key:'status',     label:'Status',             type:'status' }
+];
+
+/* ── Duct / vent / room math ───────────────────────────────────── */
 function ductAreaFt2(shape, dia, w, h){
   if (shape === 'round') {
     const d = num(dia); if (d == null || d <= 0) return null;
@@ -93,75 +122,93 @@ function saveToStorage(){
   catch(e) { if (window.showToast) showToast('Storage error saving ventilation survey', 'error'); }
 }
 
-/* ── System row management ────────────────────────────────────── */
+/* ── Table skeleton (transposed) ──────────────────────────────────
+   The first column is sticky on the left and carries the field
+   labels; each system is a new column on the right. */
+function buildSkeleton(){
+  const head = el('ventSysHead');
+  if (head) head.innerHTML = '<tr><th class="v-rowlabel">Field</th></tr>';
+  const body = el('ventSysBody');
+  if (body) body.innerHTML = FIELDS.map(f => {
+    let extraCls = '';
+    if (f.type === 'calc' || f.type === 'status') extraCls = ' v-calcrow';
+    return '<tr data-field="'+esc(f.key)+'"'+(extraCls?' class="'+extraCls.trim()+'"':'')+'>'+
+      '<th class="v-rowlabel">'+esc(f.label)+'</th>'+
+    '</tr>';
+  }).join('');
+}
+
+function bodyCellHTML(sid, f){
+  if (f.type === 'input') {
+    const extra = (f.oninput ? ' oninput="'+f.oninput+'('+sid+')"' : '');
+    return '<td data-sid="'+sid+'"><input name="sys'+sid+'_'+f.key+'" '+(f.iattr||'')+extra+'></td>';
+  }
+  if (f.type === 'select') {
+    const opts = f.options.map(o => '<option value="'+esc(o.v)+'">'+esc(o.t)+'</option>').join('');
+    const ch = f.onchange ? ' onchange="'+f.onchange+'('+sid+')"' : '';
+    return '<td data-sid="'+sid+'"><select name="sys'+sid+'_'+f.key+'" style="width:100%"'+ch+'>'+opts+'</select></td>';
+  }
+  if (f.type === 'select-engine') {
+    return '<td data-sid="'+sid+'"><select name="sys'+sid+'_engine" onchange="Vent.onEngineChange('+sid+')" style="width:100%">'+engineOptions()+'</select></td>';
+  }
+  if (f.type === 'calc') {
+    return '<td data-sid="'+sid+'" class="v-calc" id="sys'+sid+'_'+f.key+'">—</td>';
+  }
+  if (f.type === 'status') {
+    return '<td data-sid="'+sid+'" class="v-status" id="sys'+sid+'_status">—</td>';
+  }
+  return '<td data-sid="'+sid+'"></td>';
+}
+
+/* ── System column management ────────────────────────────────── */
 function addSystem(seed){
   sysCount++;
   const sid = sysCount;
   systems.push({ sid });
-  el('ventSysBody').insertAdjacentHTML('beforeend', systemRowHTML(sid));
+  // Header cell (column heading)
+  const headRow = el('ventSysHead').querySelector('tr');
+  headRow.insertAdjacentHTML('beforeend',
+    '<th class="v-syshead" data-sid="'+sid+'">'+
+      '<div class="v-syshead-row">'+
+        '<span>System '+sid+'</span>'+
+        '<button type="button" class="v-rm" title="Delete this system column" onclick="Vent.deleteSystem('+sid+')">×</button>'+
+      '</div>'+
+    '</th>');
+  // Body cells (one per field row)
+  FIELDS.forEach(f => {
+    const tr = document.querySelector('#ventSysBody tr[data-field="'+f.key+'"]');
+    if (tr) tr.insertAdjacentHTML('beforeend', bodyCellHTML(sid, f));
+  });
+  // Seed values (from a saved survey row or a duplicate-last call)
   if (seed) {
-    Object.keys(seed).forEach(k => { const f = fld('sys'+sid+'_'+k); if (f) f.value = seed[k] || ''; });
+    Object.keys(seed).forEach(k => {
+      const f = fld('sys'+sid+'_'+k);
+      if (f) f.value = (seed[k] == null ? '' : seed[k]);
+    });
   }
   recomputeSystem(sid);
   return sid;
 }
 function deleteSystem(sid){
+  if (systems.length <= 1) {
+    if (window.showToast) showToast('Keep at least one system column', 'warn');
+    return;
+  }
   systems = systems.filter(s => s.sid !== sid);
-  const row = document.querySelector('#ventSysBody tr[data-sid="'+sid+'"]');
-  if (row) row.remove();
-  const next = document.querySelector('#ventSysBody tr[data-sid="'+sid+'"] + tr');
-  // Touch nothing else — IDs stay stable per-row.
+  document.querySelectorAll('#ventSysHead [data-sid="'+sid+'"], #ventSysBody [data-sid="'+sid+'"]')
+    .forEach(node => node.remove());
+  recomputeRoom();
 }
 function duplicateLastSystem(){
   if (!systems.length) return addSystem();
   const last = systems[systems.length - 1];
-  const sid = last.sid;
-  // Gather current values, then seed a new row.
-  const fieldNames = [
-    'system','component','shape','dia','width','height',
-    'engine','vehicle','design_cfm',
-    'm1','m2','m3','m4','m5'
-  ];
   const seed = {};
-  fieldNames.forEach(n => {
-    const f = fld('sys'+sid+'_'+n);
-    if (f) seed[n] = f.value;
+  FIELDS.forEach(f => {
+    if (f.type === 'calc' || f.type === 'status') return;
+    const fEl = fld('sys'+last.sid+'_'+f.key);
+    if (fEl) seed[f.key] = fEl.value;
   });
   return addSystem(seed);
-}
-
-function systemRowHTML(sid){
-  return ''+
-    '<tr data-sid="'+sid+'">'+
-      '<td class="v-sid">#'+sid+'</td>'+
-      '<td><input name="sys'+sid+'_system" placeholder="1" style="width:50px"></td>'+
-      '<td><input name="sys'+sid+'_component" placeholder="1" style="width:50px"></td>'+
-      '<td>'+
-        '<select name="sys'+sid+'_shape" onchange="Vent.recomputeSystem('+sid+')">'+
-          '<option value="round" selected>Round (Ø)</option>'+
-          '<option value="rect">Rectangular (L × W)</option>'+
-        '</select>'+
-      '</td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_dia" placeholder="in" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_width" placeholder="L (in)" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_height" placeholder="W (in)" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_m1" placeholder="FPM" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_m2" placeholder="FPM" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_m3" placeholder="FPM" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_m4" placeholder="FPM" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_m5" placeholder="FPM" style="width:64px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td class="v-calc" id="sys'+sid+'_avg_fpm">—</td>'+
-      '<td class="v-calc" id="sys'+sid+'_area_ft2">—</td>'+
-      '<td class="v-calc" id="sys'+sid+'_cfm">—</td>'+
-      '<td>'+
-        '<select name="sys'+sid+'_engine" onchange="Vent.onEngineChange('+sid+')">'+engineOptions()+'</select>'+
-        '<input name="sys'+sid+'_vehicle" placeholder="Vehicle (optional)" style="margin-top:3px;width:100%">'+
-      '</td>'+
-      '<td><input type="number" step="any" name="sys'+sid+'_design_cfm" placeholder="CFM" style="width:72px" oninput="Vent.recomputeSystem('+sid+')"></td>'+
-      '<td class="v-calc" id="sys'+sid+'_min_fpm">—</td>'+
-      '<td class="v-status" id="sys'+sid+'_status">—</td>'+
-      '<td><button type="button" class="v-rm" title="Delete row" onclick="Vent.deleteSystem('+sid+')">×</button></td>'+
-    '</tr>';
 }
 
 function onEngineChange(sid){
@@ -189,37 +236,36 @@ function recomputeSystem(sid){
   const minFpm = (designCfm != null && area != null && area > 0) ? designCfm / area : null;
 
   const set = (id, txt) => { const e = el(id); if (e) e.textContent = txt; };
-  set('sys'+sid+'_avg_fpm', avg != null ? round(avg,1) : '—');
-  set('sys'+sid+'_area_ft2', area != null ? round(area,4) : '—');
-  set('sys'+sid+'_cfm', cfm != null ? round(cfm,1) : '—');
-  set('sys'+sid+'_min_fpm', minFpm != null ? round(minFpm,1) : '—');
+  set('sys'+sid+'_avg_fpm',  avg     != null ? round(avg, 1)     : '—');
+  set('sys'+sid+'_area_ft2', area    != null ? round(area, 4)    : '—');
+  set('sys'+sid+'_cfm',      cfm     != null ? round(cfm, 1)     : '—');
+  set('sys'+sid+'_min_fpm',  minFpm  != null ? round(minFpm, 1)  : '—');
 
-  // Pass / Fail
+  // PASS / FAIL / INOP
   const stEl = el('sys'+sid+'_status');
   if (!stEl) return;
-  if (cfm != null && designCfm != null) {
+  if (avg != null && avg === 0) {
+    stEl.textContent = 'INOP'; stEl.className = 'v-status v-fail';
+  } else if (cfm != null && designCfm != null) {
     const pass = cfm >= designCfm;
     stEl.textContent = pass ? 'PASS' : 'FAIL';
     stEl.className = 'v-status ' + (pass ? 'v-pass' : 'v-fail');
-  } else if (avg === 0 || (avg != null && avg === 0)) {
-    stEl.textContent = 'INOP';
-    stEl.className = 'v-status v-fail';
   } else {
-    stEl.textContent = '—';
-    stEl.className = 'v-status';
+    stEl.textContent = '—'; stEl.className = 'v-status';
   }
+  // ACH might change when a CFM changes
+  recomputeRoom();
 }
 function recomputeAll(){ systems.forEach(s => recomputeSystem(s.sid)); recomputeRoom(); }
 
-/* ── Room / ACH (battery room style) ─────────────────────────── */
+/* ── Room / ACH (battery-room style) ─────────────────────────── */
 function recomputeRoom(){
   const L = num((fld('room_length')||{}).value);
   const W = num((fld('room_width')||{}).value);
   const H = num((fld('room_height')||{}).value);
   const vol = (L && W && H) ? L * W * H : null;
   if (el('room_volume')) el('room_volume').textContent = vol != null ? round(vol,1) : '—';
-  // ACH = total CFM × 60 / room volume
-  let totalCfm = 0; let haveCfm = false;
+  let totalCfm = 0, haveCfm = false;
   systems.forEach(s => {
     const v = el('sys'+s.sid+'_cfm');
     const n = v ? parseFloat(v.textContent) : NaN;
@@ -228,7 +274,6 @@ function recomputeRoom(){
   const ach = (haveCfm && vol) ? (totalCfm * 60 / vol) : null;
   if (el('room_total_cfm')) el('room_total_cfm').textContent = haveCfm ? round(totalCfm,1) : '—';
   if (el('room_ach'))       el('room_ach').textContent       = ach != null ? round(ach,2) : '—';
-  // Pass/fail against design ACH
   const designAch = num((fld('room_design_ach')||{}).value);
   const stEl = el('room_ach_status');
   if (stEl) {
@@ -243,17 +288,17 @@ function recomputeRoom(){
 /* ── Form collection & persistence ───────────────────────────── */
 function collectForm(){
   const g = {};
-  document.querySelectorAll('#ventForm [name]:not([data-skip])').forEach(input => {
-    if (input.closest('tr[data-sid]')) return;
+  document.querySelectorAll('#ventForm [name]').forEach(input => {
+    if (input.closest('[data-sid]')) return; // skip per-system inputs
     g[input.name] = input.value;
   });
   const sys = systems.map(s => {
     const row = {};
-    ['system','component','shape','dia','width','height',
-     'm1','m2','m3','m4','m5','engine','vehicle','design_cfm'].forEach(n => {
-      const f = fld('sys'+s.sid+'_'+n); row[n] = f ? f.value : '';
+    FIELDS.forEach(f => {
+      if (f.type === 'calc' || f.type === 'status') return;
+      const fEl = fld('sys'+s.sid+'_'+f.key);
+      row[f.key] = fEl ? fEl.value : '';
     });
-    // Calcs (read from display cells)
     row.avg_fpm  = (el('sys'+s.sid+'_avg_fpm')||{}).textContent || '';
     row.area_ft2 = (el('sys'+s.sid+'_area_ft2')||{}).textContent || '';
     row.cfm      = (el('sys'+s.sid+'_cfm')||{}).textContent || '';
@@ -267,15 +312,15 @@ function applyPrefill(data){
   if (!data) return;
   const g = data.general || {};
   Object.keys(g).forEach(k => { const f = fld(k); if (f) f.value = g[k] || ''; });
-  el('ventSysBody').innerHTML = ''; systems = []; sysCount = 0;
+  buildSkeleton(); systems = []; sysCount = 0;
   (data.systems || []).forEach(row => addSystem(row));
-  if (!systems.length) addSystem();
+  if (!systems.length) { addSystem(); addSystem(); }
   recomputeAll();
 }
 function resetForm(){
   if (!confirm('Clear the form? Unsaved changes will be lost.')) return;
   document.getElementById('ventForm').reset();
-  el('ventSysBody').innerHTML = ''; systems = []; sysCount = 0;
+  buildSkeleton(); systems = []; sysCount = 0;
   addSystem(); addSystem();
   currentSurveyId = null;
   recomputeAll();
@@ -283,7 +328,7 @@ function resetForm(){
 function newSurvey(){
   currentSurveyId = generateVentId();
   document.getElementById('ventForm').reset();
-  el('ventSysBody').innerHTML = ''; systems = []; sysCount = 0;
+  buildSkeleton(); systems = []; sysCount = 0;
   addSystem(); addSystem();
   recomputeAll();
   if (window.showToast) showToast('New ventilation survey started', 'success');
@@ -390,7 +435,10 @@ function initForm(){
   if (!document.getElementById('ventForm')) return;
   try {
     loadFromStorage();
-    if (!systems.length) { addSystem(); addSystem(); }
+    if (!systems.length) {
+      buildSkeleton();
+      addSystem(); addSystem();
+    }
     renderSurveyList();
     recomputeAll();
     if (navigator.onLine) setTimeout(flushSyncQueue, 2500);
