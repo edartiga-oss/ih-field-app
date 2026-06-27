@@ -3529,11 +3529,20 @@ body { padding: 20px 18px; }
           </h3>
           <div class="body">
             <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <!-- Camera capture (single shot). iOS Safari loses the file
+                   when capture + multiple are combined, so keep them on
+                   separate inputs. -->
               <label class="v-photo-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;background:var(--v-accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">
-                + Add Photo / Diagram
-                <input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="window.Vent&amp;&amp;Vent.onPhotoInput&amp;&amp;Vent.onPhotoInput(this)">
+                📷 Take Photo
+                <input type="file" accept="image/*" capture="environment" style="display:none" onchange="window.Vent&amp;&amp;Vent.onPhotoInput&amp;&amp;Vent.onPhotoInput(this)">
               </label>
-              <span style="font-size:11px;color:var(--v-muted);">Phone camera, photo library, or scanned sketches. Captions are optional but recommended.</span>
+              <!-- Library / file picker (allows multiple). No capture so
+                   iOS opens the photo library / Files instead of camera. -->
+              <label class="v-photo-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;background:#fff;border:1px solid var(--v-accent);color:var(--v-accent);font-size:12px;font-weight:600;cursor:pointer;">
+                🖼 Add From Library
+                <input type="file" accept="image/*" multiple style="display:none" onchange="window.Vent&amp;&amp;Vent.onPhotoInput&amp;&amp;Vent.onPhotoInput(this)">
+              </label>
+              <span style="font-size:11px;color:var(--v-muted);">Camera = single shot, Library = pick multiple. Captions optional but recommended.</span>
             </div>
             <div id="ventPhotoGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;"></div>
           </div>
