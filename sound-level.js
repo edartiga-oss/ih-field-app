@@ -13,8 +13,12 @@ let soundSurveys = [];
 let currentSurveyId = null;
 let measurements = [];       /* array of { _idx, location, action, dbc, dba, rac, notes } */
 let measRowCount = 0;
-let measPhotos = {};         /* row idx -> data URI */
-let measPhotoUrls = {};      /* row idx -> Drive URL */
+/* Survey-level photo grid (mirrors Vent's photos[] array). Each entry is
+   {pid, label, dataUri, photoUrl}. Replaces the previous per-measurement
+   photo plumbing — the "Notes / Photo" column was removed from the table
+   so photos now live in their own section at the bottom of the form. */
+let photos = [];
+let photoCount = 0;
 
 /* ── helpers ── */
 const num = v => { const x=parseFloat(v); return isNaN(x)?null:x; };
@@ -73,10 +77,11 @@ function hpdCategory(dba){
 }
 function hpdChecked(category, target){ return category === target ? '☒' : '☐'; }
 
-/* ── Measurement rows ── */
+/* ── Measurement rows ──
+   Notes/Photo column was removed — photos now live in their own
+   section at the bottom of the form. */
 function measRowHTML(idx, data){
   const d = data || {};
-  const photo = measPhotos[idx] || measPhotoUrls[idx] || '';
   const hpd = hpdCategory(d.dba);
   const cell = (c) => '<td style="text-align:center;font-family:var(--mono);font-size:14px">'+(hpd === c ? '☒' : '☐')+'</td>';
   return '<tr data-row="'+idx+'">'+
@@ -87,13 +92,6 @@ function measRowHTML(idx, data){
     '<td><input type="number" step="0.1" data-key="dba" value="'+esc(d.dba)+'" style="text-align:right" oninput="Sound.refreshHpd&amp;&amp;Sound.refreshHpd('+idx+')"></td>'+
     '<td><input data-key="rac" value="'+esc(d.rac)+'" placeholder="e.g. 2 or IVB" style="text-align:center"></td>'+
     cell('none')+ cell('plug_or_muff')+ cell('plug_and_muff')+ cell('plug_muff_time')+
-    '<td>'+
-      '<textarea data-key="notes" rows="1" style="min-height:24px">'+esc(d.notes)+'</textarea>'+
-      (photo
-        ? '<div style="margin-top:4px"><img class="sl-photo-thumb" src="'+esc(photo)+'" referrerpolicy="no-referrer">'+
-          '<button type="button" class="rm" onclick="Sound.removeMeasPhoto('+idx+')" title="Remove photo">&times;</button></div>'
-        : '<label class="sl-photo-btn" style="margin-top:4px;display:inline-block">+ Photo<input type="file" accept="image/*" capture="environment" style="display:none" onchange="Sound.onMeasPhoto('+idx+', this)"></label>')+
-    '</td>'+
     '<td><button type="button" class="rm" onclick="Sound.deleteMeasurement('+idx+')" title="Delete row">&times;</button></td>'+
   '</tr>';
 }
@@ -117,7 +115,7 @@ function snapshotMeasurements(){
 function renderMeasurements(){
   const body = el('soundMeasBody'); if (!body) return;
   if (!measurements.length) {
-    body.innerHTML = '<tr><td colspan="12" style="color:#999;font-style:italic;padding:10px">No measurements yet — click "+ Add Measurement" to start.</td></tr>';
+    body.innerHTML = '<tr><td colspan="11" style="color:#999;font-style:italic;padding:10px">No measurements yet — click "+ Add Measurement" to start.</td></tr>';
     return;
   }
   body.innerHTML = measurements.map(r => measRowHTML(r._idx, r)).join('');
@@ -133,7 +131,7 @@ function refreshHpd(idx){
   const tds = tr.querySelectorAll('td');
   /* Columns: 0 idx, 1 location, 2 action, 3 dbc, 4 dba, 5 rac,
               6 none, 7 plug_or_muff, 8 plug_and_muff, 9 plug_muff_time,
-              10 notes, 11 delete */
+              10 delete */
   if (tds.length >= 10) {
     tds[6].textContent = hpd === 'none' ? '☒' : '☐';
     tds[7].textContent = hpd === 'plug_or_muff' ? '☒' : '☐';
@@ -160,92 +158,165 @@ function duplicateLastMeasurement(){
   measurements.push({
     _idx: measRowCount,
     location: '', action: last.action || 'S',
-    dbc: '', dba: '', rac: last.rac || '', notes: ''
+    dbc: '', dba: '', rac: last.rac || ''
   });
   renderMeasurements();
-  if (window.showToast) showToast('Duplicated last row — Location, readings & notes cleared; Meter Action and RAC carried over', 'success');
+  if (window.showToast) showToast('Duplicated last row — Location and readings cleared; Meter Action and RAC carried over', 'success');
 }
 
 function deleteMeasurement(idx){
   snapshotMeasurements();
   measurements = measurements.filter(r => r._idx !== idx);
-  delete measPhotos[idx]; delete measPhotoUrls[idx];
   renderMeasurements();
 }
 
-/* ── Per-measurement photos ── */
-function onMeasPhoto(idx, inputEl){
-  const f = inputEl && inputEl.files && inputEl.files[0]; if (!f) return;
-  const rd = new FileReader();
-  rd.onload = function(){
-    const img = new Image();
-    img.onload = function(){
-      const MAX = 800;
-      let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) {
-        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-        else       { w = Math.round(w * MAX / h); h = MAX; }
-      }
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      const dataUri = c.toDataURL('image/jpeg', 0.7);
-      measPhotos[idx] = dataUri;
-      delete measPhotoUrls[idx];
-      snapshotMeasurements();
-      renderMeasurements();
-      inputEl.value = '';
+/* ── Survey-level photos (mirrors Vent's photo grid) ──
+   Each entry is {pid, label, dataUri, photoUrl}. dataUri is the local
+   thumbnail (downscaled to 1024px JPEG @ 0.78); photoUrl is the Drive
+   link populated after upload. Caption (label) becomes the filename
+   prefix in Drive via IHRouting.photoName. */
+function addPhotos(fileList){
+  const files = Array.from(fileList || []);
+  if (!files.length) {
+    if (window.showToast) showToast('No file received from picker — try again', 'warn');
+    return;
+  }
+  files.forEach(f => {
+    if (!f.type || f.type.indexOf('image/') !== 0) {
+      if (window.showToast) showToast('Skipped "' + (f.name || 'file') + '" — not an image', 'warn');
+      return;
+    }
+    const rd = new FileReader();
+    rd.onerror = () => { if (window.showToast) showToast('Could not read photo file', 'error'); };
+    rd.onload = () => {
+      const img = new Image();
+      img.onerror = () => { if (window.showToast) showToast('Could not decode photo — file may be corrupt', 'error'); };
+      img.onload = () => {
+        try {
+          const MAX = 1024;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else       { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          photoCount++;
+          photos.push({
+            pid: photoCount,
+            label: '',
+            dataUri: c.toDataURL('image/jpeg', 0.78)
+          });
+          renderPhotos();
+          if (window.showToast) showToast('Photo added', 'success');
+        } catch(err) {
+          if (window.showToast) showToast('Could not process photo: ' + err.message, 'error');
+        }
+      };
+      img.src = rd.result;
     };
-    img.src = rd.result;
-  };
-  rd.readAsDataURL(f);
+    rd.readAsDataURL(f);
+  });
 }
-function removeMeasPhoto(idx){
-  delete measPhotos[idx]; delete measPhotoUrls[idx];
-  snapshotMeasurements();
-  renderMeasurements();
+function deletePhoto(pid){
+  photos = photos.filter(p => p.pid !== pid);
+  renderPhotos();
+}
+function onPhotoLabelInput(pid, value){
+  const p = photos.find(x => x.pid === pid);
+  if (p) p.label = value;
+}
+function onPhotoInput(input){
+  addPhotos(input.files);
+  input.value = '';
+}
+function renderPhotos(){
+  const host = el('soundPhotoGrid'); if (!host) return;
+  const cntEl = el('soundPhotoCount');
+  if (cntEl) cntEl.textContent = photos.length + ' photo' + (photos.length !== 1 ? 's' : '');
+  if (!photos.length) {
+    host.innerHTML = '<div style="padding:20px;text-align:center;color:var(--sl-muted);font-size:12px;">No photos yet — tap a button above to add measurement locations, SLM setup, exhibit shots, etc.</div>';
+    return;
+  }
+  host.innerHTML = photos.map(p =>
+    '<div class="sl-photo" data-pid="'+p.pid+'">'+
+      '<img src="'+esc(p.dataUri || p.photoUrl || '')+'" alt="sound level photo">'+
+      '<input type="text" placeholder="Caption (e.g. \'Bay 3 air compressor\')" value="'+esc(p.label||'')+'" oninput="Sound.onPhotoLabelInput('+p.pid+', this.value)">'+
+      '<button type="button" class="sl-photo-rm" onclick="Sound.deletePhoto('+p.pid+')" title="Remove">×</button>'+
+    '</div>'
+  ).join('');
 }
 
 /* ── Form data <-> JSON ── */
 function collectForm(){
   snapshotMeasurements();
-  const P = { general: {}, measurements: [] };
+  const P = { general: {}, measurements: [], photos: [] };
   document.querySelectorAll('#soundForm [name]').forEach(f => {
     if (!f.name) return;
     if (f.type === 'radio') { if (f.checked) P.general[f.name] = f.value; }
     else P.general[f.name] = f.value;
   });
-  P.measurements = measurements.map(r => {
-    const out = {
-      location: r.location||'', action: r.action||'S',
-      dbc: r.dbc||'', dba: r.dba||'', rac: r.rac||'',
-      notes: r.notes||''
-    };
-    if (measPhotos[r._idx])    out.photo    = measPhotos[r._idx];
-    if (measPhotoUrls[r._idx]) out.photoUrl = measPhotoUrls[r._idx];
-    return out;
-  });
+  P.measurements = measurements.map(r => ({
+    location: r.location||'', action: r.action||'S',
+    dbc: r.dbc||'', dba: r.dba||'', rac: r.rac||''
+  }));
+  P.photos = photos.map(p => ({
+    pid: p.pid, label: p.label || '',
+    dataUri: p.dataUri || '',
+    photoUrl: p.photoUrl || ''
+  }));
   return P;
 }
 
 function applyPrefill(data){
   if (!data) return;
-  measRowCount = 0; measurements = []; measPhotos = {}; measPhotoUrls = {};
+  measRowCount = 0; measurements = [];
+  photos = []; photoCount = 0;
   Object.keys(data.general || {}).forEach(k => {
     const f = fld(k); if (f) f.value = data.general[k];
   });
-  (data.measurements || []).forEach(m => {
+
+  /* Migration: surveys saved before this UI change kept photos on each
+     measurement (m.photo / m.photoUrl). Hoist them into the survey-
+     level photo grid with a synthesized caption so the IH doesn't lose
+     them when loading an old survey. */
+  const legacyPhotos = [];
+  (data.measurements || []).forEach((m, i) => {
     measRowCount++;
     measurements.push({
       _idx: measRowCount,
       location: m.location || '', action: m.action || 'S',
-      dbc: m.dbc || '', dba: m.dba || '', rac: m.rac || '',
-      notes: m.notes || ''
+      dbc: m.dbc || '', dba: m.dba || '', rac: m.rac || ''
     });
-    if (m.photo)    measPhotos[measRowCount]    = m.photo;
-    if (m.photoUrl) measPhotoUrls[measRowCount] = m.photoUrl;
+    if (m.photo || m.photoUrl) {
+      legacyPhotos.push({
+        label: 'Measurement ' + (i + 1) + (m.location ? ' — ' + m.location : ''),
+        dataUri: m.photo || '',
+        photoUrl: m.photoUrl || ''
+      });
+    }
   });
+
+  /* Prefer the new survey-level photos[] array when present; fall back
+     to the migrated legacy photos if it isn't. */
+  const src = (Array.isArray(data.photos) && data.photos.length)
+    ? data.photos
+    : legacyPhotos;
+  src.forEach((p, i) => {
+    photoCount++;
+    photos.push({
+      pid: (p && p.pid) || photoCount,
+      label: (p && p.label) || '',
+      dataUri: (p && p.dataUri) || '',
+      photoUrl: (p && p.photoUrl) || ''
+    });
+  });
+  /* Keep pid counter ahead of any explicit pids we just loaded. */
+  photoCount = photos.reduce((m, p) => Math.max(m, p.pid || 0), photoCount);
+
   renderMeasurements();
+  renderPhotos();
   recomputeDrift();
 }
 
@@ -254,8 +325,10 @@ function resetForm(){
   if (!confirm('Clear all fields and start a new sound level survey?')) return;
   document.getElementById('soundForm').reset();
   currentSurveyId = null;
-  measRowCount = 0; measurements = []; measPhotos = {}; measPhotoUrls = {};
+  measRowCount = 0; measurements = [];
+  photos = []; photoCount = 0;
   for (let i = 0; i < 3; i++) addMeasurement();
+  renderPhotos();
   renderSurveyList();
   recomputeDrift();
 }
@@ -770,15 +843,15 @@ function uploadSoundPhoto(surveyId, slot, dataUri, routing, caption){
   });
 }
 
-/* For every measurement that has a fresh dataUri but no photoUrl yet,
-   upload to Drive and stash the URL onto the local record so we don't
-   re-upload next time. Mirrors uploadPendingPhotosFor in air-sampling.js. */
+/* For every survey-level photo that has a fresh dataUri but no photoUrl
+   yet, upload to Drive and stash the URL onto the local record so we
+   don't re-upload next time. Caption (p.label) becomes the filename
+   prefix via IHRouting.photoName. */
 function uploadPendingSoundPhotos(record){
-  if (!record || !Array.isArray(record.measurements)) return Promise.resolve({uploaded:0,failed:0});
-  const pending = [];
-  record.measurements.forEach((m, i) => {
-    if (m && m.photo && !m.photoUrl) pending.push({ idx: i, meas: m });
-  });
+  if (!record || !Array.isArray(record.photos)) return Promise.resolve({uploaded:0,failed:0});
+  const pending = record.photos
+    .map((p, i) => ({ idx: i, p: p }))
+    .filter(x => x.p && x.p.dataUri && !x.p.photoUrl);
   if (!pending.length) return Promise.resolve({uploaded:0,failed:0});
 
   const routing = computeSoundRouting(record);
@@ -790,25 +863,23 @@ function uploadPendingSoundPhotos(record){
   }
 
   let uploaded = 0, failed = 0; const firstErr = [];
-  const tasks = pending.map(p => {
-    const slot = p.idx + 1;
-    /* Caption = Location (DD 2214 box 11 col 1) the IH entered for
-       this measurement, e.g. "Soldering Bench". Falls back to the
-       free-text notes column. Empty string drops back to the legacy
-       <surveyId>_meas<N>_<stamp>.jpg nomenclature. */
-    const caption = (p.meas.location || p.meas.notes || '').toString();
-    return uploadSoundPhoto(record.id, slot, p.meas.photo, routing, caption).then(url => {
-      p.meas.photoUrl = url; uploaded++;
-      if (measPhotoUrls && record.id === currentSurveyId) {
-        /* Find the live row index that matches this measurement slot. */
-        const liveRow = measurements[p.idx];
-        if (liveRow) measPhotoUrls[liveRow._idx] = url;
+  const tasks = pending.map(x => {
+    /* Caption = the IH-typed photo label. Empty falls back to the
+       legacy <surveyId>_photo<pid>_<stamp>.jpg nomenclature. */
+    const caption = (x.p.label || '').toString();
+    return uploadSoundPhoto(record.id, x.p.pid, x.p.dataUri, routing, caption).then(url => {
+      x.p.photoUrl = url; uploaded++;
+      /* Mirror onto the live photos[] array if the saved record is the
+         one currently loaded in the form. */
+      if (currentSurveyId === record.id) {
+        const live = photos.find(q => q.pid === x.p.pid);
+        if (live) live.photoUrl = url;
       }
     }).catch(err => {
       failed++;
       const msg = (err && err.message) ? err.message : String(err);
       if (!firstErr.length) firstErr.push(msg);
-      try { console.warn('[Sound] photo upload failed for measurement ' + (p.idx+1), msg); } catch(e){}
+      try { console.warn('[Sound] photo upload failed for pid ' + x.p.pid, msg); } catch(e){}
     });
   });
   return Promise.all(tasks).then(() => {
@@ -829,7 +900,7 @@ function pushToSheets(record){
   uploadPendingSoundPhotos(record).then(() => {
     saveToStorage();   /* persist the new photoUrls */
     const sheetPayload = JSON.parse(JSON.stringify(record));
-    if (sheetPayload.measurements) sheetPayload.measurements.forEach(m => { delete m.photo; });
+    if (Array.isArray(sheetPayload.photos)) sheetPayload.photos.forEach(p => { delete p.dataUri; });
     const payload = Object.assign({ _type: 'sound_level' }, sheetPayload, {
       deviceInfo: navigator.userAgent.substring(0, 80)
     });
@@ -959,6 +1030,7 @@ function initForm(){
     loadFromStorage();
     for (let i = 0; i < 3; i++) addMeasurement();
     renderSurveyList();
+    renderPhotos();
     initCollapsible();
     initTooltips();
     recomputeDrift();
@@ -1017,7 +1089,7 @@ function loadCalFromLibrary(id){
 
 window.Sound = Object.assign(window.Sound || {}, {
   addMeasurement, duplicateLastMeasurement, deleteMeasurement, refreshHpd,
-  onMeasPhoto, removeMeasPhoto,
+  addPhotos, deletePhoto, onPhotoLabelInput, onPhotoInput,
   recomputeDrift,
   saveSurvey, loadSurvey, deleteSurvey, newSurvey, resetForm,
   saveSession, onLoadFile, loadExample,
