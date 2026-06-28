@@ -734,14 +734,14 @@ function computeSoundRouting(record){
    MyDrive/<parent>/<facility>/Sound/. Returns a Promise that resolves
    to the shareable Drive URL. text/plain Content-Type avoids the
    CORS preflight that Apps Script handles poorly. */
-function uploadSoundPhoto(surveyId, slot, dataUri, routing){
+function uploadSoundPhoto(surveyId, slot, dataUri, routing, caption){
   const url = sheetsUrl();
   if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
   if (!routing || !routing.parent) {
     return Promise.reject(new Error('Project/Client missing — cannot route photo'));
   }
   const fileName = (window.IHRouting && window.IHRouting.photoName)
-    ? window.IHRouting.photoName(surveyId, 'meas' + slot, 'jpg')
+    ? window.IHRouting.photoName(surveyId, 'meas' + slot, 'jpg', caption)
     : surveyId + '_meas' + slot + '.jpg';
   const body = {
     _type: 'sound_photo',
@@ -792,7 +792,12 @@ function uploadPendingSoundPhotos(record){
   let uploaded = 0, failed = 0; const firstErr = [];
   const tasks = pending.map(p => {
     const slot = p.idx + 1;
-    return uploadSoundPhoto(record.id, slot, p.meas.photo, routing).then(url => {
+    /* Caption = Location (DD 2214 box 11 col 1) the IH entered for
+       this measurement, e.g. "Soldering Bench". Falls back to the
+       free-text notes column. Empty string drops back to the legacy
+       <surveyId>_meas<N>_<stamp>.jpg nomenclature. */
+    const caption = (p.meas.location || p.meas.notes || '').toString();
+    return uploadSoundPhoto(record.id, slot, p.meas.photo, routing, caption).then(url => {
       p.meas.photoUrl = url; uploaded++;
       if (measPhotoUrls && record.id === currentSurveyId) {
         /* Find the live row index that matches this measurement slot. */

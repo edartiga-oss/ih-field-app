@@ -368,8 +368,12 @@ function handleAirPhotoUpload(data) {
      project tree under MyDrive/<parent>/<facility>/03_Air Samples — the
      same path the IH navigates in Drive — instead of dropping into the
      flat "Air Sampling Photos/<surveyId>" bucket. The flat bucket stays
-     as the fallback for legacy clients that don't send hints. */
-  const name = 'hour-' + data.hour + '.jpg';
+     as the fallback for legacy clients that don't send hints.
+
+     When the client supplied a fileName (newer clients with caption
+     support), use it; otherwise build the legacy "hour-N.jpg" name. */
+  const legacyName = 'hour-' + data.hour + '.jpg';
+  const name = data.fileName || legacyName;
   if (data.parent) {
     const subfolderName = data.subfolder || '03_Air Samples';
     return uploadToFolderPath_({
@@ -378,7 +382,11 @@ function handleAirPhotoUpload(data) {
       subfolder: subfolderName,
       fileName: name,
       dataUri: data.dataUri,
-      replaceByName: true
+      /* When the client computed a caption-aware filename, do NOT
+         replaceByName — two photos at the same hour with different
+         captions should coexist. Legacy filenames (hour-N.jpg) still
+         replace, since they intentionally overwrite. */
+      replaceByName: !data.fileName
     });
   }
 
@@ -386,7 +394,7 @@ function handleAirPhotoUpload(data) {
   const root = getAirPhotoRoot_();
   const subIt = root.getFoldersByName(data.surveyId);
   const surveyFolder = subIt.hasNext() ? subIt.next() : root.createFolder(data.surveyId);
-  return saveBlobToFolder_(surveyFolder, name, data.dataUri, true);
+  return saveBlobToFolder_(surveyFolder, legacyName, data.dataUri, true);
 }
 
 // ══════════════════════════════════════════════════════════════════════
