@@ -707,15 +707,27 @@ function printForm(){
 /* ── Sheets sync ── */
 function sheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
 
-/* Compute Drive routing for this survey from the Project/Client field
-   (general.project — DD 2214 box 2). E.g. "KS ARNG CSMS Topeka" parses
-   to {parent:'KS ARNG', facility:'CSMS'}. Returns empty strings if the
-   field isn't filled in, in which case photo upload is skipped (we don't
-   know where the file should live). */
+/* Compute Drive routing for this survey by combining the Project/Client
+   field (general.project — DD 2214 box 2) and the Shop/Activity field
+   (general.shop_name — DD 2214 box 4). In practice the IH puts the
+   parent project in box 2 ("KS ARNG") and the facility in box 4
+   ("FMS 8", "AASF 1"), so we parse the project first for the parent,
+   then fall back to the shop field for the facility when the project
+   text alone didn't yield one. Returns empty strings if neither field
+   is filled in, in which case photo upload is skipped. */
 function computeSoundRouting(record){
   if (!window.IHRouting) return { parent: '', facility: '' };
-  const projectText = record && record.general && record.general.project;
-  return window.IHRouting.parseProject(projectText || '');
+  const g = (record && record.general) || {};
+  const fromProject = window.IHRouting.parseProject(g.project || '');
+  /* Project text alone provided a facility (e.g. "KS ARNG CSMS Topeka")
+     — use it as-is. */
+  if (fromProject.facility) return fromProject;
+  /* Otherwise look at the Shop/Activity field for the facility token
+     (the common case — IH enters "KS ARNG" in box 2 and "FMS 8" in
+     box 4). parseFreeFacility canonicalizes "FMS 8" → "FMS8",
+     "AASF 1" → "AASF#1". */
+  const fromShop = window.IHRouting.parseFreeFacility(g.shop_name || '');
+  return { parent: fromProject.parent, facility: fromShop || '' };
 }
 
 /* Upload one measurement photo to Drive, routed under
