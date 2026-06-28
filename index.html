@@ -480,6 +480,8 @@ body { padding: 20px 18px; }
   body.print-air { font-size: 8px; }
 
   #view-air .air-toolbar, #view-air .tabbar, #view-air .air-action-bar { display: none !important; }
+  #view-sound .sl-action-bar { display: none !important; }
+  #view-vent .v-action-bar { display: none !important; }
   /* COC prints as its own SGS Galson AcroForm PDF — don't waste pages here. */
   #view-air .air-coc-card { display: none !important; }
   #view-air .air-head { margin-bottom: 2px; }
@@ -2901,7 +2903,7 @@ body { padding: 20px 18px; }
 <!-- ═══════════════════════════════ SOUND LEVEL VIEW ═══════════════════════════════ -->
 <script>window.Sound = window.Sound || {};</script>
 <div id="view-sound" class="view">
-  <div style="max-width:1180px; margin:0 auto; padding:14px 16px 40px;">
+  <div style="max-width:1180px; margin:0 auto; padding:14px 16px 100px;">
     <div id="soundAppHost">
       <div class="sl-head">
         <div>
@@ -3189,6 +3191,24 @@ body { padding: 20px 18px; }
           </div>
         </section>
       </form>
+
+      <!-- Sticky action bar — always visible while the Sound Level view
+           is active. Mirrors the air-action-bar / v-action-bar pattern
+           so the IH can save/new/clear without scrolling to the saved-
+           surveys card at the top of the form. Lives inside #view-sound
+           so the existing .view display toggle auto-hides it on any
+           other tab. -->
+      <div id="soundActionBar" class="sl-action-bar"
+           style="position:fixed; bottom:0; left:0; right:0; z-index:50; background:var(--surface,#fff); border-top:1.5px solid var(--border,#dcdcdc); box-shadow:0 -2px 12px rgba(0,0,0,0.08); padding:10px 16px; padding-bottom:calc(10px + env(safe-area-inset-bottom));">
+        <div style="max-width:1180px; margin:0 auto; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+          <button type="button" onclick="Sound.newSurvey&amp;&amp;Sound.newSurvey()"
+                  style="font:inherit;cursor:pointer;border:1px solid var(--sl-line);padding:7px 14px;border-radius:7px;background:#fff;color:var(--sl-ink);">+ New Survey</button>
+          <button type="button" onclick="Sound.resetForm&amp;&amp;Sound.resetForm()"
+                  style="font:inherit;cursor:pointer;border:1px solid var(--sl-line);padding:7px 14px;border-radius:7px;background:#fff;color:var(--sl-ink);">Clear Form</button>
+          <button type="button" onclick="Sound.saveSurvey&amp;&amp;Sound.saveSurvey()"
+                  style="font:inherit;cursor:pointer;border:1px solid var(--sl-accent);padding:7px 16px;border-radius:7px;background:var(--sl-accent);color:#fff;font-weight:600;">Save Survey</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
