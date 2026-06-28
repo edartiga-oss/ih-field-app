@@ -4448,14 +4448,27 @@ window.IHRouting = (function() {
     return tokens.slice(0, 2).join(' ');
   }
 
-  /* Generate a routing-aware filename: <surveyId>_<slot>_<isoStamp>.<ext>
-     surveyId / slot are sanitized to filesystem-safe chars. */
-  function photoName(surveyId, slot, ext) {
+  /* Generate a routing-aware filename. When `caption` is non-empty, the
+     filename is prefixed with it so the IH can scan Drive by caption:
+       <caption>_<surveyId>_<slot>_<isoStamp>.<ext>
+     Else the legacy nomenclature is used:
+       <surveyId>_<slot>_<isoStamp>.<ext>
+     Caption is sanitized for filesystem safety (strips /\:*?"<>|)
+     while keeping spaces, hyphens, and parens for readability, and
+     capped at 60 chars so filenames stay manageable in Drive UIs. */
+  function photoName(surveyId, slot, ext, caption) {
     ext = ext || 'jpg';
     const safeId = String(surveyId || 'survey').replace(/[^A-Za-z0-9_-]+/g, '_');
     const safeSlot = String(slot == null ? '' : slot).replace(/[^A-Za-z0-9_-]+/g, '_');
+    const captionRaw = (caption == null ? '' : String(caption)).trim();
+    const safeCaption = captionRaw
+      .replace(/[\/\\:*?"<>|]+/g, '')
+      .replace(/\s+/g, ' ')
+      .slice(0, 60)
+      .trim();
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    return safeId + (safeSlot ? '_' + safeSlot : '') + '_' + stamp + '.' + ext;
+    const captionPart = safeCaption ? safeCaption + '_' : '';
+    return captionPart + safeId + (safeSlot ? '_' + safeSlot : '') + '_' + stamp + '.' + ext;
   }
 
   return {
@@ -8823,14 +8836,14 @@ function computeNoiseRouting(surveyData) {
    MyDrive/<parent>/<facility>/04_Noise/. Returns a Promise resolving to
    the shareable Drive URL. text/plain Content-Type avoids the CORS
    preflight Apps Script handles poorly. */
-function uploadNoisePhoto(surveyId, hour, dataUri, routing) {
+function uploadNoisePhoto(surveyId, hour, dataUri, routing, caption) {
   const url = getSheetsUrl();
   if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
   if (!routing || !routing.parent) {
     return Promise.reject(new Error('Project/Client missing — cannot route photo'));
   }
   const fileName = (window.IHRouting && window.IHRouting.photoName)
-    ? window.IHRouting.photoName(surveyId, 'hour' + hour, 'jpg')
+    ? window.IHRouting.photoName(surveyId, 'hour' + hour, 'jpg', caption)
     : surveyId + '_hour' + hour + '.jpg';
   const body = {
     _type: 'noise_photo',
@@ -8879,7 +8892,11 @@ function uploadPendingNoisePhotos(surveyData) {
 
   var uploaded = 0, failed = 0; const firstErr = [];
   const tasks = pending.map(function(h) {
-    return uploadNoisePhoto(surveyData.id, h, res.hourPhotos[h], routing).then(function(url) {
+    /* Caption = the hourly observation text the IH typed for this hour
+       (results.hour1 .. hour10). Empty string falls back to the legacy
+       <surveyId>_hour<N>_<stamp>.jpg nomenclature. */
+    const caption = (res['hour' + h] || '').toString();
+    return uploadNoisePhoto(surveyData.id, h, res.hourPhotos[h], routing, caption).then(function(url) {
       res.hourPhotoUrls[h] = url; uploaded++;
     }).catch(function(err) {
       failed++;

@@ -1420,7 +1420,7 @@ function computeAirRouting(record){
    include it in the payload so Apps Script files the photo under
    MyDrive/<parent>/<facility>/03_Air Samples/ instead of the legacy
    flat "Air Sampling Photos/<surveyId>" bucket. */
-function uploadAirPhoto(surveyId, hour, dataUri, routing){
+function uploadAirPhoto(surveyId, hour, dataUri, routing, caption){
   const url = airSheetsUrl();
   if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
   const body = { _type: 'air_photo', surveyId, hour, dataUri };
@@ -1428,6 +1428,12 @@ function uploadAirPhoto(surveyId, hour, dataUri, routing){
     body.parent = routing.parent;
     body.facility = routing.facility || '';
     body.subfolder = '03_Air Samples';
+    /* Pre-compute the routing-aware filename (with caption when set)
+       on the client. The Apps Script honors this when present; without
+       it the script falls back to its legacy "hour-N.jpg" name. */
+    if (window.IHRouting && window.IHRouting.photoName) {
+      body.fileName = window.IHRouting.photoName(surveyId, 'hour' + hour, 'jpg', caption);
+    }
   }
   return fetch(url, {
     method: 'POST',
@@ -1466,7 +1472,11 @@ function uploadPendingPhotosFor(record){
   let uploaded = 0, failed = 0; const firstErr = [];
   const tasks = pending.map(h => {
     const e = tc.hours[h];
-    return uploadAirPhoto(record.id, h, e.photo, routing).then(url => {
+    /* Caption = the IH's hour observation text (textarea under each
+       time-course entry). Empty falls back to the legacy
+       <surveyId>_hour<N>_<stamp>.jpg nomenclature. */
+    const caption = (e.text || '').toString();
+    return uploadAirPhoto(record.id, h, e.photo, routing, caption).then(url => {
       e.photoUrl = url; uploaded++;
       if (tcPhotoUrls && record.id === currentAirSurveyId) tcPhotoUrls[+h] = url;
     }).catch(err => {

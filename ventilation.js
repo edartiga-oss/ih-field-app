@@ -668,14 +668,14 @@ function computeVentRouting(record){
 /* Upload one diagram/site photo to Drive under
    MyDrive/<organization>/<shop>/02_Vents/. text/plain Content-Type
    avoids the CORS preflight Apps Script handles poorly. */
-function uploadVentPhoto(surveyId, slot, dataUri, routing){
+function uploadVentPhoto(surveyId, slot, dataUri, routing, caption){
   const url = sheetsUrl();
   if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
   if (!routing || !routing.parent) {
     return Promise.reject(new Error('Organization missing — cannot route photo'));
   }
   const fileName = (window.IHRouting && window.IHRouting.photoName)
-    ? window.IHRouting.photoName(surveyId, 'photo' + slot, 'jpg')
+    ? window.IHRouting.photoName(surveyId, 'photo' + slot, 'jpg', caption)
     : surveyId + '_photo' + slot + '.jpg';
   const body = {
     _type: 'vent_photo',
@@ -724,7 +724,11 @@ function uploadPendingVentPhotos(record){
 
   let uploaded = 0, failed = 0; const firstErr = [];
   const tasks = pending.map(x => {
-    return uploadVentPhoto(record.id, x.p.pid, x.p.dataUri, routing).then(url => {
+    /* Caption = the IH-typed label under the photo (onPhotoLabelInput).
+       Empty string drops back to the legacy
+       <surveyId>_photo<pid>_<stamp>.jpg nomenclature. */
+    const caption = (x.p.label || '').toString();
+    return uploadVentPhoto(record.id, x.p.pid, x.p.dataUri, routing, caption).then(url => {
       x.p.photoUrl = url; uploaded++;
       /* Mirror onto the live `photos` array if this record is loaded. */
       if (currentSurveyId === record.id) {
