@@ -8798,6 +8798,14 @@ function pullFromSheets() {
         }
       }
 
+      // ── Pull ventilation surveys (delegated to the Vent module) ──
+      if (data.ventSurveys && window.Vent && Vent.mergeRemoteSurveys) {
+        const r = Vent.mergeRemoteSurveys(data.ventSurveys);
+        if (r && (r.newCount || r.updCount)) {
+          showToast('Ventilation: ' + r.newCount + ' new, ' + r.updCount + ' updated', 'success');
+        }
+      }
+
       setSyncStatus('ok');
     })
     .catch(() => setSyncStatus('error'));
@@ -8991,6 +8999,7 @@ window.addEventListener('online', () => {
   flushSyncQueue(); flushDeleteQueue(); flushEquipQueue();
   if (window.Air && Air.flushAirSyncQueue) Air.flushAirSyncQueue();
   if (window.Sound && Sound.flushSyncQueue) Sound.flushSyncQueue();
+  if (window.Vent && Vent.flushSyncQueue) Vent.flushSyncQueue();
   pullFromSheets();
 });
 
