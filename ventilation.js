@@ -666,13 +666,20 @@ function computeVentRouting(record){
 }
 
 /* Upload one diagram/site photo to Drive under
-   MyDrive/<organization>/<shop>/02_Vents/. text/plain Content-Type
-   avoids the CORS preflight Apps Script handles poorly. */
+   <IH Projects>/<organization>/<shop>/02_Vents/.
+
+   If Organization is blank but Shop is set, the parent level is skipped
+   and the photo lands at <IH Projects>/<shop>/02_Vents/ (the Apps
+   Script treats empty parent as "use IH Projects directly"). Only when
+   BOTH are blank does the upload bail.
+
+   text/plain Content-Type avoids the CORS preflight Apps Script
+   handles poorly. */
 function uploadVentPhoto(surveyId, slot, dataUri, routing, caption){
   const url = sheetsUrl();
   if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
-  if (!routing || !routing.parent) {
-    return Promise.reject(new Error('Organization missing — cannot route photo'));
+  if (!routing || (!routing.parent && !routing.facility)) {
+    return Promise.reject(new Error('Organization and Shop both missing — cannot route photo'));
   }
   const fileName = (window.IHRouting && window.IHRouting.photoName)
     ? window.IHRouting.photoName(surveyId, 'photo' + slot, 'jpg', caption)
@@ -681,7 +688,7 @@ function uploadVentPhoto(surveyId, slot, dataUri, routing, caption){
     _type: 'vent_photo',
     surveyId: surveyId,
     fileName: fileName,
-    parent: routing.parent,
+    parent: routing.parent || '',
     facility: routing.facility || '',
     subfolder: '02_Vents',
     dataUri: dataUri
@@ -716,9 +723,14 @@ function uploadPendingVentPhotos(record){
   if (!pending.length) return Promise.resolve({uploaded:0,failed:0});
 
   const routing = computeVentRouting(record);
-  if (!routing.parent) {
-    /* No Organization text — skip upload so the survey is still
-       saveable. IH can fill in Organization later and resave. */
+  if (!routing.parent && !routing.facility) {
+    /* No Organization AND no Shop — can't route at all. Surface a
+       visible warning so the IH knows the photo stayed local instead
+       of silently uploading nowhere. */
+    if (window.showToast) {
+      showToast(pending.length + ' photo' + (pending.length===1?'':'s') +
+        ' not uploaded — fill in Organization or Shop and re-save.', 'warn');
+    }
     return Promise.resolve({uploaded:0,failed:0,skipped:pending.length});
   }
 
