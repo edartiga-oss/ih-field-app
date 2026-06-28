@@ -357,6 +357,45 @@ function authorizeAirPhotoFolder() {
   Logger.log('URL: ' + folder.getUrl());
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   AUTHORIZE ROUTING SCOPE
+   Run this ONCE from the Apps Script editor after deploying a version
+   with photo routing code (sound_photo / noise_photo / vent_photo /
+   air_photo with routing hints).
+
+   How to run:
+     1. Editor → function dropdown → "authorizeRouting" → Run
+     2. Accept the Drive permission prompt
+     3. Check View → Logs to see "OK" + folder count
+
+   What it does: exercises DriveApp.getFoldersByName and createFolder
+   in the same way uploadToFolderPath_ does, so Apps Script's scope
+   inference can request the broader Drive scope (drive instead of just
+   drive.file) and the photo handlers can find folders the IH created
+   manually in Drive (not just folders the script created itself).
+   ══════════════════════════════════════════════════════════════════════ */
+function authorizeRouting() {
+  /* Touch a search by name + a folder iteration so Apps Script grants
+     the necessary scopes during the OAuth prompt. */
+  const probe = DriveApp.getFoldersByName('IH FieldLink routing probe — safe to delete');
+  let folder;
+  if (probe.hasNext()) {
+    folder = probe.next();
+  } else {
+    folder = DriveApp.createFolder('IH FieldLink routing probe — safe to delete');
+  }
+  /* Enumerate children just to exercise the parentFolder.getFolders
+     scope path. */
+  let count = 0;
+  const it = folder.getFolders();
+  while (it.hasNext()) { it.next(); count++; }
+  Logger.log('OK — Drive routing authorized.');
+  Logger.log('Probe folder: ' + folder.getName());
+  Logger.log('URL: ' + folder.getUrl());
+  Logger.log('Children: ' + count);
+  Logger.log('You can delete the probe folder anytime — it is not used by the app.');
+}
+
 function handleAirPhotoUpload(data) {
   if (!data.surveyId || data.hour == null || !data.dataUri) {
     return ContentService
@@ -436,26 +475,48 @@ function handleRoutedPhotoUpload_(data, defaultSub) {
 /* Walks MyDrive/<parent>/<facility?>/<subfolder?>, fuzzy-matching
    existing folders before creating new ones, then writes the file.
 
-   Parent: tried as a fuzzy match in MyDrive root. If nothing matches
-   the project token (e.g. "KS ARNG" doesn't match anything because the
-   IH organizes facilities at root), we SILENTLY SKIP the parent level
-   instead of creating a "KS ARNG" wrapper — the IH's existing layout
-   wins.
+   Parent: searched anywhere in the user's drive (exact name first, then
+   each meaningful word as a fallback — "ARNG" finds "KS ARNG", etc.).
+   If nothing matches, parent is skipped and the facility is created at
+   top level — the IH's existing layout wins.
 
    Facility: fuzzy match inside whichever folder the parent resolved
-   to. So a canonical "AASF#1" finds the IH's existing
-   "1. AASF 1 Topeka, KS". If nothing matches, the canonical name is
-   created (per spec: "If there is no place for them then create").
+   to (or at top level if no parent matched). So a canonical "AASF#1"
+   finds the IH's existing "1. AASF 1 Topeka, KS". If nothing matches,
+   the canonical name is created (per spec: "If there is no place for
+   them then create").
 
    Subfolder (03_Air Samples / 04_Noise / Sound / 02_Vents): exact-name
    get-or-create — these are well-known and always live one level under
-   the facility folder. */
+   the facility folder.
+
+   IMPORTANT — Drive scope: this code uses DriveApp.getFoldersByName,
+   parentFolder.getFolders, parentFolder.createFolder, etc. The
+   broad-drive scope (https://www.googleapis.com/auth/drive) is
+   required to find folders the IH manually created (not just folders
+   the script created). After deploying, run authorizeRouting() ONCE
+   from the editor to grant the scope. */
 function uploadToFolderPath_(opts) {
   try {
-    const root = DriveApp.getRootFolder();
-    let folder = resolveProjectFolder_(root, opts.parent);
-    if (opts.facility) folder = resolveFacilityFolder_(folder, opts.facility);
-    if (opts.subfolder) folder = getOrCreateChildFolder_(folder, opts.subfolder);
+    /* Resolve parent — null means "couldn't find one, work at top level". */
+    let parentFolder = opts.parent ? findFolderInDriveByToken_(opts.parent) : null;
+
+    /* Resolve facility under the parent (or at top level if parent
+       didn't resolve). */
+    let folder = parentFolder;
+    if (opts.facility) {
+      folder = resolveFacilityFolder_(parentFolder, opts.facility);
+    }
+
+    /* Drop the subfolder under the facility (or top-level if nothing
+       resolved). */
+    if (opts.subfolder) {
+      folder = folder
+        ? getOrCreateChildFolder_(folder, opts.subfolder)
+        : getOrCreateTopLevelFolder_(opts.subfolder);
+    }
+
+    if (!folder) throw new Error('No target folder resolved (parent, facility, and subfolder all empty)');
     return saveBlobToFolder_(folder, opts.fileName, opts.dataUri, opts.replaceByName);
   } catch (e) {
     return ContentService
@@ -464,36 +525,73 @@ function uploadToFolderPath_(opts) {
   }
 }
 
-/* Exact-name get-or-create. Used for subfolders like "03_Air Samples"
-   where the IH expects a specific name. */
+/* Exact-name get-or-create inside a known parent folder. Used for
+   subfolders like "03_Air Samples" where the IH expects a specific
+   name. */
 function getOrCreateChildFolder_(parentFolder, name) {
   const it = parentFolder.getFoldersByName(name);
   return it.hasNext() ? it.next() : parentFolder.createFolder(name);
 }
 
-/* Parent resolution: fuzzy-match in the given root. If no folder
-   contains the project token, fall through and return the root itself
-   — the IH may keep facility folders at root level with no project
-   wrapper, and we shouldn't pollute their tree with a stub. */
-function resolveProjectFolder_(rootFolder, parentName) {
-  if (!parentName) return rootFolder;
-  const exact = rootFolder.getFoldersByName(parentName);
-  if (exact.hasNext()) return exact.next();
-  const fuzzy = findFolderByToken_(rootFolder, parentName);
-  if (fuzzy) return fuzzy;
-  return rootFolder;
+/* Exact-name get-or-create at the user's drive top level. Uses
+   DriveApp.getFoldersByName / createFolder which both default to the
+   root context, avoiding DriveApp.getRootFolder() (which requires
+   broader drive.readonly scope). */
+function getOrCreateTopLevelFolder_(name) {
+  const it = DriveApp.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(name);
+}
+
+/* Find a folder anywhere in the user's drive that matches the given
+   canonical name. Returns null if no folder qualifies.
+   - Exact name match wins
+   - Otherwise try each meaningful word (3+ chars) in the canonical
+     name — so "KS ARNG" matches a folder named just "ARNG", and
+     vice versa.
+   Avoids DriveApp.getRootFolder() entirely (it needs the broader
+   drive.readonly scope, which isn't worth requiring just to walk the
+   tree). */
+function findFolderInDriveByToken_(canonicalName) {
+  if (!canonicalName) return null;
+  let it = DriveApp.getFoldersByName(canonicalName);
+  if (it.hasNext()) return it.next();
+
+  const words = String(canonicalName).toUpperCase().split(/\s+/).filter(function(w) {
+    return w.replace(/[^A-Z0-9]/g, '').length >= 3;
+  });
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i].replace(/[^A-Z0-9]/g, '');
+    it = DriveApp.getFoldersByName(w);
+    while (it.hasNext()) {
+      const f = it.next();
+      const name = f.getName().toUpperCase();
+      /* Sanity check: the word must appear as a whole token inside the
+         folder name (avoids "ARNG" matching "ARNGV3-special"). */
+      if (new RegExp('\\b' + w + '\\b').test(name)) return f;
+    }
+  }
+  return null;
 }
 
 /* Facility resolution: fuzzy-match inside the parent (e.g. canonical
-   "AASF#1" finds existing "1. AASF 1 Topeka, KS"). If nothing matches,
+   "AASF#1" finds existing "1. AASF 1 Topeka, KS"). If parent didn't
+   resolve, search the whole drive instead. If still nothing matches,
    create with the canonical name (per spec). */
 function resolveFacilityFolder_(parentFolder, facilityName) {
   if (!facilityName) return parentFolder;
-  const exact = parentFolder.getFoldersByName(facilityName);
-  if (exact.hasNext()) return exact.next();
-  const fuzzy = findFolderByToken_(parentFolder, facilityName);
-  if (fuzzy) return fuzzy;
-  return parentFolder.createFolder(facilityName);
+  if (parentFolder) {
+    const exact = parentFolder.getFoldersByName(facilityName);
+    if (exact.hasNext()) return exact.next();
+    const fuzzy = findFolderByToken_(parentFolder, facilityName);
+    if (fuzzy) return fuzzy;
+    return parentFolder.createFolder(facilityName);
+  }
+  /* No parent — search the whole drive */
+  const found = findFolderInDriveByToken_(facilityName);
+  if (found) return found;
+  /* Last resort: create at top level */
+  return DriveApp.createFolder(facilityName);
 }
 
 /* Walks every child folder of `parentFolder` and returns the first one
