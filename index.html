@@ -870,8 +870,8 @@ body { padding: 20px 18px; }
 <div class="noise-subnav" id="noiseSubnav">
   <button class="sub-tab" onclick="showView('surveys')">Surveys</button>
   <button class="sub-tab" onclick="showView('form')">Dosimetry Entry</button>
-  <button class="sub-tab" onclick="showView('verify')">Verify Reports</button>
   <button class="sub-tab" onclick="showView('fieldobs')">Field Obs</button>
+  <button class="sub-tab" onclick="showView('verify')">Verify Reports</button>
   <button class="sub-tab" onclick="showView('stats')">Statistics</button>
   <button class="sub-tab" onclick="showView('rac')">Noise RAC</button>
   <button class="sub-tab" onclick="showView('export')">Export</button>
@@ -3176,6 +3176,36 @@ body { padding: 20px 18px; }
           </div>
         </section>
 
+        <!-- Photos — survey-level (not per measurement). Captions are
+             written into the Drive filename so the IH can scan by
+             caption in Drive. Mirrors the Vent photo UI. Lives right
+             after the measurements table so the IH can capture site
+             photos in context before moving on to remarks/signoff. -->
+        <section class="sl-card">
+          <h2>Photos
+            <span id="soundPhotoCount" class="hint" style="margin-left:auto;color:var(--sl-muted);font-size:11.5px;">0 photos</span>
+          </h2>
+          <div class="body">
+            <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <!-- Camera capture (single shot). iOS Safari loses the file
+                   when capture + multiple are combined, so keep them on
+                   separate inputs. -->
+              <label class="sl-photo-cap-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:var(--sl-accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">
+                📷 Take Photo
+                <input type="file" accept="image/*" capture="environment" style="display:none" onchange="window.Sound&amp;&amp;Sound.onPhotoInput&amp;&amp;Sound.onPhotoInput(this)">
+              </label>
+              <!-- Library / file picker (allows multiple). No capture so
+                   iOS opens the photo library / Files instead of camera. -->
+              <label class="sl-photo-cap-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#fff;border:1px solid var(--sl-accent);color:var(--sl-accent);font-size:12px;font-weight:600;cursor:pointer;">
+                🖼 Add From Library
+                <input type="file" accept="image/*" multiple style="display:none" onchange="window.Sound&amp;&amp;Sound.onPhotoInput&amp;&amp;Sound.onPhotoInput(this)">
+              </label>
+              <span style="font-size:11px;color:var(--sl-muted);">Camera = single shot, Library = pick multiple. Caption becomes the Drive filename prefix.</span>
+            </div>
+            <div id="soundPhotoGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;"></div>
+          </div>
+        </section>
+
         <section class="sl-card">
           <h2>13. Remarks <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 13 instructions" data-help="Enter type of hearing protection in use, whether area and equipment posted with appropriate caution signs, etc.">i</span></h2>
           <div class="body">
@@ -3216,34 +3246,6 @@ body { padding: 20px 18px; }
           <div class="body grid c2">
             <label><span class="lbl">17. Survey Performed By (Last, First, MI) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 17 instructions" data-help="Enter name (surname, given name &amp; middle initial) of individual performing survey &amp; signature.">i</span></span><input name="performed_by"></label>
             <label><span class="lbl">18. Hearing Conservation Monitor (Last, First, MI) <span class="sl-info" tabindex="0" role="button" aria-label="DD 2214 box 18 instructions" data-help="Enter name of individual reviewing survey results &amp; signature. Usually local surgeon or designated representative.">i</span></span><input name="hcm_name"></label>
-          </div>
-        </section>
-
-        <!-- Photos — survey-level (not per measurement). Captions are
-             written into the Drive filename so the IH can scan by
-             caption in Drive. Mirrors the Vent photo UI. -->
-        <section class="sl-card">
-          <h2>Photos
-            <span id="soundPhotoCount" class="hint" style="margin-left:auto;color:var(--sl-muted);font-size:11.5px;">0 photos</span>
-          </h2>
-          <div class="body">
-            <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <!-- Camera capture (single shot). iOS Safari loses the file
-                   when capture + multiple are combined, so keep them on
-                   separate inputs. -->
-              <label class="sl-photo-cap-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:var(--sl-accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">
-                📷 Take Photo
-                <input type="file" accept="image/*" capture="environment" style="display:none" onchange="window.Sound&amp;&amp;Sound.onPhotoInput&amp;&amp;Sound.onPhotoInput(this)">
-              </label>
-              <!-- Library / file picker (allows multiple). No capture so
-                   iOS opens the photo library / Files instead of camera. -->
-              <label class="sl-photo-cap-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#fff;border:1px solid var(--sl-accent);color:var(--sl-accent);font-size:12px;font-weight:600;cursor:pointer;">
-                🖼 Add From Library
-                <input type="file" accept="image/*" multiple style="display:none" onchange="window.Sound&amp;&amp;Sound.onPhotoInput&amp;&amp;Sound.onPhotoInput(this)">
-              </label>
-              <span style="font-size:11px;color:var(--sl-muted);">Camera = single shot, Library = pick multiple. Caption becomes the Drive filename prefix.</span>
-            </div>
-            <div id="soundPhotoGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;"></div>
           </div>
         </section>
       </form>
@@ -5484,7 +5486,7 @@ function migrateLegacyMeasuredValuesToColumns() {
 // of these is active, the Noise top-level tab is highlighted and the
 // sub-nav row underneath the main nav is shown with the active sub-tab
 // marked. Keeps the top nav from getting noisy on small screens.
-const NOISE_VIEWS = ['form','surveys','verify','fieldobs','stats','rac','export'];
+const NOISE_VIEWS = ['surveys','form','fieldobs','verify','stats','rac','export'];
 
 function showNoiseGroup(){
   // Default landing under Noise is the Surveys list — that's where the
