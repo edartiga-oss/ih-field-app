@@ -42,6 +42,21 @@ function doPost(e) {
       return handleSoundUpsert(ss, data);
     }
 
+    // ── Sound Level photo upload (Drive, smart-routed) ───────────────
+    if (data._type === 'sound_photo') {
+      return handleRoutedPhotoUpload_(data, 'Sound');
+    }
+
+    // ── Noise Dosimetry photo upload (Drive, smart-routed) ───────────
+    if (data._type === 'noise_photo') {
+      return handleRoutedPhotoUpload_(data, '04_Noise');
+    }
+
+    // ── Ventilation photo upload (Drive, smart-routed) ───────────────
+    if (data._type === 'vent_photo') {
+      return handleRoutedPhotoUpload_(data, '02_Vents');
+    }
+
     // ── Handle delete action (surveys) ────────────────────────────────
     if (data._action === 'delete' && data.id) {
       const sheet = ss.getSheetByName(SHEET_NAME);
@@ -339,13 +354,91 @@ function handleAirPhotoUpload(data) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  /* Find or create the per-survey subfolder. */
+  /* If the client supplied routing hints (parent / facility), walk the
+     project tree under MyDrive/<parent>/<facility>/03_Air Samples — the
+     same path the IH navigates in Drive — instead of dropping into the
+     flat "Air Sampling Photos/<surveyId>" bucket. The flat bucket stays
+     as the fallback for legacy clients that don't send hints. */
+  const name = 'hour-' + data.hour + '.jpg';
+  if (data.parent) {
+    const subfolderName = data.subfolder || '03_Air Samples';
+    return uploadToFolderPath_({
+      parent: data.parent,
+      facility: data.facility,
+      subfolder: subfolderName,
+      fileName: name,
+      dataUri: data.dataUri,
+      replaceByName: true
+    });
+  }
+
+  /* Legacy path: flat "Air Sampling Photos/<surveyId>/hour-N.jpg". */
   const root = getAirPhotoRoot_();
   const subIt = root.getFoldersByName(data.surveyId);
   const surveyFolder = subIt.hasNext() ? subIt.next() : root.createFolder(data.surveyId);
+  return saveBlobToFolder_(surveyFolder, name, data.dataUri, true);
+}
 
+// ══════════════════════════════════════════════════════════════════════
+//  SMART DRIVE FOLDER ROUTING
+//  Photos for Sound / Noise / Vent (and Air Sampling when routing hints
+//  are supplied) land under MyDrive/<parent>/<facility>/<subfolder>/.
+//  Missing folders are created on demand. Facility may be empty — in
+//  which case the file is dropped one level shallower.
+//
+//  Body shape:
+//    { _type: 'sound_photo' | 'noise_photo' | 'vent_photo',
+//      surveyId, fileName, dataUri,
+//      parent, facility, subfolder? }
+//
+//  defaultSub is the fallback subfolder name when the client doesn't
+//  supply one (e.g. '04_Noise' for noise_photo).
+// ══════════════════════════════════════════════════════════════════════
+function handleRoutedPhotoUpload_(data, defaultSub) {
+  if (!data.fileName || !data.dataUri) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: 'missing fileName or dataUri' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  if (!data.parent) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: 'missing parent (project) hint — cannot route' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  return uploadToFolderPath_({
+    parent: data.parent,
+    facility: data.facility,
+    subfolder: data.subfolder || defaultSub,
+    fileName: data.fileName,
+    dataUri: data.dataUri,
+    replaceByName: data.replaceByName !== false
+  });
+}
+
+/* Walks MyDrive/<parent>/<facility?>/<subfolder?>, creating any missing
+   folders, then writes the file. Returns the standard Apps Script JSON
+   response with success/url/fileId/name. */
+function uploadToFolderPath_(opts) {
+  try {
+    let folder = getOrCreateChildFolder_(DriveApp.getRootFolder(), opts.parent);
+    if (opts.facility) folder = getOrCreateChildFolder_(folder, opts.facility);
+    if (opts.subfolder) folder = getOrCreateChildFolder_(folder, opts.subfolder);
+    return saveBlobToFolder_(folder, opts.fileName, opts.dataUri, opts.replaceByName);
+  } catch (e) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: 'route failed: ' + e.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function getOrCreateChildFolder_(parentFolder, name) {
+  const it = parentFolder.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parentFolder.createFolder(name);
+}
+
+function saveBlobToFolder_(folder, name, dataUri, replaceByName) {
   /* Parse the data URI: data:image/jpeg;base64,XXXX */
-  const m = String(data.dataUri).match(/^data:(.+?);base64,(.+)$/);
+  const m = String(dataUri).match(/^data:(.+?);base64,(.+)$/);
   if (!m) {
     return ContentService
       .createTextOutput(JSON.stringify({ success: false, error: 'malformed dataUri' }))
@@ -353,27 +446,24 @@ function handleAirPhotoUpload(data) {
   }
   const mimeType = m[1];
   const bytes = Utilities.base64Decode(m[2]);
-  const ext = mimeType.indexOf('png') >= 0 ? 'png' : 'jpg';
-  const name = 'hour-' + data.hour + '.' + ext;
 
-  /* If we're replacing an existing photo for this hour, trash the old one. */
-  const existing = surveyFolder.getFilesByName(name);
-  while (existing.hasNext()) existing.next().setTrashed(true);
+  if (replaceByName) {
+    const existing = folder.getFilesByName(name);
+    while (existing.hasNext()) existing.next().setTrashed(true);
+  }
 
   const blob = Utilities.newBlob(bytes, mimeType, name);
-  const file = surveyFolder.createFile(blob);
-  /* Make the file viewable by anyone with the link so <img src> works
-     without a logged-in Google session on the client. */
+  const file = folder.createFile(blob);
   try {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (e) {
-    /* Some workspaces lock down link sharing — fall back to silent failure;
-       the file is still saved, the IH can grant access manually. */
-  }
+  } catch (e) { /* org may forbid link sharing — file still saved */ }
   const fileId = file.getId();
   const url = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
   return ContentService
-    .createTextOutput(JSON.stringify({ success: true, url: url, fileId: fileId, name: name }))
+    .createTextOutput(JSON.stringify({
+      success: true, url: url, fileId: fileId, name: name,
+      folder: folder.getName(), folderId: folder.getId()
+    }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 

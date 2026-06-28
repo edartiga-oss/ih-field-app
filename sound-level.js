@@ -706,18 +706,121 @@ function printForm(){
 
 /* ── Sheets sync ── */
 function sheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
+
+/* Compute Drive routing for this survey from the Project/Client field
+   (general.project — DD 2214 box 2). E.g. "KS ARNG CSMS Topeka" parses
+   to {parent:'KS ARNG', facility:'CSMS'}. Returns empty strings if the
+   field isn't filled in, in which case photo upload is skipped (we don't
+   know where the file should live). */
+function computeSoundRouting(record){
+  if (!window.IHRouting) return { parent: '', facility: '' };
+  const projectText = record && record.general && record.general.project;
+  return window.IHRouting.parseProject(projectText || '');
+}
+
+/* Upload one measurement photo to Drive, routed under
+   MyDrive/<parent>/<facility>/Sound/. Returns a Promise that resolves
+   to the shareable Drive URL. text/plain Content-Type avoids the
+   CORS preflight that Apps Script handles poorly. */
+function uploadSoundPhoto(surveyId, slot, dataUri, routing){
+  const url = sheetsUrl();
+  if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
+  if (!routing || !routing.parent) {
+    return Promise.reject(new Error('Project/Client missing — cannot route photo'));
+  }
+  const fileName = (window.IHRouting && window.IHRouting.photoName)
+    ? window.IHRouting.photoName(surveyId, 'meas' + slot, 'jpg')
+    : surveyId + '_meas' + slot + '.jpg';
+  const body = {
+    _type: 'sound_photo',
+    surveyId: surveyId,
+    fileName: fileName,
+    parent: routing.parent,
+    facility: routing.facility || '',
+    subfolder: 'Sound',
+    dataUri: dataUri
+  };
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' from Apps Script');
+    return r.text().then(txt => {
+      let j; try { j = JSON.parse(txt); }
+      catch (e) {
+        throw new Error('Apps Script did not return JSON. Got: ' +
+          String(txt).slice(0, 120).replace(/\s+/g,' '));
+      }
+      if (!j || !j.success) throw new Error((j && j.error) || 'Photo upload failed (no success flag)');
+      return j.url;
+    });
+  });
+}
+
+/* For every measurement that has a fresh dataUri but no photoUrl yet,
+   upload to Drive and stash the URL onto the local record so we don't
+   re-upload next time. Mirrors uploadPendingPhotosFor in air-sampling.js. */
+function uploadPendingSoundPhotos(record){
+  if (!record || !Array.isArray(record.measurements)) return Promise.resolve({uploaded:0,failed:0});
+  const pending = [];
+  record.measurements.forEach((m, i) => {
+    if (m && m.photo && !m.photoUrl) pending.push({ idx: i, meas: m });
+  });
+  if (!pending.length) return Promise.resolve({uploaded:0,failed:0});
+
+  const routing = computeSoundRouting(record);
+  if (!routing.parent) {
+    /* No project text — silently skip to keep the survey saveable. The
+       IH will see local thumbnails but Drive won't have the originals
+       until they fill in the Project/Client field and resave. */
+    return Promise.resolve({uploaded:0,failed:0,skipped:pending.length});
+  }
+
+  let uploaded = 0, failed = 0; const firstErr = [];
+  const tasks = pending.map(p => {
+    const slot = p.idx + 1;
+    return uploadSoundPhoto(record.id, slot, p.meas.photo, routing).then(url => {
+      p.meas.photoUrl = url; uploaded++;
+      if (measPhotoUrls && record.id === currentSurveyId) {
+        /* Find the live row index that matches this measurement slot. */
+        const liveRow = measurements[p.idx];
+        if (liveRow) measPhotoUrls[liveRow._idx] = url;
+      }
+    }).catch(err => {
+      failed++;
+      const msg = (err && err.message) ? err.message : String(err);
+      if (!firstErr.length) firstErr.push(msg);
+      try { console.warn('[Sound] photo upload failed for measurement ' + (p.idx+1), msg); } catch(e){}
+    });
+  });
+  return Promise.all(tasks).then(() => {
+    if (uploaded && window.showToast) showToast(uploaded + ' photo' + (uploaded===1?'':'s') + ' uploaded to Drive', 'success');
+    if (failed && window.showToast) {
+      showToast(failed + ' photo upload' + (failed===1?'':'s') + ' failed — ' + (firstErr[0] || 'unknown error') +
+        '. Check that the Apps Script was DEPLOYED as a new version (not just saved).', 'error');
+    }
+    return { uploaded, failed };
+  });
+}
+
 function pushToSheets(record){
   const url = sheetsUrl();
   if (!url || !navigator.onLine) { queueSync(record); return; }
-  const sheetPayload = JSON.parse(JSON.stringify(record));
-  if (sheetPayload.measurements) sheetPayload.measurements.forEach(m => { delete m.photo; });
-  const payload = Object.assign({ _type: 'sound_level' }, sheetPayload, {
-    deviceInfo: navigator.userAgent.substring(0, 80)
-  });
-  fetch(url, {
-    method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  /* Upload any new photos first so the Drive URLs land on the local
+     record, then strip the heavy dataUris before POSTing to Sheets. */
+  uploadPendingSoundPhotos(record).then(() => {
+    saveToStorage();   /* persist the new photoUrls */
+    const sheetPayload = JSON.parse(JSON.stringify(record));
+    if (sheetPayload.measurements) sheetPayload.measurements.forEach(m => { delete m.photo; });
+    const payload = Object.assign({ _type: 'sound_level' }, sheetPayload, {
+      deviceInfo: navigator.userAgent.substring(0, 80)
+    });
+    return fetch(url, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   }).then(() => removePendingSync(record.id)).catch(() => queueSync(record));
 }
 function deleteFromSheets(id){

@@ -4343,6 +4343,131 @@ function testSheetsUrl() {
     .catch(function(e) { showToast('Endpoint unreachable: ' + (e.message || e), 'error'); });
 }
 
+// ═══════════════════════════════════════════════════════════
+//  PHOTO ROUTING — shared parent/facility/filename helpers
+//  Used by every photo upload path (Air / Sound / Noise / Vent) so
+//  the routing rules live in one place. Apps Script walks Drive at
+//  MyDrive/<parent>/<facility>/<subfolder>/<fileName>; the four
+//  modules each compute their own (parent, facility, subfolder)
+//  triple from whichever form field carries the project context.
+// ═══════════════════════════════════════════════════════════
+window.IHRouting = (function() {
+  /* ARNG facility prefixes we recognize. Order matters when more
+     than one substring could match (longest first). */
+  const KNOWN = ['AASF', 'CSMS', 'TASMG', 'UTES', 'FMS', 'OMS'];
+  const KNOWN_RE = new RegExp('^(' + KNOWN.join('|') + ')\\s*#?\\s*(\\d+)?$', 'i');
+
+  function normalizeParent(p) {
+    if (!p) return '';
+    const t = String(p).trim();
+    if (/^KS$/i.test(t)) return 'KS ARNG';
+    return t;
+  }
+
+  function normalizeFacility(prefix, digit) {
+    prefix = (prefix || '').toUpperCase();
+    digit = digit || '';
+    if (prefix === 'AASF' && digit) return 'AASF#' + digit;
+    return prefix + digit;
+  }
+
+  /* Parse free-form "Project/Client" text (Sound Level box 2, Noise
+     project bar). Treat the first known-facility token as the boundary
+     between parent and facility; if none is present, fall back to the
+     user's rule of "first token = parent, next 1-2 tokens = facility". */
+  function parseProject(text) {
+    if (!text) return { parent: '', facility: '' };
+    const tokens = String(text).trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return { parent: '', facility: '' };
+
+    let split = -1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (KNOWN_RE.test(tokens[i])) { split = i; break; }
+    }
+
+    let parent, facilityTokens;
+    if (split > 0) {
+      parent = tokens.slice(0, split).join(' ');
+      facilityTokens = tokens.slice(split, split + 2);
+    } else if (split === 0) {
+      parent = '';
+      facilityTokens = tokens.slice(0, 2);
+    } else {
+      parent = tokens[0];
+      facilityTokens = tokens.slice(1, 3);
+    }
+
+    let facility = '';
+    if (facilityTokens.length) {
+      const m = facilityTokens[0].match(KNOWN_RE);
+      if (m) {
+        let digit = m[2] || '';
+        if (!digit && facilityTokens[1] && /^\d+$/.test(facilityTokens[1])) {
+          digit = facilityTokens[1];
+        }
+        facility = normalizeFacility(m[1], digit);
+      } else {
+        facility = facilityTokens.slice(0, 2).join(' ');
+      }
+    }
+    return { parent: normalizeParent(parent), facility: facility };
+  }
+
+  /* Parse a Sample ID like "KSAASF1-001" or "KS FMS8 001" — no spaces
+     guaranteed. Walks the string for known facility prefixes. */
+  function parseSampleId(sid) {
+    if (!sid) return { parent: '', facility: '' };
+    const text = String(sid).toUpperCase();
+    let parent = '';
+    if (/^KS/.test(text)) parent = 'KS ARNG';
+
+    let facility = '';
+    for (let i = 0; i < KNOWN.length; i++) {
+      const prefix = KNOWN[i];
+      const m = text.match(new RegExp(prefix + '\\s*#?\\s*(\\d+)?', ''));
+      if (m) {
+        facility = normalizeFacility(prefix, m[1] || '');
+        break;
+      }
+    }
+    return { parent: parent, facility: facility };
+  }
+
+  /* Normalize a free-text shop name into a canonical facility folder
+     (e.g. "FMS 8" → "FMS8", "FMS" → "FMS", "AASF 4" → "AASF#4"). */
+  function parseFreeFacility(shop) {
+    if (!shop) return '';
+    const tokens = String(shop).trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return '';
+    const m = tokens[0].match(KNOWN_RE);
+    if (m) {
+      let digit = m[2] || '';
+      if (!digit && tokens[1] && /^\d+$/.test(tokens[1])) digit = tokens[1];
+      return normalizeFacility(m[1], digit);
+    }
+    return tokens.slice(0, 2).join(' ');
+  }
+
+  /* Generate a routing-aware filename: <surveyId>_<slot>_<isoStamp>.<ext>
+     surveyId / slot are sanitized to filesystem-safe chars. */
+  function photoName(surveyId, slot, ext) {
+    ext = ext || 'jpg';
+    const safeId = String(surveyId || 'survey').replace(/[^A-Za-z0-9_-]+/g, '_');
+    const safeSlot = String(slot == null ? '' : slot).replace(/[^A-Za-z0-9_-]+/g, '_');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    return safeId + (safeSlot ? '_' + safeSlot : '') + '_' + stamp + '.' + ext;
+  }
+
+  return {
+    parseProject: parseProject,
+    parseSampleId: parseSampleId,
+    parseFreeFacility: parseFreeFacility,
+    normalizeParent: normalizeParent,
+    normalizeFacility: normalizeFacility,
+    photoName: photoName
+  };
+})();
+
 // Wipe this device's local surveys + equipment caches, then pull fresh
 // from whatever endpoint getSheetsUrl() currently returns. Intended for
 // the workflow where the user has just retargeted the app at a different
@@ -8678,6 +8803,103 @@ function pullFromSheets() {
     .catch(() => setSyncStatus('error'));
 }
 
+/* Compute Drive routing for this noise survey from its per-survey
+   Project/Client field (s.project.name, e.g. "KS ARNG CSMS Topeka"). */
+function computeNoiseRouting(surveyData) {
+  if (!window.IHRouting) return { parent: '', facility: '' };
+  const projectText = (surveyData && surveyData.project && surveyData.project.name) || '';
+  return window.IHRouting.parseProject(projectText);
+}
+
+/* Upload one hourly field-observation photo to Drive, routed under
+   MyDrive/<parent>/<facility>/04_Noise/. Returns a Promise resolving to
+   the shareable Drive URL. text/plain Content-Type avoids the CORS
+   preflight Apps Script handles poorly. */
+function uploadNoisePhoto(surveyId, hour, dataUri, routing) {
+  const url = getSheetsUrl();
+  if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
+  if (!routing || !routing.parent) {
+    return Promise.reject(new Error('Project/Client missing — cannot route photo'));
+  }
+  const fileName = (window.IHRouting && window.IHRouting.photoName)
+    ? window.IHRouting.photoName(surveyId, 'hour' + hour, 'jpg')
+    : surveyId + '_hour' + hour + '.jpg';
+  const body = {
+    _type: 'noise_photo',
+    surveyId: surveyId,
+    fileName: fileName,
+    parent: routing.parent,
+    facility: routing.facility || '',
+    subfolder: '04_Noise',
+    dataUri: dataUri
+  };
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' from Apps Script');
+    return r.text().then(function(txt) {
+      var j; try { j = JSON.parse(txt); }
+      catch (e) {
+        throw new Error('Apps Script did not return JSON. Got: ' +
+          String(txt).slice(0, 120).replace(/\s+/g,' '));
+      }
+      if (!j || !j.success) throw new Error((j && j.error) || 'Photo upload failed');
+      return j.url;
+    });
+  });
+}
+
+/* Walk surveyData.results.hourPhotos[]; for any hour with a data URI
+   but no corresponding entry in results.hourPhotoUrls, upload it and
+   stash the URL. Mutates surveyData so subsequent syncs won't re-upload. */
+function uploadPendingNoisePhotos(surveyData) {
+  const res = surveyData && surveyData.results;
+  if (!res || !res.hourPhotos) return Promise.resolve({uploaded:0,failed:0});
+  if (!res.hourPhotoUrls) res.hourPhotoUrls = {};
+  const pending = Object.keys(res.hourPhotos).filter(function(h) {
+    return res.hourPhotos[h] && !res.hourPhotoUrls[h];
+  });
+  if (!pending.length) return Promise.resolve({uploaded:0,failed:0});
+
+  const routing = computeNoiseRouting(surveyData);
+  if (!routing.parent) {
+    /* No Project/Client text — keep the survey saveable, skip upload. */
+    return Promise.resolve({uploaded:0,failed:0,skipped:pending.length});
+  }
+
+  var uploaded = 0, failed = 0; const firstErr = [];
+  const tasks = pending.map(function(h) {
+    return uploadNoisePhoto(surveyData.id, h, res.hourPhotos[h], routing).then(function(url) {
+      res.hourPhotoUrls[h] = url; uploaded++;
+    }).catch(function(err) {
+      failed++;
+      var msg = (err && err.message) ? err.message : String(err);
+      if (!firstErr.length) firstErr.push(msg);
+      try { console.warn('[Noise] photo upload failed for hour ' + h, msg); } catch(e){}
+    });
+  });
+  return Promise.all(tasks).then(function() {
+    if (uploaded) showToast(uploaded + ' noise photo' + (uploaded===1?'':'s') + ' uploaded to Drive', 'success');
+    if (failed) showToast(failed + ' noise photo upload' + (failed===1?'':'s') + ' failed — ' +
+        (firstErr[0] || 'unknown error') + '. Check that the Apps Script was DEPLOYED as a new version.', 'error');
+    return { uploaded: uploaded, failed: failed };
+  });
+}
+
+/* Strip the heavy dataUri values out of results.hourPhotos before
+   POSTing to Sheets (the URLs in hourPhotoUrls stay). */
+function stripNoisePhotoData(surveyData) {
+  const clone = JSON.parse(JSON.stringify(surveyData));
+  if (clone.results && clone.results.hourPhotos) {
+    /* Replace with an empty map — the Drive URLs in hourPhotoUrls are
+       what downstream consumers should reach for. */
+    clone.results.hourPhotos = {};
+  }
+  return clone;
+}
+
 function syncToSheets(surveyData) {
   if (!getSheetsUrl() || !navigator.onLine) {
     if (!navigator.onLine) setSyncStatus('offline');
@@ -8685,18 +8907,24 @@ function syncToSheets(surveyData) {
     return;
   }
   setSyncStatus('syncing');
-  const payload = Object.assign({}, surveyData, {
-    deviceInfo: navigator.userAgent.substring(0, 80)
-  });
-  fetch(getSheetsUrl(), {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(() => {
+  /* Upload any new hourly photos first, then POST the survey with the
+     data URIs stripped. The upload mutates surveyData so the new URLs
+     persist into localStorage on the next save. */
+  uploadPendingNoisePhotos(surveyData).then(function() {
+    if (typeof saveToStorage === 'function') saveToStorage();
+    const payload = Object.assign({}, stripNoisePhotoData(surveyData), {
+      deviceInfo: navigator.userAgent.substring(0, 80)
+    });
+    return fetch(getSheetsUrl(), {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }).then(function() {
     setSyncStatus('ok');
     removePendingSync(surveyData.id);
-  }).catch(() => {
+  }).catch(function() {
     setSyncStatus('error');
     queueSync(surveyData);
   });
@@ -8716,12 +8944,17 @@ function syncAllToSheets() {
       return;
     }
     const s = queue.shift();
-    const payload = Object.assign({}, s, { deviceInfo: navigator.userAgent.substring(0, 80) });
-    fetch(getSheetsUrl(), {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    /* Same upload-then-strip path as syncToSheets so bulk re-syncs also
+       route the hourly field-obs photos to Drive. */
+    uploadPendingNoisePhotos(s).then(function() {
+      if (typeof saveToStorage === 'function') saveToStorage();
+      const payload = Object.assign({}, stripNoisePhotoData(s), { deviceInfo: navigator.userAgent.substring(0, 80) });
+      return fetch(getSheetsUrl(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
     }).then(() => { count++; setTimeout(next, 300); })
       .catch(() => { setTimeout(next, 300); });
   }
