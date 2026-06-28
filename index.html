@@ -482,6 +482,7 @@ body { padding: 20px 18px; }
   #view-air .air-toolbar, #view-air .tabbar, #view-air .air-action-bar { display: none !important; }
   #view-sound .sl-action-bar { display: none !important; }
   #view-vent .v-action-bar { display: none !important; }
+  #view-fieldobs .fo-action-bar { display: none !important; }
   /* COC prints as its own SGS Galson AcroForm PDF — don't waste pages here. */
   #view-air .air-coc-card { display: none !important; }
   #view-air .air-head { margin-bottom: 2px; }
@@ -2136,7 +2137,7 @@ body { padding: 20px 18px; }
      Cells are editable textareas that autosave back to the source survey
      so the IH can copy verbiage between employees who shared a task in
      the same hour. -->
-<div id="view-fieldobs" class="view">
+<div id="view-fieldobs" class="view" style="padding-bottom:90px;">
   <div style="margin-bottom:14px;">
     <div style="font-size:20px; font-weight:700; color:var(--text);">Hourly Field Observations Summary</div>
     <div style="font-size:13px; color:var(--text2); margin-top:2px;">
@@ -2161,6 +2162,24 @@ body { padding: 20px 18px; }
   </div>
 
   <div id="fieldObsContainer" style="overflow-x:auto; border:1.5px solid var(--border); border-radius:var(--radius-lg); background:var(--surface);"></div>
+
+  <!-- Sticky action bar — mirrors the air/sound/vent action bars so the
+       IH has a persistent Save target without scrolling. Field Obs already
+       autosaves on every keystroke (1.5s debounce); this bar lets them
+       flush + sync immediately instead of waiting on the debounce. -->
+  <div id="fieldObsActionBar" class="fo-action-bar"
+       style="position:fixed; bottom:0; left:0; right:0; z-index:50; background:var(--surface); border-top:1.5px solid var(--border); box-shadow:0 -2px 12px rgba(0,0,0,0.08); padding:10px 16px; padding-bottom:calc(10px + env(safe-area-inset-bottom));">
+    <div style="max-width:1180px; margin:0 auto; display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+      <div style="font-size:11.5px; color:var(--text3); display:flex; align-items:center; gap:6px;">
+        <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#1d7a45;"></span>
+        Edits autosave as you type
+      </div>
+      <button type="button" onclick="saveAllFieldObsNotes()"
+              style="font:inherit; cursor:pointer; border:1px solid var(--teal); padding:7px 16px; border-radius:7px; background:var(--teal); color:#fff; font-weight:600;">
+        Save All Notes Now
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════ STATS VIEW ═══════════════════════════════ -->
@@ -6430,6 +6449,23 @@ function onFieldObsCellInput(textarea) {
       try { syncToSheets(s); } catch(e){}
     }
   }, 1500);
+}
+
+/* Sticky action bar "Save All Notes Now" handler — flushes any pending
+   autosave timers and fires syncAllToSheets so every survey lands in
+   the sheet immediately instead of waiting on the 1.5s debounce. */
+function saveAllFieldObsNotes() {
+  /* Clear any pending per-survey debounces — we're about to bulk-sync. */
+  Object.keys(_foSyncTimers).forEach(function(sid) {
+    clearTimeout(_foSyncTimers[sid]);
+    delete _foSyncTimers[sid];
+  });
+  if (typeof showToast === 'function') showToast('Saving all field-obs notes…', 'success');
+  if (typeof syncAllToSheets === 'function') {
+    try { syncAllToSheets(); } catch(e) {
+      if (typeof showToast === 'function') showToast('Save failed: ' + (e.message || e), 'error');
+    }
+  }
 }
 
 function copyFieldObsCell(btn) {
