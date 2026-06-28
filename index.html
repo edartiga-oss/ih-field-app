@@ -4413,8 +4413,14 @@ window.IHRouting = (function() {
       parent = '';
       facilityTokens = tokens.slice(0, 2);
     } else {
-      parent = tokens[0];
-      facilityTokens = tokens.slice(1, 3);
+      /* No known facility prefix in the text. Greedily consume 2 tokens
+         for the parent when the second token is a multi-word organization
+         marker (ARNG, ANG, NG), e.g. "KS ARNG" / "TX ARNG" / "Texas
+         ANG" — otherwise "ARNG" alone would be grabbed as the facility
+         and the caller's Shop fallback would never kick in. */
+      const PARENT_TOKENS = (tokens.length >= 2 && /^(ARNG|ANG|NG)$/i.test(tokens[1])) ? 2 : 1;
+      parent = tokens.slice(0, PARENT_TOKENS).join(' ');
+      facilityTokens = tokens.slice(PARENT_TOKENS, PARENT_TOKENS + 2);
     }
 
     let facility = '';
