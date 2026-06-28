@@ -563,12 +563,14 @@ function applyPrefill(data){
   buildSkeleton(); systems = []; sysCount = 0;
   (data.systems || []).forEach(row => addSystem(row));
   if (!systems.length) { addSystem(); addSystem(); }
-  // Restore photos (the dataUri is large but round-trips fine in JSON)
+  // Restore photos (the dataUri is large but round-trips fine in JSON).
+  // photoUrl is preserved so re-syncs don't re-upload to Drive.
   photos = (data.photos || []).map((p, i) => ({
     pid: (p && p.pid) || (i + 1),
     label: (p && p.label) || '',
-    dataUri: (p && p.dataUri) || ''
-  })).filter(p => p.dataUri);
+    dataUri: (p && p.dataUri) || '',
+    photoUrl: (p && p.photoUrl) || ''
+  })).filter(p => p.dataUri || p.photoUrl);
   photoCount = photos.reduce((m, p) => Math.max(m, p.pid), 0);
   renderPhotos();
   recomputeAll();
@@ -652,21 +654,118 @@ function renderSurveyList(){
 
 /* ── Sheets sync (Apps Script POST) ───────────────────────────── */
 function sheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
+
+/* Compute Drive routing from the general info fields: Organization is
+   the parent folder, Shop is normalized to a facility folder (e.g.
+   "FMS 8" → "FMS8", "AASF 4" → "AASF#4"). */
+function computeVentRouting(record){
+  const g = (record && record.general) || {};
+  const parent = window.IHRouting ? window.IHRouting.normalizeParent(g.organization || '') : (g.organization || '');
+  const facility = window.IHRouting ? window.IHRouting.parseFreeFacility(g.shop || '') : (g.shop || '');
+  return { parent: parent, facility: facility };
+}
+
+/* Upload one diagram/site photo to Drive under
+   MyDrive/<organization>/<shop>/02_Vents/. text/plain Content-Type
+   avoids the CORS preflight Apps Script handles poorly. */
+function uploadVentPhoto(surveyId, slot, dataUri, routing){
+  const url = sheetsUrl();
+  if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
+  if (!routing || !routing.parent) {
+    return Promise.reject(new Error('Organization missing — cannot route photo'));
+  }
+  const fileName = (window.IHRouting && window.IHRouting.photoName)
+    ? window.IHRouting.photoName(surveyId, 'photo' + slot, 'jpg')
+    : surveyId + '_photo' + slot + '.jpg';
+  const body = {
+    _type: 'vent_photo',
+    surveyId: surveyId,
+    fileName: fileName,
+    parent: routing.parent,
+    facility: routing.facility || '',
+    subfolder: '02_Vents',
+    dataUri: dataUri
+  };
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' from Apps Script');
+    return r.text().then(txt => {
+      let j; try { j = JSON.parse(txt); }
+      catch (e) {
+        throw new Error('Apps Script did not return JSON. Got: ' +
+          String(txt).slice(0, 120).replace(/\s+/g,' '));
+      }
+      if (!j || !j.success) throw new Error((j && j.error) || 'Photo upload failed');
+      return j.url;
+    });
+  });
+}
+
+/* For every photo entry that has a dataUri but no photoUrl yet, upload
+   to Drive and stash the URL onto the record (mutating in place). The
+   live module-level `photos` array is also updated when the record
+   being saved is the one currently loaded in the form. */
+function uploadPendingVentPhotos(record){
+  if (!record || !Array.isArray(record.photos)) return Promise.resolve({uploaded:0,failed:0});
+  const pending = record.photos
+    .map((p, i) => ({ idx: i, p: p }))
+    .filter(x => x.p && x.p.dataUri && !x.p.photoUrl);
+  if (!pending.length) return Promise.resolve({uploaded:0,failed:0});
+
+  const routing = computeVentRouting(record);
+  if (!routing.parent) {
+    /* No Organization text — skip upload so the survey is still
+       saveable. IH can fill in Organization later and resave. */
+    return Promise.resolve({uploaded:0,failed:0,skipped:pending.length});
+  }
+
+  let uploaded = 0, failed = 0; const firstErr = [];
+  const tasks = pending.map(x => {
+    return uploadVentPhoto(record.id, x.p.pid, x.p.dataUri, routing).then(url => {
+      x.p.photoUrl = url; uploaded++;
+      /* Mirror onto the live `photos` array if this record is loaded. */
+      if (currentSurveyId === record.id) {
+        const live = photos.find(q => q.pid === x.p.pid);
+        if (live) live.photoUrl = url;
+      }
+    }).catch(err => {
+      failed++;
+      const msg = (err && err.message) ? err.message : String(err);
+      if (!firstErr.length) firstErr.push(msg);
+      try { console.warn('[Vent] photo upload failed for pid ' + x.p.pid, msg); } catch(e){}
+    });
+  });
+  return Promise.all(tasks).then(() => {
+    if (uploaded && window.showToast) showToast(uploaded + ' vent photo' + (uploaded===1?'':'s') + ' uploaded to Drive', 'success');
+    if (failed && window.showToast) {
+      showToast(failed + ' vent photo upload' + (failed===1?'':'s') + ' failed — ' + (firstErr[0] || 'unknown error') +
+        '. Check that the Apps Script was DEPLOYED as a new version (not just saved).', 'error');
+    }
+    return { uploaded, failed };
+  });
+}
+
 function pushToSheets(record){
   const url = sheetsUrl();
   if (!url || !navigator.onLine) { queueSync(record); return; }
-  // Strip photo dataUri bytes from the Sheets payload to keep the
-  // POST under the Apps Script ~50 KB practical limit. Local storage
-  // still has the full images so the form round-trips on the device.
-  const slim = JSON.parse(JSON.stringify(record));
-  if (Array.isArray(slim.photos)) slim.photos.forEach(p => { delete p.dataUri; });
-  const payload = Object.assign({ _type: 'ventilation' }, slim, {
-    deviceInfo: navigator.userAgent.substring(0, 80)
-  });
-  fetch(url, {
-    method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  /* Upload any new photos first so the Drive URLs land on the record,
+     then strip the heavy dataUris from the Sheets payload to keep the
+     POST under the Apps Script ~50 KB practical limit. */
+  uploadPendingVentPhotos(record).then(() => {
+    saveToStorage();   /* persist new photoUrls */
+    const slim = JSON.parse(JSON.stringify(record));
+    if (Array.isArray(slim.photos)) slim.photos.forEach(p => { delete p.dataUri; });
+    const payload = Object.assign({ _type: 'ventilation' }, slim, {
+      deviceInfo: navigator.userAgent.substring(0, 80)
+    });
+    return fetch(url, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   }).catch(() => { queueSync(record); });
 }
 function deleteFromSheets(id){

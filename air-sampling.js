@@ -1394,18 +1394,45 @@ function renderAirSurveyList(){
 /* ─── Sheets sync — air sampling surveys ─── */
 function airSheetsUrl(){ return (window.getSheetsUrl && window.getSheetsUrl()) || ''; }
 
+/* Compute Drive-folder routing for this survey by parsing the first
+   sample's Field Sample ID (e.g. "KSAASF1-001" → {parent:'KS ARNG',
+   facility:'AASF#1'}). Returns {parent:'',facility:''} if no sample has
+   a Sample ID set, in which case the upload falls back to the legacy
+   flat bucket layout. */
+function computeAirRouting(record){
+  if (!window.IHRouting) return { parent: '', facility: '' };
+  const samples = (record && record.samples) || [];
+  for (let i = 0; i < samples.length; i++) {
+    const f = samples[i] && samples[i].fields;
+    if (f && f.field_id) return window.IHRouting.parseSampleId(f.field_id);
+  }
+  return { parent: '', facility: '' };
+}
+
 /* ── Photo upload to Drive (via Apps Script) ──
    Uses text/plain Content-Type so the request is "simple" and skips the
    CORS preflight that application/json would trigger (Apps Script handles
    preflight poorly). The Apps Script's doPost reads e.postData.contents
-   regardless of mime type, so the body is still parsed correctly. */
-function uploadAirPhoto(surveyId, hour, dataUri){
+   regardless of mime type, so the body is still parsed correctly.
+
+   When the calling record has enough info to compute a routing hint
+   (parent / facility — parsed off the first sample's Sample ID), we
+   include it in the payload so Apps Script files the photo under
+   MyDrive/<parent>/<facility>/03_Air Samples/ instead of the legacy
+   flat "Air Sampling Photos/<surveyId>" bucket. */
+function uploadAirPhoto(surveyId, hour, dataUri, routing){
   const url = airSheetsUrl();
   if (!url) return Promise.reject(new Error('No Sheets URL configured (Sheets ⚙)'));
+  const body = { _type: 'air_photo', surveyId, hour, dataUri };
+  if (routing && routing.parent) {
+    body.parent = routing.parent;
+    body.facility = routing.facility || '';
+    body.subfolder = '03_Air Samples';
+  }
   return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ _type: 'air_photo', surveyId, hour, dataUri })
+    body: JSON.stringify(body)
   }).then(r => {
     if (!r.ok) throw new Error('HTTP ' + r.status + ' from Apps Script');
     return r.text().then(txt => {
@@ -1435,10 +1462,11 @@ function uploadPendingPhotosFor(record){
   const tc = record && record.timeCourse; if (!tc || !tc.hours) return Promise.resolve({uploaded:0,failed:0});
   const pending = Object.keys(tc.hours).filter(h => tc.hours[h].photo && !tc.hours[h].photoUrl);
   if (!pending.length) return Promise.resolve({uploaded:0,failed:0});
+  const routing = computeAirRouting(record);
   let uploaded = 0, failed = 0; const firstErr = [];
   const tasks = pending.map(h => {
     const e = tc.hours[h];
-    return uploadAirPhoto(record.id, h, e.photo).then(url => {
+    return uploadAirPhoto(record.id, h, e.photo, routing).then(url => {
       e.photoUrl = url; uploaded++;
       if (tcPhotoUrls && record.id === currentAirSurveyId) tcPhotoUrls[+h] = url;
     }).catch(err => {
