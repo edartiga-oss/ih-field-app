@@ -7,6 +7,8 @@ const AIR_SHEET = 'AirSurveys';
 const AIR_RAW_SHEET = 'AirSurveysRaw';
 const SOUND_SHEET = 'SoundLevel';
 const SOUND_RAW_SHEET = 'SoundLevelRaw';
+const VENT_SHEET = 'Ventilation';
+const VENT_RAW_SHEET = 'VentilationRaw';
 
 function doPost(e) {
   try {
@@ -45,6 +47,14 @@ function doPost(e) {
     // ── Sound Level photo upload (Drive, smart-routed) ───────────────
     if (data._type === 'sound_photo') {
       return handleRoutedPhotoUpload_(data, 'Sound');
+    }
+
+    // ── Ventilation routing ──────────────────────────────────────────
+    if (data._type === 'ventilation') {
+      if (data._action === 'delete' && data.id) {
+        return handleVentDelete(ss, data.id);
+      }
+      return handleVentUpsert(ss, data);
     }
 
     // ── Noise Dosimetry photo upload (Drive, smart-routed) ───────────
@@ -415,13 +425,28 @@ function handleRoutedPhotoUpload_(data, defaultSub) {
   });
 }
 
-/* Walks MyDrive/<parent>/<facility?>/<subfolder?>, creating any missing
-   folders, then writes the file. Returns the standard Apps Script JSON
-   response with success/url/fileId/name. */
+/* Walks MyDrive/<parent>/<facility?>/<subfolder?>, fuzzy-matching
+   existing folders before creating new ones, then writes the file.
+
+   Parent: tried as a fuzzy match in MyDrive root. If nothing matches
+   the project token (e.g. "KS ARNG" doesn't match anything because the
+   IH organizes facilities at root), we SILENTLY SKIP the parent level
+   instead of creating a "KS ARNG" wrapper — the IH's existing layout
+   wins.
+
+   Facility: fuzzy match inside whichever folder the parent resolved
+   to. So a canonical "AASF#1" finds the IH's existing
+   "1. AASF 1 Topeka, KS". If nothing matches, the canonical name is
+   created (per spec: "If there is no place for them then create").
+
+   Subfolder (03_Air Samples / 04_Noise / Sound / 02_Vents): exact-name
+   get-or-create — these are well-known and always live one level under
+   the facility folder. */
 function uploadToFolderPath_(opts) {
   try {
-    let folder = getOrCreateChildFolder_(DriveApp.getRootFolder(), opts.parent);
-    if (opts.facility) folder = getOrCreateChildFolder_(folder, opts.facility);
+    const root = DriveApp.getRootFolder();
+    let folder = resolveProjectFolder_(root, opts.parent);
+    if (opts.facility) folder = resolveFacilityFolder_(folder, opts.facility);
     if (opts.subfolder) folder = getOrCreateChildFolder_(folder, opts.subfolder);
     return saveBlobToFolder_(folder, opts.fileName, opts.dataUri, opts.replaceByName);
   } catch (e) {
@@ -431,9 +456,96 @@ function uploadToFolderPath_(opts) {
   }
 }
 
+/* Exact-name get-or-create. Used for subfolders like "03_Air Samples"
+   where the IH expects a specific name. */
 function getOrCreateChildFolder_(parentFolder, name) {
   const it = parentFolder.getFoldersByName(name);
   return it.hasNext() ? it.next() : parentFolder.createFolder(name);
+}
+
+/* Parent resolution: fuzzy-match in the given root. If no folder
+   contains the project token, fall through and return the root itself
+   — the IH may keep facility folders at root level with no project
+   wrapper, and we shouldn't pollute their tree with a stub. */
+function resolveProjectFolder_(rootFolder, parentName) {
+  if (!parentName) return rootFolder;
+  const exact = rootFolder.getFoldersByName(parentName);
+  if (exact.hasNext()) return exact.next();
+  const fuzzy = findFolderByToken_(rootFolder, parentName);
+  if (fuzzy) return fuzzy;
+  return rootFolder;
+}
+
+/* Facility resolution: fuzzy-match inside the parent (e.g. canonical
+   "AASF#1" finds existing "1. AASF 1 Topeka, KS"). If nothing matches,
+   create with the canonical name (per spec). */
+function resolveFacilityFolder_(parentFolder, facilityName) {
+  if (!facilityName) return parentFolder;
+  const exact = parentFolder.getFoldersByName(facilityName);
+  if (exact.hasNext()) return exact.next();
+  const fuzzy = findFolderByToken_(parentFolder, facilityName);
+  if (fuzzy) return fuzzy;
+  return parentFolder.createFolder(facilityName);
+}
+
+/* Walks every child folder of `parentFolder` and returns the first one
+   whose name fuzzy-matches `canonicalName`.
+
+   Rules:
+   - Extract the leading letters (prefix) and optional trailing digit
+     from `canonicalName`. E.g. "AASF#1" → prefix="AASF", digit="1";
+     "FMS8" → prefix="FMS", digit="8"; "KS ARNG" → prefix="KS",
+     digit="" (we then also try "ARNG" as a secondary prefix).
+   - A child folder matches when:
+     * Prefix appears as a whole word in the folder name, AND
+     * If a digit is required, that digit appears adjacent to the
+       prefix (e.g. "AASF 1", "AASF1", "FMS 8 Ottawa").
+   - For multi-word tokens like "KS ARNG", any meaningful word matches
+     ("ARNG" is enough).
+
+   Returns null if no folder qualifies. */
+function findFolderByToken_(parentFolder, canonicalName) {
+  if (!canonicalName) return null;
+  const wanted = String(canonicalName).toUpperCase().trim();
+
+  /* Pull (prefix, digit) — e.g. "AASF#1" → ["AASF", "1"]. */
+  const m = wanted.match(/^([A-Z][A-Z#]*[A-Z]|[A-Z]+)\s*#?\s*(\d+)?/);
+  let prefix = '', digit = '';
+  if (m) {
+    prefix = m[1].replace(/#/g, '');
+    digit = m[2] || '';
+  }
+
+  /* For multi-word canonicals ("KS ARNG"), also try each word
+     individually as a search term — most IH parent folders are named
+     after one word ("ARNG" alone is common). Skip very short noise
+     tokens like "KS" alone unless they're the only thing we have. */
+  const words = wanted.split(/\s+/).filter(Boolean);
+  const searchTokens = [];
+  if (prefix && digit) searchTokens.push({ prefix: prefix, digit: digit });
+  if (prefix && !digit) searchTokens.push({ prefix: prefix, digit: '' });
+  words.forEach(function (w) {
+    const ww = w.replace(/[^A-Z0-9]/g, '');
+    if (ww.length >= 3 && ww !== prefix) searchTokens.push({ prefix: ww, digit: '' });
+  });
+
+  const it = parentFolder.getFolders();
+  while (it.hasNext()) {
+    const f = it.next();
+    const name = f.getName().toUpperCase();
+    for (let i = 0; i < searchTokens.length; i++) {
+      const tok = searchTokens[i];
+      const prefixRe = new RegExp('\\b' + tok.prefix + '\\b');
+      if (!prefixRe.test(name)) continue;
+      if (!tok.digit) return f;
+      /* Digit required — must appear within ~6 chars of the prefix
+         token (handles "FMS 8 Ottawa", "AASF #1", "1. AASF 1 Topeka").
+         Use a slightly looser regex than \b\d\b so "AASF1" matches too. */
+      const digitRe = new RegExp(tok.prefix + '\\s*#?\\s*' + tok.digit + '(?!\\d)');
+      if (digitRe.test(name)) return f;
+    }
+  }
+  return null;
 }
 
 function saveBlobToFolder_(folder, name, dataUri, replaceByName) {
@@ -550,6 +662,7 @@ function doGet(e) {
     const equipment = readRawJson_(ss, EQUIP_RAW_SHEET);
     const airSurveys = readRawJson_(ss, AIR_RAW_SHEET);
     const soundSurveys = readRawJson_(ss, SOUND_RAW_SHEET);
+    const ventSurveys = readRawJson_(ss, VENT_RAW_SHEET);
 
     return ContentService
       .createTextOutput(JSON.stringify({
@@ -557,7 +670,8 @@ function doGet(e) {
         surveys: surveys,
         equipment: equipment,
         airSurveys: airSurveys,
-        soundSurveys: soundSurveys
+        soundSurveys: soundSurveys,
+        ventSurveys: ventSurveys
       }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -569,7 +683,8 @@ function doGet(e) {
         surveys: [],
         equipment: [],
         airSurveys: [],
-        soundSurveys: []
+        soundSurveys: [],
+        ventSurveys: []
       }))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -1339,4 +1454,207 @@ function migrateSoundFromRaw() {
   });
   Logger.log('Sound level migration complete: ' + surveys.length + ' surveys / ' + totalRows + ' rows written to ' + SOUND_SHEET);
   Logger.log('Schema: ' + SOUND_HEADERS.length + ' columns');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  VENTILATION HANDLERS
+//  Flat tab (Ventilation, one row per system inside a survey for pivot
+//  use in Sheets) + raw JSON tab (VentilationRaw, one row per survey
+//  id) that the client reads via doGet for sync-back.
+// ══════════════════════════════════════════════════════════════════════
+function handleVentUpsert(ss, data) {
+  // Raw JSON tab
+  let rawSheet = ss.getSheetByName(VENT_RAW_SHEET);
+  if (!rawSheet) {
+    rawSheet = ss.insertSheet(VENT_RAW_SHEET);
+    rawSheet.appendRow(['vent_survey_id', 'updated_at', 'json_data']);
+    rawSheet.getRange(1, 1, 1, 3).setFontWeight('bold');
+    rawSheet.setFrozenRows(1);
+  }
+  const rawData = rawSheet.getDataRange().getValues();
+  let rawRowIdx = -1;
+  for (let i = 1; i < rawData.length; i++) {
+    if (rawData[i][0] === data.id) { rawRowIdx = i + 1; break; }
+  }
+  const jsonRow = [data.id, new Date().toISOString(), JSON.stringify(data)];
+  if (rawRowIdx > 0) {
+    rawSheet.getRange(rawRowIdx, 1, 1, 3).setValues([jsonRow]);
+  } else {
+    rawSheet.appendRow(jsonRow);
+  }
+
+  // Flat tab — one row per system
+  let sheet = ss.getSheetByName(VENT_SHEET);
+  if (!sheet) sheet = ss.insertSheet(VENT_SHEET);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(VENT_HEADERS);
+    sheet.getRange(1, 1, 1, VENT_HEADERS.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  // Drop existing rows for this survey id (re-appended below). Iterate
+  // backwards so deleteRow doesn't shift our index.
+  if (sheet.getLastRow() > 1) {
+    const existingIds = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (let i = existingIds.length - 1; i >= 0; i--) {
+      if (existingIds[i][0] === data.id) sheet.deleteRow(i + 2);
+    }
+  }
+  const submittedAt = new Date().toLocaleString();
+  const rows = buildVentRows_(data, submittedAt);
+  if (rows.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, VENT_HEADERS.length).setValues(rows);
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ success: true, type: 'ventilation', id: data.id }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleVentDelete(ss, id) {
+  const sheet = ss.getSheetByName(VENT_SHEET);
+  const rawSheet = ss.getSheetByName(VENT_RAW_SHEET);
+  if (sheet && sheet.getLastRow() > 1) {
+    const vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (let i = vals.length - 1; i >= 0; i--) {
+      if (vals[i][0] === id) sheet.deleteRow(i + 2);
+    }
+  }
+  if (rawSheet && rawSheet.getLastRow() > 1) {
+    const rawVals = rawSheet.getRange(2, 1, rawSheet.getLastRow() - 1, 1).getValues();
+    for (let i = rawVals.length - 1; i >= 0; i--) {
+      if (rawVals[i][0] === id) rawSheet.deleteRow(i + 2);
+    }
+  }
+  return ContentService
+    .createTextOutput(JSON.stringify({ success: true, action: 'deleted', type: 'ventilation', id: id }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  VENTILATION SCHEMA — headers + row builder
+//  One row per system in a Ventilation Survey. General info (org, shop,
+//  date, room, velocity meter, surveyor/reviewer) repeats on every row
+//  so the flat tab is pivot-ready in Sheets.
+// ══════════════════════════════════════════════════════════════════════
+const VENT_HEADERS = [
+  // Identity & metadata
+  'Survey ID','Submitted At','Updated At','Device Nickname',
+  // Position
+  'System Index',
+  // General Information
+  'Organization','Location','Shop','Date',
+  // Room (for ACH calcs)
+  'Room Length (ft)','Room Width (ft)','Room Height (ft)','Design ACH',
+  // Velocity meter
+  'Meter Make','Meter Model','Meter Serial','Meter Cal Date',
+  // System fields (per row)
+  'System #','Component #','Duct Shape','Diameter (in)','L — Length (in)','W — Width (in)',
+  'M1 (FPM)','M2 (FPM)','M3 (FPM)','M4 (FPM)','M5 (FPM)',
+  'AVG FPM','Duct Area (ft²)','CFM (Q)',
+  'Engine','Vehicle','Design CFM','Min FPM','Status',
+  // Narrative + signoff (survey-wide, repeated)
+  'Notes','Design Criteria','Recommendations',
+  'Surveyed By','Surveyed Date','Reviewed By','Reviewed Date'
+];
+
+function buildVentRows_(data, submittedAt) {
+  const g = data.general || {};
+  const stamp = submittedAt || new Date().toLocaleString();
+  const updatedAt = data.updatedAt || new Date().toISOString();
+  const device = data.deviceNickname || '';
+  const systems = data.systems || [];
+
+  function commonHead(idx) {
+    return [
+      data.id || '', stamp, updatedAt, device, idx,
+      g.organization || '', g.location || '', g.shop || '', g.date || '',
+      g.room_length || '', g.room_width || '', g.room_height || '', g.room_design_ach || '',
+      g.meter_make || '', g.meter_model || '', g.meter_serial || '', g.meter_cal_date || ''
+    ];
+  }
+  function commonTail() {
+    return [
+      g.notes || '', g.design_criteria_text || '', g.recommendations || '',
+      g.surveyed_by || '', g.surveyed_date || '', g.reviewed_by || '', g.reviewed_date || ''
+    ];
+  }
+
+  const rows = [];
+  systems.forEach(function (s, i) {
+    const row = commonHead(i + 1).concat([
+      s.system || '', s.component || '', s.shape || '', s.dia || '', s.width || '', s.height || '',
+      s.m1 || '', s.m2 || '', s.m3 || '', s.m4 || '', s.m5 || '',
+      s.avg_fpm || '', s.area_ft2 || '', s.cfm || '',
+      s.engine || '', s.vehicle || '', s.design_cfm || '', s.min_fpm || '', s.status || ''
+    ]).concat(commonTail());
+    rows.push(row);
+  });
+
+  // Survey with no systems — leave one header-only row so the IH still
+  // sees it in the flat tab.
+  if (!rows.length) {
+    const row = commonHead(0);
+    while (row.length < VENT_HEADERS.length) row.push('');
+    rows.push(row);
+  }
+
+  // Safety: pad each row to exactly match header count.
+  rows.forEach(function (r) {
+    while (r.length < VENT_HEADERS.length) r.push('');
+    if (r.length > VENT_HEADERS.length) r.length = VENT_HEADERS.length;
+  });
+  return rows;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  VENTILATION MIGRATION (optional) — rebuild Ventilation from raw JSON
+//
+//  Run from the editor: pick migrateVentFromRaw, click Run. Backs up
+//  the existing flat Ventilation tab to Ventilation_backup_<timestamp>
+//  first. Safe to re-run.
+// ══════════════════════════════════════════════════════════════════════
+function migrateVentFromRaw() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const rawSheet = ss.getSheetByName(VENT_RAW_SHEET);
+  if (!rawSheet || rawSheet.getLastRow() <= 1) {
+    Logger.log('No data in ' + VENT_RAW_SHEET + ' — nothing to migrate.');
+    return;
+  }
+  const existing = ss.getSheetByName(VENT_SHEET);
+  if (existing && existing.getLastRow() > 0) {
+    const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    existing.copyTo(ss).setName(VENT_SHEET + '_backup_' + stamp);
+  }
+  const rawRows = rawSheet.getRange(2, 1, rawSheet.getLastRow() - 1, 3).getValues();
+  const surveys = [];
+  const submittedAtById = {};
+  let parseFailures = 0;
+  rawRows.forEach(function (r) {
+    if (!r[0] || !r[2]) return;
+    try {
+      const s = JSON.parse(r[2]);
+      surveys.push(s);
+      submittedAtById[s.id] = r[1] ? new Date(r[1]).toLocaleString() : '';
+    } catch (e) { parseFailures++; }
+  });
+  Logger.log('Parsed ' + surveys.length + ' vent surveys from ' + VENT_RAW_SHEET +
+             (parseFailures ? ' (' + parseFailures + ' failed)' : ''));
+
+  let sheet = ss.getSheetByName(VENT_SHEET);
+  if (sheet) sheet.clear();
+  else sheet = ss.insertSheet(VENT_SHEET);
+  sheet.appendRow(VENT_HEADERS);
+  sheet.getRange(1, 1, 1, VENT_HEADERS.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  let totalRows = 0;
+  surveys.forEach(function (s) {
+    const rows = buildVentRows_(s, submittedAtById[s.id] || '');
+    if (rows.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, VENT_HEADERS.length).setValues(rows);
+      totalRows += rows.length;
+    }
+  });
+  Logger.log('Ventilation migration complete: ' + surveys.length + ' surveys / ' + totalRows + ' rows written to ' + VENT_SHEET);
+  Logger.log('Schema: ' + VENT_HEADERS.length + ' columns');
 }

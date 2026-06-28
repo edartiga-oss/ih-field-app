@@ -1049,6 +1049,25 @@ function loadMeterFromLibrary(id){
   if (window.showToast) showToast('Velocity meter loaded: ' + (eq.make || '') + ' ' + (eq.model || ''), 'success');
 }
 
+/* Merge ventSurveys[] pulled from the Apps Script doGet endpoint into
+   the local ventSurveys array. New ids are inserted at the top; existing
+   ids are replaced only when the remote updatedAt is newer than what's
+   on the device. Mirrors Sound.mergeRemoteSurveys. */
+function mergeRemoteSurveys(remote){
+  let newCount = 0, updCount = 0;
+  (remote || []).forEach(r => {
+    const idx = ventSurveys.findIndex(s => s.id === r.id);
+    if (idx < 0) { ventSurveys.unshift(r); newCount++; }
+    else {
+      const lt = new Date(ventSurveys[idx].updatedAt || 0).getTime();
+      const rt = new Date(r.updatedAt || 0).getTime();
+      if (rt > lt) { ventSurveys[idx] = r; updCount++; }
+    }
+  });
+  if (newCount || updCount) { saveToStorage(); renderSurveyList(); }
+  return { newCount, updCount };
+}
+
 window.Vent = Object.assign(window.Vent || {}, {
   addSystem, duplicateLastSystem, deleteSystem,
   onEngineChange, recomputeSystem, recomputeRoom, recomputeAll,
@@ -1057,7 +1076,7 @@ window.Vent = Object.assign(window.Vent || {}, {
   setAllCollapsed,
   onPhotoInput, addPhotos, deletePhoto, onPhotoLabelInput,
   printSurvey,
-  flushSyncQueue,
+  flushSyncQueue, mergeRemoteSurveys,
   init: initForm
 });
 
