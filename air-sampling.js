@@ -2064,7 +2064,11 @@ function ofControlsTable(panels){
     ofRow(ofRowHasData(panels,'engineering'),
       '<tr><td class="of-label">Engineering</td>'+ofPanelCells(panels,'engineering')+'</tr>')+
     ofRow(ofRowHasData(panels,'administrative'),
-      '<tr><td class="of-label">Administrative</td>'+ofPanelCells(panels,'administrative')+'</tr>');
+      '<tr><td class="of-label">Administrative</td>'+ofPanelCells(panels,'administrative')+'</tr>')+
+    ofRow(ofRowHasData(panels,'respirator'),
+      '<tr><td class="of-label">Respirator Worn</td>'+ofPanelCells(panels,'respirator')+'</tr>')+
+    ofRow(ofRowHasData(panels,'ppe_worn'),
+      '<tr><td class="of-label">PPE Worn (other)</td>'+ofPanelCells(panels,'ppe_worn')+'</tr>');
   if (!body) return '';
   return ''+
     '<table class="of">'+
