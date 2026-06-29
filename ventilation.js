@@ -718,13 +718,21 @@ function uploadVentPhoto(surveyId, slot, dataUri, routing, caption){
    live module-level `photos` array is also updated when the record
    being saved is the one currently loaded in the form. */
 function uploadPendingVentPhotos(record){
-  if (!record || !Array.isArray(record.photos)) return Promise.resolve({uploaded:0,failed:0});
+  if (!record || !Array.isArray(record.photos)) {
+    try { console.log('[Vent.uploadPendingVentPhotos] no photos array on record'); } catch(e){}
+    return Promise.resolve({uploaded:0,failed:0});
+  }
   const pending = record.photos
     .map((p, i) => ({ idx: i, p: p }))
     .filter(x => x.p && x.p.dataUri && !x.p.photoUrl);
+  try {
+    console.log('[Vent.uploadPendingVentPhotos] total photos:', record.photos.length,
+      '— pending (have dataUri, no photoUrl):', pending.length);
+  } catch(e){}
   if (!pending.length) return Promise.resolve({uploaded:0,failed:0});
 
   const routing = computeVentRouting(record);
+  try { console.log('[Vent.uploadPendingVentPhotos] routing:', routing); } catch(e){}
   if (!routing.parent && !routing.facility) {
     /* No Organization AND no Shop — can't route at all. Surface a
        visible warning so the IH knows the photo stayed local instead
@@ -782,7 +790,22 @@ function uploadPendingVentPhotos(record){
 
 function pushToSheets(record){
   const url = sheetsUrl();
-  if (!url || !navigator.onLine) { queueSync(record); return; }
+  try {
+    console.log('[Vent.pushToSheets] id=' + record.id,
+      'sheetsUrl set:', !!url,
+      'online:', navigator.onLine,
+      'photos:', (record.photos || []).length);
+  } catch(e){}
+  if (!url) {
+    if (window.showToast) showToast('Photo NOT uploaded — Sheets URL is not configured (tap Sheets ⚙)', 'error');
+    queueSync(record);
+    return;
+  }
+  if (!navigator.onLine) {
+    if (window.showToast) showToast('Offline — survey queued, photo will upload when online', 'warn');
+    queueSync(record);
+    return;
+  }
   /* Upload any new photos first so the Drive URLs land on the record,
      then strip the heavy dataUris from the Sheets payload to keep the
      POST under the Apps Script ~50 KB practical limit. */
