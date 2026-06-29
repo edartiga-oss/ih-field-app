@@ -532,8 +532,10 @@ function uploadToFolderPath_(opts) {
     /* Resolve facility under whatever resolved above. */
     if (opts.facility) folder = resolveFacilityFolder_(folder, opts.facility);
 
-    /* Drop the subfolder. */
-    if (opts.subfolder) folder = getOrCreateChildFolder_(folder, opts.subfolder);
+    /* Drop the subfolder — fuzzy match by token so canonical "04_Noise"
+       finds an existing "03_Noise" / "Noise" folder instead of creating
+       a duplicate. */
+    if (opts.subfolder) folder = resolveSubfolder_(folder, opts.subfolder);
 
     return saveBlobToFolder_(folder, opts.fileName, opts.dataUri, opts.replaceByName);
   } catch (e) {
@@ -572,6 +574,42 @@ function resolveFacilityFolder_(parentFolder, facilityName) {
   const fuzzy = findFolderByToken_(parentFolder, facilityName);
   if (fuzzy) return fuzzy;
   return parentFolder.createFolder(facilityName);
+}
+
+/* Subfolder resolution: well-known names like "03_Air Samples",
+   "04_Noise", "Sound", "02_Vents". Different facilities use different
+   leading numbers (one facility has "03_Noise", another has
+   "04_Noise"), so we fuzzy-match on the trailing word(s) instead of
+   exact name.
+
+   Strategy:
+     1. Try exact-name match (cheap and correct most of the time)
+     2. Strip leading "NN_" / "NN-" / "NN. " from the canonical name to
+        get the keyword(s), e.g. "04_Noise" → "Noise"
+     3. Iterate the parent's direct children; first child whose name
+        contains the keyword as a whole word wins
+     4. If nothing matches, create with the canonical name (per spec) */
+function resolveSubfolder_(parentFolder, canonicalName) {
+  if (!canonicalName) return parentFolder;
+  const exact = parentFolder.getFoldersByName(canonicalName);
+  if (exact.hasNext()) return exact.next();
+
+  /* Strip a leading number prefix like "03_", "04-", "02. " and split
+     into significant words. */
+  const stripped = String(canonicalName).replace(/^\s*\d+\s*[_\-\.]\s*/, '').trim();
+  const tokens = stripped.split(/\s+/).filter(function(w) { return w.length >= 3; });
+  if (!tokens.length) return parentFolder.createFolder(canonicalName);
+
+  const it = parentFolder.getFolders();
+  while (it.hasNext()) {
+    const f = it.next();
+    const name = f.getName().toUpperCase();
+    for (let i = 0; i < tokens.length; i++) {
+      const tokenRe = new RegExp('\\b' + tokens[i].toUpperCase() + '\\b');
+      if (tokenRe.test(name)) return f;
+    }
+  }
+  return parentFolder.createFolder(canonicalName);
 }
 
 /* Walks every child folder of `parentFolder` and returns the first one
