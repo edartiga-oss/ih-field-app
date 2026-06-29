@@ -706,7 +706,9 @@ function uploadVentPhoto(surveyId, slot, dataUri, routing, caption){
           String(txt).slice(0, 120).replace(/\s+/g,' '));
       }
       if (!j || !j.success) throw new Error((j && j.error) || 'Photo upload failed');
-      return j.url;
+      try { console.log('[Vent] photo uploaded:', j); } catch(e){}
+      /* Return the full response so callers can surface folder info. */
+      return j;
     });
   });
 }
@@ -735,13 +737,16 @@ function uploadPendingVentPhotos(record){
   }
 
   let uploaded = 0, failed = 0; const firstErr = [];
+  const firstFolder = []; // capture the destination folder for the toast
   const tasks = pending.map(x => {
     /* Caption = the IH-typed label under the photo (onPhotoLabelInput).
        Empty string drops back to the legacy
        <surveyId>_photo<pid>_<stamp>.jpg nomenclature. */
     const caption = (x.p.label || '').toString();
-    return uploadVentPhoto(record.id, x.p.pid, x.p.dataUri, routing, caption).then(url => {
+    return uploadVentPhoto(record.id, x.p.pid, x.p.dataUri, routing, caption).then(resp => {
+      const url = (resp && resp.url) || resp;          // back-compat with old return shape
       x.p.photoUrl = url; uploaded++;
+      if (resp && resp.folder && !firstFolder.length) firstFolder.push(resp);
       /* Mirror onto the live `photos` array if this record is loaded. */
       if (currentSurveyId === record.id) {
         const live = photos.find(q => q.pid === x.p.pid);
@@ -755,7 +760,18 @@ function uploadPendingVentPhotos(record){
     });
   });
   return Promise.all(tasks).then(() => {
-    if (uploaded && window.showToast) showToast(uploaded + ' vent photo' + (uploaded===1?'':'s') + ' uploaded to Drive', 'success');
+    if (uploaded && window.showToast) {
+      /* Include the destination folder name so the IH can verify the
+         photo actually landed where they expected. If the Apps Script
+         response also gave us a folderId, log a Drive URL to console
+         for click-through diagnostic. */
+      const dest = firstFolder[0];
+      const where = (dest && dest.folder) ? ' → "' + dest.folder + '"' : '';
+      showToast(uploaded + ' vent photo' + (uploaded===1?'':'s') + ' uploaded to Drive' + where, 'success');
+      if (dest && dest.folderId) {
+        try { console.log('[Vent] photos landed in folder:', 'https://drive.google.com/drive/folders/' + dest.folderId); } catch(e){}
+      }
+    }
     if (failed && window.showToast) {
       showToast(failed + ' vent photo upload' + (failed===1?'':'s') + ' failed — ' + (firstErr[0] || 'unknown error') +
         '. Check that the Apps Script was DEPLOYED as a new version (not just saved).', 'error');
